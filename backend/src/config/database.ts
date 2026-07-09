@@ -134,17 +134,20 @@ switch (dbType) {
     case "postgres":
     default:
         if (process.env.DATABASE_URL) {
+            const useSSL = process.env.DB_SSL !== "false";
+            const dialectOptions = useSSL ? {
+                ssl: {
+                    require: true,
+                    rejectUnauthorized: false,
+                }
+            } : {};
+
             sequelize = new Sequelize(process.env.DATABASE_URL, {
                 dialect: "postgres",
                 logging: false,
                 models: models,
                 pool: poolConfig,
-                dialectOptions: {
-                    ssl: {
-                        require: true,
-                        rejectUnauthorized: false,
-                    },
-                },
+                dialectOptions
             });
         } else {
             sequelize = new Sequelize({
