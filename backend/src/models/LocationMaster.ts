@@ -1,7 +1,7 @@
 import { Table, Column, Model, DataType, CreatedAt, UpdatedAt, ForeignKey, BelongsTo, BeforeValidate } from "sequelize-typescript";
 import { City } from "./City";
 
-@Table({ tableName: "locations", updatedAt: false })
+@Table({ tableName: "locations" })
 export class LocationMaster extends Model {
     @Column({
         type: DataType.STRING,
@@ -35,8 +35,8 @@ export class LocationMaster extends Model {
     @CreatedAt
     createdAt!: Date;
 
-
-
+    @UpdatedAt
+    updatedAt!: Date;
     @BeforeValidate
     static async generateSequentialId(instance: LocationMaster) {
         if (!instance.id || instance.id.startsWith('l_') || instance.id.startsWith('loc_')) {
