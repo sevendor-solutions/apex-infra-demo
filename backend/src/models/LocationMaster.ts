@@ -33,10 +33,21 @@ export class LocationMaster extends Model {
     userId?: string;
 
     @CreatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     createdAt!: Date;
 
     @UpdatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     updatedAt!: Date;
+
     @BeforeValidate
     static async generateSequentialId(instance: LocationMaster) {
         if (!instance.id || instance.id.startsWith('l_') || instance.id.startsWith('loc_')) {

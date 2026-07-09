@@ -46,5 +46,10 @@ export class UserSessionLog extends Model {
     device!: string;
 
     @CreatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     createdAt!: Date;
 }

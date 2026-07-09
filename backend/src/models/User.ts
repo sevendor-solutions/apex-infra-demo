@@ -65,9 +65,19 @@ export class User extends Model {
     allowedScreens!: string[];
 
     @CreatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     createdAt!: Date;
 
     @UpdatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     updatedAt!: Date;
 
     @BeforeValidate

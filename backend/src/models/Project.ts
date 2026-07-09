@@ -257,9 +257,19 @@ export class Project extends Model {
     userId?: string;
 
     @CreatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     createdAt!: Date;
 
     @UpdatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     updatedAt!: Date;
 
     @BeforeValidate

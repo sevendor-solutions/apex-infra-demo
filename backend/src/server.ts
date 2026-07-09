@@ -139,9 +139,9 @@ UPLOAD_SUBFOLDERS.forEach((folder) => {
 });
 
 // Initialize Database & Start Express Server
-sequelize.sync({ alter: { drop: false } }) // Add new tables/columns but never drop columns that are not in model files
+sequelize.sync({ alter: true }) // Automatically add/drop columns and create tables on startup through the backend server
   .then(async () => {
-    console.log("🔥 Sequelize Database Connected & Synced Safely (No Drop Alter Mode)!");
+    console.log("🔥 Sequelize Database Connected & Synced (Alter Mode)!");
 
     // Run the data seeder
     await seedDatabase();

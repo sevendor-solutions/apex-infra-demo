@@ -53,5 +53,10 @@ export class AuditLog extends Model {
     userId?: string;
 
     @CreatedAt
+    @Column({
+        type: DataType.DATE,
+        allowNull: false,
+        defaultValue: DataType.NOW
+    })
     createdAt!: Date;
 }
