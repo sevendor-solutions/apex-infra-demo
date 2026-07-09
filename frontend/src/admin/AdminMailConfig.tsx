@@ -93,7 +93,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
     return localStorage.getItem('social_fb_url') || 'https://www.facebook.com/profile.php?id=6159154908963';
   });
   const [instagramPageUrl, setInstagramPageUrl] = useState<string>(() => {
-    return localStorage.getItem('social_ig_url') || 'https://www.instagram.com/jk_future_infra/';
+    return localStorage.getItem('social_ig_url') || 'https://www.instagram.com/jkfutureinfra?utm_source=qr&igsh=azZyYjY3bm1mcGdx';
   });
 
   const [isEditingFb, setIsEditingFb] = useState(false);

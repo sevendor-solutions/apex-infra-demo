@@ -539,16 +539,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const isLuxury = false;
   
   const colors = {
-    bg: isLuxury ? '#fbfaf7' : '#0b132b',
-    cardBg: isLuxury ? '#ffffff' : '#1c2541',
-    border: isLuxury ? '1px solid #dfd0bf' : '1px solid #3a506b',
-    textMain: isLuxury ? '#1c1c1a' : '#f8fafc',
-    textMuted: isLuxury ? '#7c766c' : '#94a3b8',
-    accent: isLuxury ? '#c5a880' : '#14b8a6', // Champagne Gold vs Teal
-    accentLight: isLuxury ? '#fbf8f3' : '#1e293b',
-    accentText: isLuxury ? '#a5865e' : '#10b981',
-    fontTitle: isLuxury ? "'Playfair Display', Georgia, serif" : "'Outfit', sans-serif",
-    fontBody: isLuxury ? "'Montserrat', sans-serif" : "'Inter', sans-serif"
+    bg: isLuxury ? '#fbfaf7' : '#f3f5f8', // SAP Fiori Light Grey
+    cardBg: isLuxury ? '#ffffff' : '#ffffff', // SAP clean white card background
+    border: isLuxury ? '1px solid #dfd0bf' : '1px solid #cbd5e1', // Light slate border
+    textMain: isLuxury ? '#1c1c1a' : '#32363a', // SAP dark charcoal text
+    textMuted: isLuxury ? '#7c766c' : '#74777a', // SAP slate muted text
+    accent: isLuxury ? '#c5a880' : '#0854a0', // SAP corporate blue
+    accentLight: isLuxury ? '#fbf8f3' : '#e2ebf5', // Light blue tint
+    accentText: isLuxury ? '#a5865e' : '#0854a0', // SAP corporate blue
+    fontTitle: isLuxury ? "'Playfair Display', Georgia, serif" : "'72', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    fontBody: isLuxury ? "'Montserrat', sans-serif" : "'72', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
   };
 
   return (
@@ -573,21 +573,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           flexWrap: 'wrap', 
           gap: '15px', 
           marginBottom: '1.5rem',
-          borderBottom: isLuxury ? '2px double #dfd0bf' : '1px solid #3a506b',
+          borderBottom: isLuxury ? '2px double #dfd0bf' : colors.border,
           paddingBottom: '1rem'
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.85rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: isLuxury ? '#1c1c1a' : '#5bc0be' }}>
+          <h2 style={{ fontSize: '1.85rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: isLuxury ? '#1c1c1a' : colors.accent }}>
             Unified Management Dashboard
           </h2>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: isLuxury ? '#f5f2eb' : '#1c2541', padding: '6px 12px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 700, border: colors.border, color: colors.accentText }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: colors.accent, display: 'inline-block' }} />
-            {role} Scope
-          </div>
         </div>
       </div>
 
@@ -617,7 +610,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* ⚡ Command Center Actions Hub (Forms for direct inline creation & management) ⚡ */}
       <div style={{ backgroundColor: colors.cardBg, border: colors.border, borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid ' + (isLuxury ? '#f4eedf' : '#3a506b'), paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid ' + (isLuxury ? '#f4eedf' : '#cbd5e1'), paddingBottom: '0.5rem', marginBottom: '1rem' }}>
           <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', color: colors.accent, margin: 0, fontFamily: colors.fontTitle, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Sparkles size={16} /> Instant Record Operations Hub
           </h3>
@@ -1100,29 +1093,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
           
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: isLuxury ? '1px solid #dfd0bf' : '1px solid #3a506b', fontFamily: colors.fontTitle }}>
+            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: colors.border, fontFamily: colors.fontTitle }}>
               📊 Monthly Sales vs. Expense Outflow
             </h3>
             <div style={{ padding: '10px 0' }}>
               <svg width="100%" height="180" viewBox="0 0 500 180" style={{ overflow: 'visible' }}>
                 <defs>
                   <linearGradient id="gradRevU" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.25"/>
-                    <stop offset="100%" stopColor="#14b8a6" stopOpacity="0"/>
+                    <stop offset="0%" stopColor={colors.accent} stopOpacity="0.25"/>
+                    <stop offset="100%" stopColor={colors.accent} stopOpacity="0"/>
                   </linearGradient>
                   <linearGradient id="gradExpU" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.25"/>
                     <stop offset="100%" stopColor="#f43f5e" stopOpacity="0"/>
                   </linearGradient>
                 </defs>
-                <line x1="40" y1="20" x2="440" y2="20" stroke="#3a506b" strokeDasharray="3 3" />
-                <line x1="40" y1="80" x2="440" y2="80" stroke="#3a506b" strokeDasharray="3 3" />
-                <line x1="40" y1="140" x2="440" y2="140" stroke="#3a506b" />
+                <line x1="40" y1="20" x2="440" y2="20" stroke={isLuxury ? '#dfd0bf' : '#e2e8f0'} strokeDasharray="3 3" />
+                <line x1="40" y1="80" x2="440" y2="80" stroke={isLuxury ? '#dfd0bf' : '#e2e8f0'} strokeDasharray="3 3" />
+                <line x1="40" y1="140" x2="440" y2="140" stroke={isLuxury ? '#dfd0bf' : '#cbd5e1'} />
                 
                 <polygon points={`40,140 ${revenuePoints} 440,140`} fill="url(#gradRevU)" />
                 <polygon points={`40,140 ${expensePoints} 440,140`} fill="url(#gradExpU)" />
                 
-                <polyline points={revenuePoints} fill="none" stroke="#14b8a6" strokeWidth="2" />
+                <polyline points={revenuePoints} fill="none" stroke={colors.accent} strokeWidth="2" />
                 <polyline points={expensePoints} fill="none" stroke="#f43f5e" strokeWidth="2" />
                 
                 {monthlyFinanceSeries.map((s, idx) => {
@@ -1131,9 +1124,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   const yExp = 140 - (s.expenses / maxVal) * 100;
                   return (
                     <g key={idx}>
-                      <circle cx={x} cy={yRev} r="3" fill="#14b8a6" />
+                      <circle cx={x} cy={yRev} r="3" fill={colors.accent} />
                       <circle cx={x} cy={yExp} r="3" fill="#f43f5e" />
-                      <text x={x} y="156" fill="#94a3b8" fontSize="8" textAnchor="middle" fontWeight="600">{s.label}</text>
+                      <text x={x} y="156" fill={colors.textMuted} fontSize="8" textAnchor="middle" fontWeight="600">{s.label}</text>
                     </g>
                   );
                 })}
@@ -1141,25 +1134,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
             <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', fontSize: '0.7rem', marginTop: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ width: '8px', height: '8px', backgroundColor: '#14b8a6', borderRadius: '50%' }} />
-                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Total Invoiced Sales</span>
+                <span style={{ width: '8px', height: '8px', backgroundColor: colors.accent, borderRadius: '50%' }} />
+                <span style={{ color: colors.textMuted, fontWeight: 600 }}>Total Invoiced Sales</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '8px', height: '8px', backgroundColor: '#f43f5e', borderRadius: '50%' }} />
-                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Cash/Bank Expenses</span>
+                <span style={{ color: colors.textMuted, fontWeight: 600 }}>Cash/Bank Expenses</span>
               </div>
             </div>
           </div>
 
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: isLuxury ? '1px solid #dfd0bf' : '1px solid #3a506b', fontFamily: colors.fontTitle }}>
+            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: colors.border, fontFamily: colors.fontTitle }}>
               📈 Margin Performance Ratio
             </h3>
             <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '1rem 0' }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <div style={{ position: 'relative', width: '80px', height: '80px' }}>
                   <svg width="80" height="80" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#3a506b" strokeWidth="8" />
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke={isLuxury ? '#dfd0bf' : '#e2e8f0'} strokeWidth="8" />
                     <circle cx="50" cy="50" r="40" fill="transparent" stroke="#10b981" strokeWidth="8"
                             strokeDasharray={`${Math.min(100, Math.max(0, expenseStats.totalSpend > 0 ? Math.round((accountingStats.totalProfitLoss / expenseStats.totalSpend) * 100) : 0)) * 2.51} 251`}
                             transform="rotate(-90 50 50)" />
@@ -1177,8 +1170,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <div style={{ position: 'relative', width: '80px', height: '80px' }}>
                   <svg width="80" height="80" viewBox="0 0 100 100">
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#3a506b" strokeWidth="8" />
-                    <circle cx="50" cy="50" r="40" fill="transparent" stroke="#14b8a6" strokeWidth="8"
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke={colors.border} strokeWidth="8" />
+                    <circle cx="50" cy="50" r="40" fill="transparent" stroke={colors.accent} strokeWidth="8"
                             strokeDasharray={`${Math.min(100, Math.max(0, accountingStats.totalSales > 0 ? Math.round((accountingStats.totalProfitLoss / accountingStats.totalSales) * 100) : 0)) * 2.51} 251`}
                             transform="rotate(-90 50 50)" />
                   </svg>
@@ -1197,16 +1190,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Lists Summary Details */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
         
-        {/* Recent leads interest review */}
-        {(hasScreenAccess('project_enquiries') || hasScreenAccess('marketing_enquiries')) && (
+        {hasScreenAccess('project_enquiries') && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-              <h3 style={{ ...panelTitleStyle, border: 'none', margin: 0, color: colors.textMain }}>Recent Leads Activity</h3>
-              <button onClick={() => onSetTab(role === 'MarketingOwner' ? 'marketing_enquiries' : 'project_enquiries')} style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, fontSize: '0.72rem', cursor: 'pointer' }}>
-                Open List
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain }}>
+                📞 Project Construction Leads
+              </h3>
+              <button 
+                onClick={() => onSetTab('project_enquiries')} 
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+              >
+                Manage <ArrowUpRight size={10} />
               </button>
             </div>
             {enquiries.length === 0 ? (
@@ -1215,7 +1211,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
                   <thead>
-                    <tr style={{ background: isLuxury ? '#faf6ec' : '#1c2541', borderBottom: colors.border }}>
+                    <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
                       <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Client</th>
                       <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Property Interest</th>
                       <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Action</th>
@@ -1223,14 +1219,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </thead>
                   <tbody>
                     {enquiries.slice(0, 4).map(e => (
-                      <tr key={e.id} style={{ borderBottom: isLuxury ? '1px solid #f5f2eb' : '1px solid #334155' }}>
+                      <tr key={e.id} style={{ borderBottom: colors.border }}>
                         <td style={{ padding: '6px 8px' }}>
                           <strong style={{ color: colors.textMain }}>{e.name}</strong>
                           <div style={{ fontSize: '0.65rem', color: colors.textMuted }}>{e.phone}</div>
                         </td>
-                        <td style={{ padding: '6px 8px', color: colors.textMain }}>{e.projectName}</td>
+                        <td style={{ padding: '6px 8px', color: colors.textMain }}>{e.propertyName || 'General Inquiry'}</td>
                         <td style={{ padding: '6px 8px' }}>
-                          <button onClick={() => onSelectEnquiry(e)} style={{ backgroundColor: 'transparent', border: `1.5px solid ${colors.accent}`, color: colors.accent, fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}>Review</button>
+                          <button 
+                            onClick={() => onSelectEnquiry(e)}
+                            style={{ padding: '2px 6px', fontSize: '0.65rem', fontWeight: 700, backgroundColor: colors.accentLight, color: colors.accent, border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          >
+                            Review
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1241,15 +1242,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Low Stock Alerts */}
         {hasScreenAccess('inventory') && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <h3 style={{ ...panelTitleStyle, color: isLuxury ? colors.textMain : '#ef4444', borderBottom: isLuxury ? '1px solid #dfd0bf' : '1px solid #3a506b', fontFamily: colors.fontTitle }}>
+            <h3 style={{ ...panelTitleStyle, color: '#ef4444', borderBottom: colors.border, fontFamily: colors.fontTitle }}>
               ⚠️ Low Material Stock Alert ({accountingStats.lowStockCount})
             </h3>
             <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
               {inventoryItems.filter(item => item.currentStock <= item.minimumStockLevel).map(item => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: isLuxury ? '1px solid #f5f2eb' : '1px solid #3a506b', fontSize: '0.78rem' }}>
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: colors.border, fontSize: '0.78rem' }}>
                   <div><strong style={{ color: colors.textMain }}>{item.name}</strong> ({item.code})</div>
                   <div style={{ fontWeight: 700, color: '#ef4444' }}>{item.currentStock} / {item.minimumStockLevel} {item.unit}</div>
                 </div>
@@ -1261,15 +1261,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {/* Active site visits tour schedules */}
         {hasScreenAccess('site_visits') && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: isLuxury ? '1px solid #dfd0bf' : '1px solid #3a506b', fontFamily: colors.fontTitle }}>
+            <h3 style={{ ...panelTitleStyle, color: colors.textMain, borderBottom: colors.border, fontFamily: colors.fontTitle }}>
               📅 Upcoming Layout Site Tours
             </h3>
             <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
               {localSiteVisits.slice(0, 4).map(sv => (
-                <div key={sv.id} style={{ padding: '6px 0', borderBottom: isLuxury ? '1px solid #f5f2eb' : '1px solid #3a506b', fontSize: '0.78rem' }}>
+                <div key={sv.id} style={{ padding: '6px 0', borderBottom: colors.border, fontSize: '0.78rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <strong style={{ color: colors.textMain }}>{sv.customerName}</strong>
                     <span style={{ fontSize: '0.68rem', color: colors.accent, fontWeight: 700 }}>{sv.visitDate} @ {sv.visitTime}</span>
@@ -1363,10 +1362,10 @@ const creatorTabBtnStyle = (isActive: boolean, accentColor: string, isLuxury: bo
   padding: '5px 12px',
   fontSize: '0.72rem',
   fontWeight: 700,
-  border: isActive ? 'none' : '1px solid ' + (isLuxury ? '#dfd0bf' : '#3a506b'),
+  border: isActive ? 'none' : '1px solid ' + (isLuxury ? '#dfd0bf' : '#cbd5e1'),
   borderRadius: '6px',
   backgroundColor: isActive ? accentColor : 'transparent',
-  color: isActive ? '#fff' : (isLuxury ? '#1c1c1a' : '#94a3b8'),
+  color: isActive ? '#fff' : (isLuxury ? '#1c1c1a' : '#556575'),
   cursor: 'pointer',
   transition: 'all 0.15s ease'
 });

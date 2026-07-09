@@ -3274,3 +3274,224 @@ body.admin-body .page-body-container {
   overflow: hidden !important;
 }
 
+/* ==========================================================================
+   Premium Modern Stat Card Styling (Admin Panels)
+   ========================================================================== */
+.stat-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1.25rem !important;
+  padding: 1.25rem 1.5rem !important;
+  background: #ffffff !important;
+  border-radius: 12px !important;
+  
+  /* Preserve colored inline left border by setting only top, right, bottom */
+  border-top: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-left-width: 6px !important;
+  border-left-style: solid !important;
+  
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.03) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.stat-icon-wrapper {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.2s ease !important;
+}
+
+.stat-card:hover .stat-icon-wrapper {
+  transform: scale(1.1) !important;
+}
+
+/* Soft backgrounds for icons matching accent colors */
+.stat-icon-wrapper.primary-soft {
+  background-color: #e0f2fe !important; /* light blue */
+}
+.stat-icon-wrapper.secondary-soft {
+  background-color: #fef3c7 !important; /* light gold/amber */
+}
+.stat-icon-wrapper.danger-soft {
+  background-color: #fee2e2 !important; /* light red */
+}
+.stat-icon-wrapper.warning-soft {
+  background-color: #ffedd5 !important; /* light orange */
+}
+.stat-icon-wrapper.success-soft {
+  background-color: #dcfce7 !important; /* light green */
+}
+
+/* Titles and values styling inside card */
+.stat-card .stat-title {
+  display: block !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.stat-card h3 {
+  font-size: 1.65rem !important;
+  font-weight: 800 !important;
+  color: #1e293b !important;
+  margin: 0 !important;
+  line-height: 1.1 !important;
+}
+
+.stat-card h3.text-danger {
+  color: #ef4444 !important;
+}
+
+/* ==========================================================================
+   Premium Responsive Global Modal Styles
+   ========================================================================== */
+.modal-content {
+  background: var(--white) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04) !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 90vh !important;
+  max-width: 95% !important; /* Force responsiveness on small viewports */
+  overflow: hidden !important;
+  border: 1px solid #cbd5e1 !important;
+  animation: scaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Modal Header - aligned on a single line with flexbox */
+.modal-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1.25rem 1.5rem !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  background-color: #f8fafc !important;
+  flex-shrink: 0 !important;
+}
+
+.modal-header h3 {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+}
+
+/* Close Button aligned right */
+.modal-header .close-btn,
+.modal-content .close-btn,
+.modal-content .modal-close-btn,
+.modal-header .close-btn-premium {
+  background: none !important;
+  border: none !important;
+  color: #64748b !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px !important;
+  border-radius: 6px !important;
+  transition: all 0.15s ease !important;
+  position: static !important; /* Reset absolute placement to allow flexbox placement */
+}
+
+.modal-header .close-btn:hover,
+.modal-content .close-btn:hover,
+.modal-content .modal-close-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #ef4444 !important;
+  transform: rotate(90deg) !important;
+}
+
+/* Modal Body - Scrollable content */
+.modal-body {
+  padding: 1.5rem !important;
+  overflow-y: auto !important;
+  flex-grow: 1 !important;
+  font-size: 0.88rem !important;
+}
+
+/* Custom scrollbar for modal body */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: 99px;
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.75rem !important;
+  padding: 1rem 1.5rem !important;
+  border-top: 1px solid #e2e8f0 !important;
+  background-color: #f8fafc !important;
+  flex-shrink: 0 !important;
+}
+
+/* Modal Form Groups */
+.modal-body .form-group {
+  margin-bottom: 1.25rem !important;
+}
+
+.modal-body .form-group:last-child {
+  margin-bottom: 0 !important;
+}
+
+.modal-body .form-label {
+  display: block !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  color: #475569 !important;
+  margin-bottom: 0.4rem !important;
+}
+
+.modal-body .form-control {
+  width: 100% !important;
+  padding: 0.55rem 0.75rem !important;
+  font-size: 0.88rem !important;
+  border-radius: 6px !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.modal-body .form-control:focus {
+  border-color: #0854a0 !important; /* SAP Fiori Blue */
+  box-shadow: 0 0 0 3px rgba(8, 84, 160, 0.15) !important;
+  outline: none !important;
+}
+
+/* Responsive grid layouts inside modal bodies */
+.modal-body .grid-2 {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 1rem !important;
+}
+

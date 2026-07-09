@@ -527,13 +527,6 @@ export const Marketing: React.FC<MarketingProps> = ({
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.25rem', padding: '0.25rem' }}>
               <button 
-                onClick={handleShareFilters} 
-                className="btn btn-secondary flex align-center justify-center gap-0.5" 
-                style={{ fontSize: '0.85rem', padding: '0.5rem', width: '100%' }}
-              >
-                <Share2 size={14} /> Share Filtered View
-              </button>
-              <button 
                 onClick={handleResetFilters} 
                 className="btn btn-outline flex align-center justify-center gap-0.5" 
                 style={{ fontSize: '0.85rem', padding: '0.5rem', width: '100%', borderColor: '#cbd5e1', color: '#475569' }}
