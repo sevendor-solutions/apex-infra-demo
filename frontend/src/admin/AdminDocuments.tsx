@@ -1,0 +1,1250 @@
+import React, { useState, useRef, useCallback, useMemo } from 'react';
+import type { Document, Project } from '../types';
+import {
+  Folder, FolderOpen, FolderPlus, FileText, Image as ImageIcon,
+  FileMinus, Trash2, Edit2, Download, Eye, X, ChevronRight,
+  Upload, Home, Search, Grid, List, Check, ArrowLeft, Video
+} from 'lucide-react';
+import { addDocument, updateDocument, deleteDocument, uploadImage } from '../utils/db';
+
+/* ─────────────────────────────────────────────────────────
+   Types
+───────────────────────────────────────────────────────── */
+interface FolderNode {
+  id: string;
+  name: string;
+  parentId: string;   // empty string = root level
+}
+
+interface DocEntry extends Document {
+  folderId: string;   // empty string = root level
+}
+
+interface AdminDocumentsProps {
+  documents: Document[];
+  projects: Project[];
+  marketing: Project[];
+  onRefresh: () => void;
+  onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  onConfirm: (msg: string) => Promise<boolean>;
+}
+
+interface TreeNodeProps {
+  folder: FolderNode;
+  depth: number;
+  activeFolderId: string;
+  setActiveFolderId: (id: string) => void;
+  expandedIds: Set<string>;
+  setExpandedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
+  childFolders: (parentId: string) => FolderNode[];
+  totalDescendantFiles: (folderId: string) => number;
+  triggerRename: (id: string, type: 'folder' | 'file', name: string) => void;
+  deleteFolder: (id: string) => void;
+  setCtx: (ctx: { id: string; type: 'folder' | 'file'; x: number; y: number } | null) => void;
+  setShowCF: (show: boolean) => void;
+  setNewFolderName: (val: string) => void;
+  
+  // Drag and drop parameters
+  dragOverFolderId: string | null;
+  setDragOverFolderId: (id: string | null) => void;
+  handleDragStartItem: (e: React.DragEvent, id: string, type: 'folder' | 'file') => void;
+  handleDropOnFolder: (e: React.DragEvent, targetFolderId: string) => void;
+}
+
+const ROOT = '';   // empty string = root folder
+
+const fileIcon = (type: string) => {
+  if (type === 'pdf')  return <FileText  size={20} style={{ color: '#e53e3e' }} />;
+  if (type === 'word') return <FileMinus size={20} style={{ color: '#3182ce' }} />;
+  if (type === 'jpeg' || type === 'png') return <ImageIcon size={20} style={{ color: '#38a169' }} />;
+  if (['mp4', 'webm', 'ogg', 'mov', 'video'].includes(type)) return <Video size={20} style={{ color: '#805ad5' }} />;
+  return <FileText size={20} style={{ color: '#718096' }} />;
+};
+
+const fileColor: Record<string, string> = {
+  pdf: '#fff5f5', word: '#ebf8ff', jpeg: '#f0fff4', png: '#f0fff4',
+  mp4: '#faf5ff', webm: '#faf5ff', ogg: '#faf5ff', mov: '#faf5ff', video: '#faf5ff'
+};
+
+/* ─────────────────────────────────────────────────────────
+   TreeNode Component (Reconciliation-safe)
+───────────────────────────────────────────────────────── */
+const TreeNode: React.FC<TreeNodeProps> = ({
+  folder,
+  depth,
+  activeFolderId,
+  setActiveFolderId,
+  expandedIds,
+  setExpandedIds,
+  childFolders,
+  totalDescendantFiles,
+  triggerRename,
+  deleteFolder,
+  setCtx,
+  setShowCF,
+  setNewFolderName,
+  dragOverFolderId,
+  setDragOverFolderId,
+  handleDragStartItem,
+  handleDropOnFolder
+}) => {
+  const isOpen   = expandedIds.has(folder.id);
+  const isActive = activeFolderId === folder.id;
+  const isDragOver = dragOverFolderId === folder.id;
+  const kids     = childFolders(folder.id);
+
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedIds(prev => {
+      const n = new Set(prev);
+      isOpen ? n.delete(folder.id) : n.add(folder.id);
+      return n;
+    });
+  };
+
+  return (
+    <div>
+      <div
+        className={`sap-tree-row${isActive ? ' active' : ''}${isDragOver ? ' drag-over' : ''}`}
+        style={{ paddingLeft: 12 + depth * 16 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setActiveFolderId(folder.id);
+          setExpandedIds(prev => {
+            const n = new Set(prev);
+            if (n.has(folder.id)) {
+              n.delete(folder.id);
+            } else {
+              n.add(folder.id);
+            }
+            return n;
+          });
+        }}
+        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: folder.id, type: 'folder', x: e.clientX, y: e.clientY }); }}
+        
+        // Drag & drop handlers
+        draggable={true}
+        onDragStart={(e) => handleDragStartItem(e, folder.id, 'folder')}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragOverFolderId(folder.id);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragOverFolderId(null);
+        }}
+        onDrop={(e) => handleDropOnFolder(e, folder.id)}
+      >
+        <span className="sap-tree-arrow" onClick={toggle}>
+          {kids.length > 0 ? (isOpen ? '▾' : '▸') : <span style={{ opacity: 0 }}>▸</span>}
+        </span>
+        {isActive ? (
+          <FolderOpen
+            size={15}
+            style={{ color: '#0070f2', flexShrink: 0, cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveFolderId(folder.id);
+            }}
+          />
+        ) : (
+          <Folder
+            size={15}
+            style={{ color: '#0070f2', flexShrink: 0, cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveFolderId(folder.id);
+            }}
+          />
+        )}
+        <span
+          className="sap-tree-label"
+          title={folder.name}
+          style={{ cursor: 'pointer' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveFolderId(folder.id);
+            setExpandedIds(prev => {
+              const n = new Set(prev);
+              if (n.has(folder.id)) {
+                n.delete(folder.id);
+              } else {
+                n.add(folder.id);
+              }
+              return n;
+            });
+          }}
+        >
+          {folder.name}
+        </span>
+        <span className="sap-tree-badge">{totalDescendantFiles(folder.id)}</span>
+        <button
+          className="sap-tree-add-btn"
+          title={`Create subfolder inside "${folder.name}"`}
+          onClick={e => {
+            e.stopPropagation();
+            setActiveFolderId(folder.id);
+            setExpandedIds(prev => {
+              const n = new Set(prev);
+              n.add(folder.id);
+              return n;
+            });
+            setShowCF(true);
+            setNewFolderName('');
+          }}
+        >+</button>
+      </div>
+      {isOpen && kids.map(k => (
+        <TreeNode
+          key={k.id}
+          folder={k}
+          depth={depth + 1}
+          activeFolderId={activeFolderId}
+          setActiveFolderId={setActiveFolderId}
+          expandedIds={expandedIds}
+          setExpandedIds={setExpandedIds}
+          childFolders={childFolders}
+          totalDescendantFiles={totalDescendantFiles}
+          triggerRename={triggerRename}
+          deleteFolder={deleteFolder}
+          setCtx={setCtx}
+          setShowCF={setShowCF}
+          setNewFolderName={setNewFolderName}
+          dragOverFolderId={dragOverFolderId}
+          setDragOverFolderId={setDragOverFolderId}
+          handleDragStartItem={handleDragStartItem}
+          handleDropOnFolder={handleDropOnFolder}
+        />
+      ))}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────
+   Main Component
+───────────────────────────────────────────────────────── */
+export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
+  documents,
+  onRefresh,
+  onAddToast,
+  onConfirm,
+}) => {
+
+  /* ── State ── */
+  const [activeFolderId, setActiveFolderId] = useState<string>(ROOT);
+  const [expandedIds, setExpandedIds]       = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid');
+  const [search, setSearch]                 = useState('');
+
+  /* Rename modal states */
+  const [showRename, setShowRename] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ id: string; type: 'folder' | 'file'; currentName: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  /* Create folder modal state */
+  const [showCF, setShowCF]         = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  /* Uploading state */
+  const [uploading, setUploading]   = useState(false);
+  const fileInputRef                = useRef<HTMLInputElement>(null);
+
+  /* Preview state */
+  const [previewDoc, setPreviewDoc] = useState<DocEntry | null>(null);
+
+  /* Context menu state */
+  const [ctx, setCtx] = useState<{ id: string; type: 'folder' | 'file'; x: number; y: number } | null>(null);
+
+  /* Drag & drop states */
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [isDraggingLocal, setIsDraggingLocal] = useState(false);
+
+  /* ── Derived Data from Database Documents ── */
+  const folders = useMemo<FolderNode[]>(() => {
+    return documents
+      .filter(d => d.fileType === 'folder')
+      .map(d => ({
+        id: d.id,
+        name: d.title,
+        parentId: d.category === 'root' ? ROOT : d.category
+      }));
+  }, [documents]);
+
+  const files = useMemo<DocEntry[]>(() => {
+    return documents
+      .filter(d => d.fileType !== 'folder')
+      .map(d => {
+        const isFolderRef = d.category === 'root' || (d.category && d.category.startsWith('folder_'));
+        return {
+          ...d,
+          folderId: isFolderRef ? (d.category === 'root' ? ROOT : d.category) : ROOT
+        };
+      });
+  }, [documents]);
+
+  const childFolders = useCallback(
+    (parentId: string) => folders.filter(f => f.parentId === parentId),
+    [folders]
+  );
+
+  const filesIn = useCallback(
+    (folderId: string) => {
+      const inFolder = files.filter(f => f.folderId === folderId);
+      if (!search.trim()) return inFolder;
+      const q = search.toLowerCase();
+      return inFolder.filter(f => f.title.toLowerCase().includes(q));
+    },
+    [files, search]
+  );
+
+  const totalDescendantFiles = useCallback(
+    (folderId: string): number => {
+      const directFiles = files.filter(f => f.folderId === folderId).length;
+      const childCount  = childFolders(folderId).reduce((sum, c) => sum + totalDescendantFiles(c.id), 0);
+      return directFiles + childCount;
+    },
+    [files, childFolders]
+  );
+
+  /* Breadcrumb path calculation */
+  const breadcrumb = (): Array<{ id: string; name: string }> => {
+    const path: Array<{ id: string; name: string }> = [{ id: ROOT, name: 'Root' }];
+    if (activeFolderId === ROOT) return path;
+
+    const build = (id: string) => {
+      const f = folders.find(x => x.id === id);
+      if (!f) return;
+      if (f.parentId !== ROOT) build(f.parentId);
+      path.push({ id: f.id, name: f.name });
+    };
+    build(activeFolderId);
+    return path;
+  };
+
+  /* ── Folder Actions ── */
+  const createFolder = async () => {
+    const name = newFolderName.trim();
+    if (!name) return;
+
+    const siblings = childFolders(activeFolderId);
+    const hasDuplicate = siblings.some(f => f.name.toLowerCase() === name.toLowerCase());
+    if (hasDuplicate) {
+      onAddToast(`A folder named "${name}" already exists in this location.`, 'error');
+      return;
+    }
+
+    const folderDoc: Document = {
+      id: 'folder_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      title: name,
+      category: activeFolderId === ROOT ? 'root' : activeFolderId,
+      fileUrl: '#',
+      fileType: 'folder',
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    };
+
+    try {
+      await addDocument(folderDoc);
+      setShowCF(false);
+      setNewFolderName('');
+      onAddToast(`Folder "${name}" created successfully.`, 'success');
+      onRefresh();
+    } catch {
+      onAddToast('Failed to create folder.', 'error');
+    }
+  };
+
+  const deleteFolder = async (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    if (!await onConfirm(`Delete folder "${folder.name}" and all its contents?`)) return;
+
+    const getDescendants = (id: string): string[] => {
+      const children = documents.filter(d => d.category === id);
+      let ids = children.map(c => c.id);
+      children.forEach(c => {
+        if (c.fileType === 'folder') {
+          ids = [...ids, ...getDescendants(c.id)];
+        }
+      });
+      return ids;
+    };
+
+    const toDeleteIds = [folderId, ...getDescendants(folderId)];
+
+    try {
+      for (const id of toDeleteIds) {
+        await deleteDocument(id);
+      }
+      if (activeFolderId === folderId) {
+        setActiveFolderId(ROOT);
+      }
+      onAddToast(`Folder "${folder.name}" deleted successfully.`, 'success');
+      onRefresh();
+    } catch {
+      onAddToast('Failed to delete folder.', 'error');
+    }
+  };
+
+  /* ── Rename Actions ── */
+  const triggerRename = (id: string, type: 'folder' | 'file', name: string) => {
+    setRenameTarget({ id, type, currentName: name });
+    setRenameValue(name);
+    setShowRename(true);
+  };
+
+  const handleSaveRename = async () => {
+    const name = renameValue.trim();
+    if (!name || !renameTarget) return;
+
+    const doc = documents.find(d => d.id === renameTarget.id);
+    if (!doc) return;
+
+    // Duplicate sibling validation
+    const parentId = doc.category === 'root' ? ROOT : doc.category;
+    if (renameTarget.type === 'folder') {
+      const siblings = childFolders(parentId).filter(f => f.id !== renameTarget.id);
+      const hasDuplicate = siblings.some(f => f.name.toLowerCase() === name.toLowerCase());
+      if (hasDuplicate) {
+        onAddToast(`A folder named "${name}" already exists in this location.`, 'error');
+        return;
+      }
+    } else {
+      const siblings = files.filter(f => f.folderId === parentId && f.id !== renameTarget.id);
+      const hasDuplicate = siblings.some(f => f.title.toLowerCase() === name.toLowerCase());
+      if (hasDuplicate) {
+        onAddToast(`A file named "${name}" already exists in this location.`, 'error');
+        return;
+      }
+    }
+
+    const updatedDoc: Document = {
+      ...doc,
+      title: name
+    };
+
+    try {
+      await updateDocument(updatedDoc);
+      onAddToast(`${renameTarget.type === 'folder' ? 'Folder' : 'File'} renamed to "${name}".`, 'success');
+      setShowRename(false);
+      onRefresh();
+    } catch {
+      onAddToast('Failed to rename.', 'error');
+    }
+  };
+
+  /* ── File Actions ── */
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    setUploading(true);
+    let count = 0;
+    try {
+      for (const file of Array.from(e.target.files)) {
+        const url  = await uploadImage(file, 'DOCS');
+        const ext  = (file.name.split('.').pop() ?? '').toLowerCase();
+        let type = 'pdf';
+        if (ext === 'pdf') type = 'pdf';
+        else if (ext === 'png') type = 'png';
+        else if (ext === 'jpg' || ext === 'jpeg') type = 'jpeg';
+        else if (ext === 'doc' || ext === 'docx') type = 'word';
+        else if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) type = ext;
+        else type = 'pdf';
+        const doc: Document = {
+          id: 'doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+          title: file.name.replace(/\.[^.]+$/, ''),
+          category: activeFolderId === ROOT ? 'root' : activeFolderId,
+          fileUrl: url,
+          fileType: type,
+          uploadedBy: 'Staff',
+          date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+        };
+        await addDocument(doc);
+        count++;
+      }
+      onAddToast(`${count} file(s) uploaded successfully.`, 'success');
+      onRefresh();
+    } catch (err: any) {
+      onAddToast(err.message || 'Upload failed', 'error');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const deleteFile = async (file: DocEntry) => {
+    if (!await onConfirm(`Delete file "${file.title}"?`)) return;
+    try {
+      await deleteDocument(file.id);
+      onAddToast(`"${file.title}" deleted.`, 'success');
+      onRefresh();
+    } catch {
+      onAddToast('Failed to delete file.', 'error');
+    }
+  };
+
+  /* ── Drag & Drop Handlers inside the UI ── */
+  const handleDragStartItem = (e: React.DragEvent, id: string, type: 'folder' | 'file') => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, targetFolderId: string) => {
+    e.preventDefault();
+    setDragOverFolderId(null);
+
+    try {
+      const dataStr = e.dataTransfer.getData('text/plain');
+      if (!dataStr) return;
+      const { id, type } = JSON.parse(dataStr);
+
+      if (id === targetFolderId) return; // Cannot drop onto itself
+
+      if (type === 'folder') {
+        // Prevent moving a folder into its own descendants
+        const isDescendant = (parent: string, child: string): boolean => {
+          if (parent === child) return true;
+          const parentFolder = folders.find(f => f.id === child);
+          if (!parentFolder || parentFolder.parentId === ROOT) return false;
+          return isDescendant(parent, parentFolder.parentId);
+        };
+
+        if (isDescendant(id, targetFolderId)) {
+          onAddToast('Cannot move a folder inside its own subfolder.', 'error');
+          return;
+        }
+
+        const folderDoc = documents.find(d => d.id === id);
+        if (folderDoc) {
+          await updateDocument({
+            ...folderDoc,
+            category: targetFolderId === ROOT ? 'root' : targetFolderId
+          });
+          onAddToast(`Folder moved successfully.`, 'success');
+          onRefresh();
+        }
+      } else {
+        const fileDoc = documents.find(d => d.id === id);
+        if (fileDoc) {
+          await updateDocument({
+            ...fileDoc,
+            category: targetFolderId === ROOT ? 'root' : targetFolderId
+          });
+          onAddToast(`File moved successfully.`, 'success');
+          onRefresh();
+        }
+      }
+    } catch (err) {
+      console.error('Drag drop move error:', err);
+    }
+  };
+
+  /* ── Local Files Drag & Drop Handlers (From Desktop) ── */
+  const handleDragOverLocal = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingLocal(true);
+  };
+
+  const handleDragLeaveLocal = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingLocal(false);
+  };
+
+  const handleDropLocal = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingLocal(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setUploading(true);
+      let count = 0;
+      try {
+        for (const file of Array.from(e.dataTransfer.files)) {
+          const url  = await uploadImage(file, 'DOCS');
+          const ext  = (file.name.split('.').pop() ?? '').toLowerCase();
+          const type = ext === 'pdf' ? 'pdf' : ext === 'png' ? 'png' : (ext === 'jpg' || ext === 'jpeg') ? 'jpeg' : 'pdf';
+          const doc: Document = {
+            id: 'doc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+            title: file.name.replace(/\.[^.]+$/, ''),
+            category: activeFolderId === ROOT ? 'root' : activeFolderId,
+            fileUrl: url,
+            fileType: type,
+            uploadedBy: 'Staff',
+            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+          };
+          await addDocument(doc);
+          count++;
+        }
+        onAddToast(`${count} file(s) uploaded successfully via drag & drop.`, 'success');
+        onRefresh();
+      } catch (err: any) {
+        onAddToast(err.message || 'Upload failed', 'error');
+      } finally {
+        setUploading(false);
+      }
+    }
+  };
+
+  const bc          = breadcrumb();
+  const subFolders  = useMemo(() => {
+    const kids = childFolders(activeFolderId);
+    if (!search.trim()) return kids;
+    const q = search.toLowerCase();
+    return kids.filter(f => f.name.toLowerCase().includes(q));
+  }, [childFolders, activeFolderId, search]);
+  const activeFiles = filesIn(activeFolderId);
+  const activeFolder = folders.find(f => f.id === activeFolderId);
+
+  return (
+    <div className="sap-root" onClick={() => setCtx(null)}>
+
+      {/* ──────────── Toolbar ──────────── */}
+      <div className="sap-toolbar">
+        <div className="sap-toolbar-left">
+          <span className="sap-app-title">
+            <Folder size={18} style={{ color: '#0070f2' }} /> Document Storage
+          </span>
+          <span className="sap-app-sub">
+            {files.length} files · {folders.length} folders
+          </span>
+        </div>
+        <div className="sap-toolbar-right">
+          <div className="sap-search-wrap">
+            <Search size={14} className="sap-search-icon" />
+            <input
+              className="sap-search-input"
+              placeholder="Search folders & files…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="sap-view-toggle">
+            <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Grid"><Grid size={15} /></button>
+            <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')} title="List"><List size={15} /></button>
+          </div>
+          <button className="sap-btn sap-btn-ghost" onClick={() => { setShowCF(true); setNewFolderName(''); }}>
+            <FolderPlus size={15} /> New Folder
+          </button>
+          <label className={`sap-btn sap-btn-primary ${uploading ? 'disabled' : ''}`} style={{ cursor: 'pointer' }}>
+            <Upload size={15} /> {uploading ? 'Uploading…' : 'Upload Files'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.webm,.ogg,.mov"
+              onChange={handleUpload}
+              style={{ display: 'none' }}
+              disabled={uploading}
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* ──────────── Body ──────────── */}
+      <div className="sap-body">
+
+        {/* ── Sidebar Nav ── */}
+        <nav className="sap-nav">
+          <div className="sap-nav-title">Navigation</div>
+          <div
+            className={`sap-tree-row${activeFolderId === ROOT ? ' active' : ''}${dragOverFolderId === ROOT ? ' drag-over' : ''}`}
+            style={{ paddingLeft: 12 }}
+            onClick={() => setActiveFolderId(ROOT)}
+            
+            // Drag and drop onto Root
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOverFolderId(ROOT);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDragOverFolderId(null);
+            }}
+            onDrop={(e) => handleDropOnFolder(e, ROOT)}
+          >
+            <Home size={14} style={{ color: '#0070f2', flexShrink: 0 }} />
+            <span className="sap-tree-label">Root</span>
+            <span className="sap-tree-badge">{files.filter(f => f.folderId === ROOT).length}</span>
+          </div>
+          {childFolders(ROOT).map(f => (
+            <TreeNode
+              key={f.id}
+              folder={f}
+              depth={0}
+              activeFolderId={activeFolderId}
+              setActiveFolderId={setActiveFolderId}
+              expandedIds={expandedIds}
+              setExpandedIds={setExpandedIds}
+              childFolders={childFolders}
+              totalDescendantFiles={totalDescendantFiles}
+              triggerRename={triggerRename}
+              deleteFolder={deleteFolder}
+              setCtx={setCtx}
+              setShowCF={setShowCF}
+              setNewFolderName={setNewFolderName}
+              dragOverFolderId={dragOverFolderId}
+              setDragOverFolderId={setDragOverFolderId}
+              handleDragStartItem={handleDragStartItem}
+              handleDropOnFolder={handleDropOnFolder}
+            />
+          ))}
+        </nav>
+
+        {/* ── Main panel ── */}
+        <main 
+          className={`sap-main ${isDraggingLocal ? 'dragging-local' : ''}`}
+          onDragOver={handleDragOverLocal}
+          onDragLeave={handleDragLeaveLocal}
+          onDrop={handleDropLocal}
+        >
+          {/* Visual local files drop overlay */}
+          {isDraggingLocal && (
+            <div className="sap-dropzone-overlay">
+              <Upload size={48} style={{ color: '#0070f2', marginBottom: '1rem' }} />
+              <p>Drop files here to upload to <strong>{activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}</strong></p>
+            </div>
+          )}
+
+          {/* Path bar & back navigation */}
+          <div className="sap-path-bar">
+            <div className="sap-breadcrumb">
+              {bc.map((seg, i) => (
+                <React.Fragment key={seg.id}>
+                  {i > 0 && <ChevronRight size={13} style={{ color: '#a0aec0', flexShrink: 0 }} />}
+                  <button
+                    className={`sap-bc-btn${i === bc.length - 1 ? ' current' : ''}`}
+                    onClick={() => setActiveFolderId(seg.id)}
+                  >
+                    {i === 0 && <Home size={12} />} {seg.name}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <button
+                className="sap-btn sap-btn-ghost"
+                style={{ fontSize: '0.78rem', padding: '0.32rem 0.7rem', gap: 5 }}
+                title={`Create folder inside ${activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}`}
+                onClick={() => { setShowCF(true); setNewFolderName(''); }}
+              >
+                <FolderPlus size={14} />
+                + Create Folder
+              </button>
+              <label 
+                className={`sap-btn sap-btn-primary ${uploading ? 'disabled' : ''}`}
+                style={{ fontSize: '0.78rem', padding: '0.32rem 0.7rem', gap: 5, cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+                title={`Upload files inside ${activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}`}
+              >
+                <Upload size={14} />
+                {uploading ? 'Uploading…' : 'Upload Files'}
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.webm,.ogg,.mov"
+                  onChange={handleUpload}
+                  style={{ display: 'none' }}
+                  disabled={uploading}
+                />
+              </label>
+              {activeFolderId !== ROOT && (
+                <button className="sap-btn-back" onClick={() => {
+                  const cur = folders.find(f => f.id === activeFolderId);
+                  setActiveFolderId(cur?.parentId ?? ROOT);
+                }}>
+                  <ArrowLeft size={13} /> Back
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Empty state */}
+          {subFolders.length === 0 && activeFiles.length === 0 && (
+            <div className="sap-empty">
+              <FolderPlus size={52} style={{ color: '#c3d9f7' }} />
+              <p className="sap-empty-title">This folder is empty</p>
+              <p className="sap-empty-sub">Create a subfolder, upload files, or drop them directly here</p>
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
+                <button className="sap-btn sap-btn-ghost" onClick={() => setShowCF(true)}><FolderPlus size={14} /> New Folder</button>
+                <label className="sap-btn sap-btn-primary" style={{ cursor: 'pointer' }}>
+                  <Upload size={14} /> Upload Files
+                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.mp4,.webm,.ogg,.mov" onChange={handleUpload} style={{ display: 'none' }} />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Subfolders section */}
+          {subFolders.length > 0 && (
+            <section className="sap-section">
+              <div className="sap-section-header">
+                <span className="sap-section-title">Folders</span>
+                <span className="sap-section-count">{subFolders.length}</span>
+                <button
+                  className="sap-inline-add-btn"
+                  title="Create folder here"
+                  onClick={() => { setShowCF(true); setNewFolderName(''); }}
+                >
+                  <FolderPlus size={13} /> + Folder
+                </button>
+              </div>
+              <div className={viewMode === 'grid' ? 'sap-folders-grid' : 'sap-folders-list'}>
+                {subFolders.map(sf => {
+                  const count = totalDescendantFiles(sf.id);
+                  const isDragOver = dragOverFolderId === sf.id;
+                  return (
+                    <div
+                      key={sf.id}
+                      className={`sap-folder-tile${isDragOver ? ' drag-over' : ''}`}
+                      onClick={() => {
+                        setActiveFolderId(sf.id);
+                        setExpandedIds(prev => {
+                          const n = new Set(prev);
+                          n.add(sf.id);
+                          return n;
+                        });
+                      }}
+                      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: sf.id, type: 'folder', x: e.clientX, y: e.clientY }); }}
+                      
+                      // Drag & Drop
+                      draggable={true}
+                      onDragStart={(e) => handleDragStartItem(e, sf.id, 'folder')}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOverFolderId(sf.id);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOverFolderId(null);
+                      }}
+                      onDrop={(e) => handleDropOnFolder(e, sf.id)}
+                    >
+                      <div className="sap-folder-tile-icon">
+                        <FolderOpen size={viewMode === 'grid' ? 40 : 22} style={{ color: '#0070f2' }} />
+                      </div>
+                      <div className="sap-folder-tile-info">
+                        <span className="sap-folder-tile-name">{sf.name}</span>
+                        <span className="sap-folder-tile-sub">{count} item{count !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="sap-folder-tile-actions">
+                        <button title="Rename" onClick={e => { e.stopPropagation(); triggerRename(sf.id, 'folder', sf.name); }}><Edit2 size={13} /></button>
+                        <button title="Delete" className="danger" onClick={e => { e.stopPropagation(); deleteFolder(sf.id); }}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* Files section */}
+          {activeFiles.length > 0 && (
+            <section className="sap-section">
+              <div className="sap-section-header">
+                <span className="sap-section-title">Files</span>
+                <span className="sap-section-count">{activeFiles.length}</span>
+              </div>
+
+              {viewMode === 'grid' ? (
+                <div className="sap-files-grid">
+                  {activeFiles.map(file => {
+                    return (
+                      <div
+                        key={file.id}
+                        className="sap-file-card"
+                        style={{ background: fileColor[file.fileType] ?? '#f7fafc' }}
+                        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
+                        
+                        // Drag file card
+                        draggable={true}
+                        onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                      >
+                        <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
+                        <span className="sap-file-card-name" title={file.title}>{file.title}</span>
+                        <span className="sap-file-card-type">{file.fileType.toUpperCase()} · {file.date}</span>
+                        <div className="sap-file-card-actions">
+                          <button onClick={() => setPreviewDoc(file)} title="Preview"><Eye size={13} /></button>
+                          <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                          <button onClick={() => triggerRename(file.id, 'file', file.title)} title="Rename"><Edit2 size={13} /></button>
+                          <button className="danger" onClick={() => deleteFile(file)} title="Delete"><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="sap-files-table-wrap">
+                  <table className="sap-files-table">
+                    <thead>
+                      <tr>
+                        <th>Type</th>
+                        <th>File Name</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeFiles.map(file => {
+                        return (
+                          <tr 
+                            key={file.id} 
+                            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
+                            
+                            // Drag table row
+                            draggable={true}
+                            onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                          >
+                            <td style={{ width: 44 }}>{fileIcon(file.fileType)}</td>
+                            <td>
+                              <span className="sap-table-filename">{file.title}</span>
+                              <span className="sap-table-filemeta">{file.fileType.toUpperCase()}</span>
+                            </td>
+                            <td className="sap-table-date">{file.date}</td>
+                            <td>
+                              <div className="sap-table-actions">
+                                <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                                <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                                <button title="Delete" className="danger" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+        </main>
+      </div>
+
+      {/* ──────────── Create Folder Modal ──────────── */}
+      {showCF && (
+        <div className="modal-overlay" onClick={() => setShowCF(false)}>
+          <div className="sap-modal" onClick={e => e.stopPropagation()}>
+            <div className="sap-modal-header">
+              <span><FolderPlus size={17} /> Create New Folder</span>
+              <button onClick={() => setShowCF(false)}><X size={17} /></button>
+            </div>
+            <div className="sap-modal-body">
+              <p className="sap-modal-sub">Inside: <strong>{activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}</strong></p>
+              <div className="form-group">
+                <label className="form-label">Folder Name *</label>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. MIG 575, Legal Docs, 2024…"
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createFolder()}
+                />
+              </div>
+              <div className="sap-modal-footer">
+                <button className="sap-btn sap-btn-ghost" onClick={() => setShowCF(false)}>Cancel</button>
+                <button className="sap-btn sap-btn-primary" onClick={createFolder}><Check size={14} /> Create</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── Rename Modal (Replaces Inline inputs) ──────────── */}
+      {showRename && renameTarget && (
+        <div className="modal-overlay" onClick={() => setShowRename(false)}>
+          <div className="sap-modal" onClick={e => e.stopPropagation()}>
+            <div className="sap-modal-header">
+              <span><Edit2 size={16} /> Rename {renameTarget.type === 'folder' ? 'Folder' : 'File'}</span>
+              <button onClick={() => setShowRename(false)}><X size={17} /></button>
+            </div>
+            <div className="sap-modal-body">
+              <div className="form-group">
+                <label className="form-label">New Name *</label>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control"
+                  value={renameValue}
+                  onChange={e => setRenameValue(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveRename()}
+                />
+              </div>
+              <div className="sap-modal-footer">
+                <button className="sap-btn sap-btn-ghost" onClick={() => setShowRename(false)}>Cancel</button>
+                <button className="sap-btn sap-btn-primary" onClick={handleSaveRename}><Check size={14} /> Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── Context Menu ──────────── */}
+      {ctx && (
+        <div className="sap-ctx" style={{ top: ctx.y, left: ctx.x }} onClick={e => e.stopPropagation()}>
+          {ctx.type === 'folder' ? (
+            <>
+              <button onClick={() => { setActiveFolderId(ctx.id); setExpandedIds(p => { const n = new Set(p); n.add(ctx.id); return n; }); setCtx(null); }}><FolderOpen size={13} /> Open</button>
+              <button onClick={() => { const f = folders.find(x => x.id === ctx.id); if (f) triggerRename(ctx.id, 'folder', f.name); setCtx(null); }}><Edit2 size={13} /> Rename</button>
+              <button onClick={() => { setActiveFolderId(ctx.id); setShowCF(true); setCtx(null); }}><FolderPlus size={13} /> New Subfolder</button>
+              <hr className="sap-ctx-sep" />
+              <button className="danger" onClick={() => { deleteFolder(ctx.id); setCtx(null); }}><Trash2 size={13} /> Delete</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) setPreviewDoc(f); setCtx(null); }}><Eye size={13} /> Preview</button>
+              <button onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) triggerRename(f.id, 'file', f.title); setCtx(null); }}><Edit2 size={13} /> Rename</button>
+              <hr className="sap-ctx-sep" />
+              <button className="danger" onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) deleteFile(f); setCtx(null); }}><Trash2 size={13} /> Delete</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ──────────── Preview Modal ──────────── */}
+      {previewDoc && (
+        <div className="modal-overlay" onClick={() => setPreviewDoc(null)}>
+          <div className="modal-content" style={{ maxWidth: 860, width: '92%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#1a202c' }}>{previewDoc.title}</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer" download className="sap-btn sap-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Download size={14} /> Download</a>
+                <button onClick={() => setPreviewDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718096' }}><X size={20} /></button>
+              </div>
+            </div>
+            <div style={{ padding: '1rem', minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7fafc' }}>
+              {previewDoc.fileType === 'pdf' ? (
+                <iframe src={previewDoc.fileUrl} title="PDF" style={{ width: '100%', height: 500, border: 'none', borderRadius: 6 }} />
+              ) : (previewDoc.fileType === 'jpeg' || previewDoc.fileType === 'png') ? (
+                <img src={previewDoc.fileUrl} alt={previewDoc.title} style={{ maxWidth: '100%', maxHeight: 500, objectFit: 'contain', borderRadius: 6 }} />
+              ) : (['mp4', 'webm', 'ogg', 'mov'].includes(previewDoc.fileType)) ? (
+                <video src={previewDoc.fileUrl} controls style={{ maxWidth: '100%', maxHeight: 500, borderRadius: 6, outline: 'none' }} />
+              ) : (
+                <div style={{ textAlign: 'center' }}>
+                  <FileText size={56} style={{ color: '#3182ce', marginBottom: 12 }} />
+                  <p style={{ color: '#718096' }}>Word files cannot be previewed in the browser.</p>
+                  <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer" download className="sap-btn sap-btn-primary" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Download size={14} /> Download to View</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── Scoped CSS ──────────── */}
+      <style>{`
+        /* Root container */
+        .sap-root {
+          display: flex; flex-direction: column;
+          height: calc(100vh - 110px); min-height: 560px;
+          background: #f0f4f9;
+          border-radius: 10px; overflow: hidden;
+          border: 1px solid #d1dce8;
+          font-family: '72', 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* Toolbar */
+        .sap-toolbar {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0.65rem 1.25rem; background: #fff;
+          border-bottom: 1px solid #d1dce8; flex-shrink: 0; gap: 1rem; flex-wrap: wrap;
+        }
+        .sap-toolbar-left { display: flex; align-items: center; gap: 0.75rem; }
+        .sap-app-title { font-size: 1rem; font-weight: 700; color: #1a2d4e; display: flex; align-items: center; gap: 6px; }
+        .sap-app-sub { font-size: 0.75rem; color: #8c9cb0; border-left: 1px solid #d1dce8; padding-left: 0.75rem; }
+        .sap-toolbar-right { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+        /* Search input */
+        .sap-search-wrap { position: relative; }
+        .sap-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: #8c9cb0; pointer-events: none; }
+        .sap-search-input { padding: 0.42rem 0.75rem 0.42rem 2rem; border: 1px solid #d1dce8; border-radius: 6px; font-size: 0.83rem; outline: none; width: 180px; background: #f8fafc; }
+        .sap-search-input:focus { border-color: #0070f2; background: #fff; }
+
+        /* View Mode toggle */
+        .sap-view-toggle { display: flex; border: 1px solid #d1dce8; border-radius: 6px; overflow: hidden; }
+        .sap-view-toggle button { padding: 0.38rem 0.6rem; border: none; background: #fff; cursor: pointer; color: #8c9cb0; display: flex; align-items: center; transition: all 0.12s; }
+        .sap-view-toggle button.active { background: #0070f2; color: #fff; }
+        .sap-view-toggle button:hover:not(.active) { background: #f0f4f9; }
+
+        /* General buttons */
+        .sap-btn { display: inline-flex; align-items: center; gap: 5px; padding: 0.42rem 0.85rem; border-radius: 6px; font-size: 0.83rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all 0.12s; }
+        .sap-btn-primary { background: #0070f2; color: #fff; border-color: #0070f2; }
+        .sap-btn-primary:hover { background: #0057c2; }
+        .sap-btn-ghost { background: #fff; color: #0070f2; border-color: #0070f2; }
+        .sap-btn-ghost:hover { background: #e8f0fe; }
+
+        /* Layout structure */
+        .sap-body { display: flex; flex: 1; overflow: hidden; }
+
+        /* Sidebar navigation */
+        .sap-nav { width: 220px; flex-shrink: 0; background: #fff; border-right: 1px solid #d1dce8; overflow-y: auto; padding: 0.75rem 0; }
+        .sap-nav-title { font-size: 0.68rem; font-weight: 700; color: #8c9cb0; text-transform: uppercase; letter-spacing: 0.08em; padding: 0 12px 0.5rem; }
+
+        /* Tree row structure */
+        .sap-tree-row { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 0.38rem 6px 0.38rem 12px; font-size: 0.83rem; color: #2d3a4a; border-left: 3px solid transparent; transition: all 0.12s; user-select: none; }
+        .sap-tree-row:hover { background: #f0f4f9; }
+        .sap-tree-row.active { background: #e8f0fe; color: #0070f2; font-weight: 600; border-left-color: #0070f2; }
+        .sap-tree-row.drag-over { background: #e0f0ff; border: 1.5px dashed #0070f2; }
+        .sap-tree-arrow { width: 14px; text-align: center; font-size: 0.7rem; color: #8c9cb0; flex-shrink: 0; }
+        .sap-tree-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sap-tree-badge { font-size: 0.65rem; background: #e8f0fe; color: #0070f2; padding: 0 5px; border-radius: 10px; flex-shrink: 0; }
+
+        /* Sidebar inline add (+) button */
+        .sap-tree-add-btn {
+          display: none; align-items: center; justify-content: center;
+          width: 18px; height: 18px; flex-shrink: 0;
+          background: #0070f2; color: #fff; border: none; border-radius: 4px;
+          font-size: 0.85rem; font-weight: 700; cursor: pointer; line-height: 1;
+        }
+        .sap-tree-row:hover .sap-tree-add-btn { display: inline-flex; }
+        .sap-tree-add-btn:hover { background: #0057c2; }
+
+        /* Main Workspace */
+        .sap-main { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 1.25rem; position: relative; transition: background-color 0.15s; }
+        .sap-main.dragging-local { background-color: #ebf4ff; }
+
+        /* Drag and Drop Local files overlay dropzone */
+        .sap-dropzone-overlay {
+          position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(235, 244, 255, 0.9);
+          border: 3px dashed #0070f2; border-radius: 8px;
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          color: #0070f2; font-weight: bold; font-size: 1.1rem; z-index: 20;
+          pointer-events: none;
+        }
+
+        /* Path breadcrumb bar */
+        .sap-path-bar { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #d1dce8; border-radius: 8px; padding: 0.55rem 1rem; }
+        .sap-breadcrumb { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .sap-bc-btn { background: none; border: none; cursor: pointer; color: #0070f2; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; border-radius: 4px; }
+        .sap-bc-btn:hover { background: #e8f0fe; }
+        .sap-bc-btn.current { color: #2d3a4a; cursor: default; }
+        .sap-bc-btn.current:hover { background: none; }
+        .sap-btn-back { display: inline-flex; align-items: center; gap: 4px; font-size: 0.78rem; background: none; border: 1px solid #d1dce8; border-radius: 5px; padding: 0.25rem 0.6rem; cursor: pointer; color: #4a5568; }
+        .sap-btn-back:hover { background: #f0f4f9; }
+
+        /* Empty folder display */
+        .sap-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 3rem; text-align: center; background: #fff; border-radius: 10px; border: 1px dashed #d1dce8; }
+        .sap-empty-title { font-size: 1rem; font-weight: 700; color: #4a5568; margin: 0.75rem 0 0; }
+        .sap-empty-sub { font-size: 0.82rem; color: #a0aec0; margin: 0.25rem 0 0; }
+
+        /* Page section header */
+        .sap-section { display: flex; flex-direction: column; gap: 0.65rem; }
+        .sap-section-header { display: flex; align-items: center; gap: 0.5rem; }
+        .sap-section-title { font-size: 0.78rem; font-weight: 700; color: #4a5568; text-transform: uppercase; letter-spacing: 0.06em; }
+        .sap-section-count { font-size: 0.7rem; background: #e2e8f0; color: #4a5568; padding: 1px 7px; border-radius: 10px; }
+
+        /* Inline "+ Folder" button */
+        .sap-inline-add-btn {
+          display: inline-flex; align-items: center; gap: 4px;
+          padding: 2px 8px; background: #e8f0fe; color: #0070f2;
+          border: 1px solid #bcd3f7; border-radius: 12px;
+          font-size: 0.72rem; font-weight: 700; cursor: pointer;
+          transition: background 0.12s; margin-left: auto;
+        }
+        .sap-inline-add-btn:hover { background: #0070f2; color: #fff; border-color: #0070f2; }
+
+        /* Grid layouts */
+        .sap-folders-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
+        .sap-folders-list { display: flex; flex-direction: column; gap: 0.35rem; }
+
+        /* Folder tile item */
+        .sap-folder-tile {
+          display: flex; align-items: center; gap: 0.75rem;
+          background: #fff; border: 1px solid #d1dce8; border-radius: 8px;
+          padding: 0.85rem 0.75rem; cursor: pointer; position: relative;
+          transition: box-shadow 0.15s, border-color 0.15s, background-color 0.15s; user-select: none;
+        }
+        .sap-folders-grid .sap-folder-tile { flex-direction: column; align-items: center; text-align: center; padding: 1.1rem 0.75rem 0.85rem; }
+        .sap-folder-tile:hover { box-shadow: 0 3px 12px rgba(0,112,242,0.12); border-color: #0070f2; }
+        .sap-folder-tile.drag-over { background-color: #ebf4ff; border: 1.5px dashed #0070f2; }
+        .sap-folder-tile-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+        .sap-folders-grid .sap-folder-tile-info { align-items: center; }
+        .sap-folder-tile-name { font-size: 0.83rem; font-weight: 600; color: #2d3a4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+        .sap-folder-tile-sub { font-size: 0.68rem; color: #8c9cb0; }
+        .sap-folder-tile-actions { display: none; gap: 3px; flex-shrink: 0; }
+        .sap-folder-tile:hover .sap-folder-tile-actions { display: flex; }
+        .sap-folder-tile-actions button { background: #f0f4f9; border: 1px solid #d1dce8; border-radius: 4px; padding: 3px 5px; cursor: pointer; display: flex; align-items: center; color: #4a5568; font-size: 0; }
+        .sap-folder-tile-actions button.danger:hover { background: #fed7d7; color: #e53e3e; border-color: #e53e3e; }
+        .sap-folder-tile-actions button:hover { background: #e8f0fe; color: #0070f2; }
+
+        /* Files Grid view */
+        .sap-files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+        .sap-file-card {
+          display: flex; flex-direction: column; align-items: center; text-align: center;
+          padding: 1rem 0.75rem 0.75rem; border: 1px solid #d1dce8; border-radius: 8px;
+          cursor: pointer; position: relative; transition: box-shadow 0.15s;
+        }
+        .sap-file-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.1); border-color: #8c9cb0; }
+        .sap-file-card-icon { margin-bottom: 0.5rem; }
+        .sap-file-card-name { font-size: 0.78rem; font-weight: 600; color: #2d3a4a; word-break: break-word; line-height: 1.3; max-height: 2.6em; overflow: hidden; }
+        .sap-file-card-type { font-size: 0.65rem; color: #8c9cb0; margin-top: 3px; }
+        .sap-file-card-actions { display: none; gap: 3px; margin-top: 0.5rem; }
+        .sap-file-card:hover .sap-file-card-actions { display: flex; }
+        .sap-file-card-actions button, .sap-file-card-actions a {
+          background: #fff; border: 1px solid #d1dce8; border-radius: 4px; padding: 3px 5px;
+          cursor: pointer; display: flex; align-items: center; color: #4a5568; text-decoration: none;
+        }
+        .sap-file-card-actions button:hover, .sap-file-card-actions a:hover { background: #e8f0fe; color: #0070f2; }
+        .sap-file-card-actions button.danger:hover { background: #fed7d7; color: #e53e3e; }
+
+        /* Files Table view */
+        .sap-files-table-wrap { background: #fff; border: 1px solid #d1dce8; border-radius: 8px; overflow: hidden; }
+        .sap-files-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+        .sap-files-table thead { background: #f0f4f9; }
+        .sap-files-table th { padding: 0.6rem 0.85rem; text-align: left; font-size: 0.72rem; font-weight: 700; color: #8c9cb0; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #d1dce8; }
+        .sap-files-table td { padding: 0.6rem 0.85rem; border-bottom: 1px solid #f0f4f9; vertical-align: middle; }
+        .sap-files-table tr:last-child td { border-bottom: none; }
+        .sap-files-table tr:hover td { background: #f8fbff; }
+        .sap-table-filename { display: block; font-weight: 600; color: #2d3a4a; }
+        .sap-table-filemeta { font-size: 0.68rem; color: #8c9cb0; }
+        .sap-table-date { font-size: 0.78rem; color: #8c9cb0; white-space: nowrap; }
+        .sap-table-actions { display: flex; gap: 4px; }
+        .sap-table-actions button, .sap-table-actions a {
+          background: none; border: 1px solid #d1dce8; border-radius: 4px; padding: 3px 6px;
+          cursor: pointer; display: inline-flex; align-items: center; color: #4a5568; text-decoration: none;
+        }
+        .sap-table-actions button:hover, .sap-table-actions a:hover { background: #e8f0fe; color: #0070f2; border-color: #0070f2; }
+        .sap-table-actions button.danger:hover { background: #fed7d7; color: #e53e3e; border-color: #e53e3e; }
+
+        /* Context menus */
+        .sap-ctx {
+          position: fixed; z-index: 9999; background: #fff; border: 1px solid #d1dce8;
+          border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.12); padding: 5px; min-width: 165px;
+        }
+        .sap-ctx button {
+          display: flex; align-items: center; gap: 8px; width: 100%; padding: 0.42rem 0.75rem;
+          background: none; border: none; font-size: 0.83rem; color: #2d3a4a; cursor: pointer; border-radius: 5px;
+        }
+        .sap-ctx button:hover { background: #f0f4f9; }
+        .sap-ctx button.danger { color: #e53e3e; }
+        .sap-ctx button.danger:hover { background: #fed7d7; }
+        .sap-ctx-sep { border: none; border-top: 1px solid #e2e8f0; margin: 3px 0; }
+
+        /* Modal styling */
+        .sap-modal { background: #fff; border-radius: 10px; width: 420px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.18); }
+        .sap-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid #e2e8f0; font-size: 1rem; font-weight: 700; color: #1a2d4e; }
+        .sap-modal-header span { display: flex; align-items: center; gap: 8px; }
+        .sap-modal-header button { background: none; border: none; cursor: pointer; color: #8c9cb0; }
+        .sap-modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+        .sap-modal-sub { font-size: 0.8rem; color: #8c9cb0; margin: 0; }
+        .sap-modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
+
+        @media (max-width: 768px) {
+          .sap-nav { width: 180px; }
+          .sap-folders-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+        }
+        @media (max-width: 600px) {
+          .sap-body { flex-direction: column; }
+          .sap-nav { width: 100%; max-height: 160px; border-right: none; border-bottom: 1px solid #d1dce8; }
+        }
+      `}</style>
+    </div>
+  );
+};

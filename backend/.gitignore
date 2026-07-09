@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Compiled files
+dist/
+
+# Configuration files
+.env
+
+# SQL Databases
+*.sqlite
+*.sql
+
+# User uploads (should be persisted via Dokploy volumes, not git)
+uploads/
