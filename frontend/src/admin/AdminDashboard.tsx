@@ -68,7 +68,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   expenses = [],
   onSetTab,
   onSelectEnquiry,
-  role,
   hasScreenAccess,
   onRefresh,
   onAddToast,
@@ -1224,7 +1223,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <strong style={{ color: colors.textMain }}>{e.name}</strong>
                           <div style={{ fontSize: '0.65rem', color: colors.textMuted }}>{e.phone}</div>
                         </td>
-                        <td style={{ padding: '6px 8px', color: colors.textMain }}>{e.propertyName || 'General Inquiry'}</td>
+                        <td style={{ padding: '6px 8px', color: colors.textMain }}>{e.projectName || 'General Inquiry'}</td>
                         <td style={{ padding: '6px 8px' }}>
                           <button 
                             onClick={() => onSelectEnquiry(e)}

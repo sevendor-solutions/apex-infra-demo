@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Project, ProjectCategory, PropertyType, Facing } from '../types';
-import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText, Share2 } from 'lucide-react';
+import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
 
 interface MarketingProps {
   category: ProjectCategory;
@@ -119,23 +119,6 @@ export const Marketing: React.FC<MarketingProps> = ({
     setSelectedLocations([]);
     setSelectedSubCategories([]);
     setSelectedAgent('');
-  };
-
-  const handleShareFilters = () => {
-    const params = new URLSearchParams();
-    params.set('page', 'marketing');
-    params.set('category', category);
-    if (siteCategory) params.set('siteCategory', siteCategory);
-    
-    if (selectedCities.length > 0) params.set('city', selectedCities[0]);
-    if (selectedLocations.length > 0) params.set('location', selectedLocations[0]);
-    if (selectedFacings.length > 0) params.set('facing', selectedFacings[0]);
-    if (selectedPropertyTypes.length > 0) params.set('propertyType', selectedPropertyTypes[0]);
-    if (selectedAgent) params.set('agent', selectedAgent);
-
-    const shareUrl = `${window.location.origin}/?${params.toString()}`;
-    navigator.clipboard.writeText(shareUrl);
-    alert('Shareable filtered search link copied to clipboard!');
   };
 
   // Filter projects matching this category/subcategory initially
