@@ -67,227 +67,8 @@ const INITIAL_ENQUIRIES: any[] = [];
 
 export async function seedDatabase() {
   try {
-    // 0. Auto-migrate legacy non-serial IDs for all tables
-    try {
-      // 1) Cities
-      const allCities = await City.findAll({ order: [['createdAt', 'ASC']] });
-      let nextCityNum = 1;
-      for (const city of allCities) {
-        const oldId = city.id;
-        const isLegacyId = oldId.startsWith('c_') || !/^c\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `c${nextCityNum++}`;
-          
-          await LocationMaster.update(
-            { cityId: newId },
-            { where: { cityId: oldId } }
-          );
-          
-          await City.sequelize?.query(`UPDATE cities SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          
-          console.log(`🛠️ Cleaned up city ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (num >= nextCityNum) nextCityNum = num + 1;
-        }
-      }
-
-      // 2) Locations
-      const allLocations = await LocationMaster.findAll({ order: [['createdAt', 'ASC']] });
-      let nextLocNum = 1;
-      for (const loc of allLocations) {
-        const oldId = loc.id;
-        const isLegacyId = oldId.startsWith('l_') || oldId.startsWith('loc_') || !/^loc\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `loc${nextLocNum++}`;
-          
-          await LocationMaster.sequelize?.query(`UPDATE locations SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up location ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(3), 10);
-          if (num >= nextLocNum) nextLocNum = num + 1;
-        }
-      }
-
-      // 3) Projects & Marketing
-      const allProjects = await Project.findAll({ order: [['createdAt', 'ASC']] });
-      let nextProjectNum = 1;
-      let nextMarketingNum = 1;
-      for (const proj of allProjects) {
-        const oldId = proj.id;
-        const prefix = proj.isMarketing ? 'm' : 'p';
-        const isLegacyId = oldId.startsWith('p_') || oldId.startsWith('m_') || !/^[pm]\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = proj.isMarketing ? `m${nextMarketingNum++}` : `p${nextProjectNum++}`;
-          
-          await GalleryItem.update(
-            { projectAssociation: newId },
-            { where: { projectAssociation: oldId } }
-          );
-          
-          await Enquiry.update(
-            { projectAssociation: newId },
-            { where: { projectAssociation: oldId } }
-          );
-          
-          await Project.sequelize?.query(`UPDATE projects SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          
-          console.log(`🛠️ Cleaned up project ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (proj.isMarketing) {
-            if (num >= nextMarketingNum) nextMarketingNum = num + 1;
-          } else {
-            if (num >= nextProjectNum) nextProjectNum = num + 1;
-          }
-        }
-      }
-
-      // 4) Users
-      const allUsers = await User.findAll({ order: [['createdAt', 'ASC']] });
-      let nextUserNum = 1;
-      for (const u of allUsers) {
-        const oldId = u.id;
-        const isLegacyId = oldId.startsWith('u_') || !/^u\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `u${nextUserNum++}`;
-          
-          await UserSessionLog.update(
-            { userId: newId },
-            { where: { userId: oldId } }
-          );
-          
-          await User.sequelize?.query(`UPDATE users SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up user ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (num >= nextUserNum) nextUserNum = num + 1;
-        }
-      }
-
-      // 5) Blogs
-      const allBlogs = await Blog.findAll({ order: [['createdAt', 'ASC']] });
-      let nextBlogNum = 1;
-      for (const b of allBlogs) {
-        const oldId = b.id;
-        const isLegacyId = oldId.startsWith('b_') || !/^b\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `b${nextBlogNum++}`;
-          await Blog.sequelize?.query(`UPDATE blogs SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up blog ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (num >= nextBlogNum) nextBlogNum = num + 1;
-        }
-      }
-
-      // 6) Gallery Items
-      const allGallery = await GalleryItem.findAll({ order: [['createdAt', 'ASC']] });
-      let nextGalleryNum = 1;
-      for (const g of allGallery) {
-        const oldId = g.id;
-        const isLegacyId = oldId.startsWith('g_') || !/^g\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `g${nextGalleryNum++}`;
-          await GalleryItem.sequelize?.query(`UPDATE gallery_items SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up gallery item ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (num >= nextGalleryNum) nextGalleryNum = num + 1;
-        }
-      }
-
-      // 7) Enquiries
-      const allEnqs = await Enquiry.findAll({ order: [['createdAt', 'ASC']] });
-      let nextEnqNum = 1;
-      for (const e of allEnqs) {
-        const oldId = e.id;
-        const isLegacyId = oldId.startsWith('enq_') || oldId.startsWith('e_') || !/^e\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `e${nextEnqNum++}`;
-          await Enquiry.sequelize?.query(`UPDATE enquiries SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up enquiry ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(1), 10);
-          if (num >= nextEnqNum) nextEnqNum = num + 1;
-        }
-      }
-
-      // 8) Job Applications
-      const allApps = await JobApplication.findAll({ order: [['createdAt', 'ASC']] });
-      let nextAppNum = 1;
-      for (const ja of allApps) {
-        const oldId = ja.id;
-        const isLegacyId = oldId.startsWith('ja_') || oldId.startsWith('app_') || !/^ja\d+$/.test(oldId);
-        
-        if (isLegacyId) {
-          const newId = `ja${nextAppNum++}`;
-          await JobApplication.sequelize?.query(`UPDATE job_applications SET id = :newId WHERE id = :oldId`, {
-            replacements: { newId, oldId }
-          });
-          console.log(`🛠️ Cleaned up job application ID: ${oldId} -> ${newId}`);
-        } else {
-          const num = parseInt(oldId.substring(2), 10);
-          if (num >= nextAppNum) nextAppNum = num + 1;
-        }
-      }
-    } catch (migrationError) {
-      console.error("Failed to run automated city/location ID serial migration:", migrationError);
-    }
-
-
-    // Clean up existing mock records from the database
-    await Project.destroy({
-      where: {
-        id: ['p1', 'p2', 'p3', 'p7', 'p8', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11']
-      }
-    });
-    await Blog.destroy({
-      where: {
-        id: ['b1', 'b2', 'b3']
-      }
-    });
-    await GalleryItem.destroy({
-      where: {
-        id: ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8', 'g9', 'g10']
-      }
-    });
-    await Enquiry.destroy({
-      where: {
-        id: ['e1', 'e2']
-      }
-    });
-    await LocationMaster.destroy({
-      where: {
-        id: ['loc1', 'loc2', 'loc3', 'loc4', 'loc5', 'loc6', 'loc7', 'loc8', 'loc9', 'loc10', 'loc11', 'loc12', 'loc13']
-      }
-    });
-    await City.destroy({
-      where: {
-        id: ['c1', 'c2', 'c3']
-      }
-    });
+    // Note: No delete/destroy queries or ID migrations are performed on startup
+    // to ensure that existing live production table data is never removed or altered.
 
     // 1. Seed Cities
     const cityCount = await City.count();
@@ -332,12 +113,6 @@ export async function seedDatabase() {
     }
 
     // 3. Seed Users
-    // Remove extra default users from the database if they exist
-    await User.destroy({
-      where: {
-        id: ['u2', 'u3']
-      }
-    });
 
     const userCount = await User.count();
     if (userCount === 0) {
@@ -451,12 +226,7 @@ export async function seedDatabase() {
 
     // 8. Seed Site Visits (Removed static site visit data as requested)
 
-    // Seed Marketing Agents (Removed mock marketing agents as requested)
-    await MarketingAgent.destroy({
-      where: {
-        id: ["ma1", "ma2", "ma3", "ma4"]
-      }
-    });
+
 
     // 9. Seed Expense Categories
     const { ExpenseCategory } = require("../models/ExpenseCategory");
@@ -474,12 +244,7 @@ export async function seedDatabase() {
       ]);
     }
 
-    // Clean up mock user roles (keep only admin)
-    await User.destroy({
-      where: {
-        username: ["accountant", "salesuser", "inventory"]
-      }
-    });
+
 
     // No mock wallets, customers, suppliers, or inventory items seeded as requested
 

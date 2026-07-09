@@ -139,9 +139,10 @@ UPLOAD_SUBFOLDERS.forEach((folder) => {
 });
 
 // Initialize Database & Start Express Server
-sequelize.sync({ alter: true }) // Synchronize database schemas
+const isProduction = process.env.NODE_ENV === 'production';
+sequelize.sync(isProduction ? {} : { alter: true }) // Synchronize schemas safely
   .then(async () => {
-    console.log("🔥 Sequelize Database Connected & Synced!");
+    console.log(`🔥 Sequelize Database Connected & Synced! (Alter mode: ${!isProduction})`);
 
     // Run the data seeder
     await seedDatabase();
