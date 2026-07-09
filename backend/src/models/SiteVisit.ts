@@ -70,6 +70,12 @@ export class SiteVisit extends Model {
     })
     assignedAgent?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

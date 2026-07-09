@@ -63,6 +63,12 @@ export class WalletTransaction extends Model {
     })
     receiptUrl?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

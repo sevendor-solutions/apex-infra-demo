@@ -58,6 +58,12 @@ export class JobApplication extends Model {
     })
     date!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

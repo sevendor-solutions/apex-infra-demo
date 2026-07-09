@@ -47,6 +47,12 @@ export class Supplier extends Model {
     })
     outstandingAmount!: number;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

@@ -91,6 +91,12 @@ export class Loan extends Model {
     })
     documentUrl?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

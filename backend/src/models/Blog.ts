@@ -71,6 +71,12 @@ export class Blog extends Model {
     })
     tags!: string[];
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

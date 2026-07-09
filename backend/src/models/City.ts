@@ -19,6 +19,12 @@ export class City extends Model {
     @HasMany(() => LocationMaster)
     locations?: LocationMaster[];
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

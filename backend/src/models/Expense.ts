@@ -117,6 +117,12 @@ export class Expense extends Model {
     })
     notes?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

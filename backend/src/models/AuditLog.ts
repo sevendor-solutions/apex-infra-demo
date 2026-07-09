@@ -46,6 +46,12 @@ export class AuditLog extends Model {
     })
     status!: "Success" | "Warning" | "Failed";
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 }

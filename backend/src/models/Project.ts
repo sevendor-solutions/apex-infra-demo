@@ -250,6 +250,12 @@ export class Project extends Model {
     })
     isMarketing!: boolean;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

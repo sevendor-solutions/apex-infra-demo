@@ -210,6 +210,12 @@ export class MailConfig extends Model {
     })
     instagramAccountId!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

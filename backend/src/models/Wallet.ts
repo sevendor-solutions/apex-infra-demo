@@ -35,6 +35,12 @@ export class Wallet extends Model {
     })
     type!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

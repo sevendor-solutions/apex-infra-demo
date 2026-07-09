@@ -46,6 +46,12 @@ export class MarketingAgent extends Model {
     })
     status!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

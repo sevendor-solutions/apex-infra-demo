@@ -33,6 +33,12 @@ export class LoanPayment extends Model {
     })
     reference?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

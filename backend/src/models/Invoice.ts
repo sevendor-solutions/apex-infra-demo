@@ -91,6 +91,12 @@ export class Invoice extends Model {
     })
     paymentStatus!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 

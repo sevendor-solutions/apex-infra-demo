@@ -15,6 +15,12 @@ export class ExpenseCategory extends Model {
     })
     name!: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @BeforeValidate
     static autoId(instance: ExpenseCategory) {
         // Do nothing — ID is provided by the caller (ec1, ec2, ...)

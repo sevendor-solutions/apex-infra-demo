@@ -95,6 +95,12 @@ export class InventoryItem extends Model {
     })
     warehouseLocation?: string;
 
+        @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    userId?: string;
+
     @CreatedAt
     createdAt!: Date;
 
