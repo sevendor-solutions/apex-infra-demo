@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { Project, Enquiry, Blog, Expense, Wallet, Invoice, Customer, Supplier, InventoryItem, Loan, Quotation, User, JobApplication, SiteVisit } from '../types';
+import type { Project, Enquiry, Blog, Expense, Wallet, WalletTransaction, Invoice, Customer, Supplier, InventoryItem, Loan, Quotation, User, JobApplication, SiteVisit } from '../types';
 import { 
   Building, 
   MessageSquare, 
