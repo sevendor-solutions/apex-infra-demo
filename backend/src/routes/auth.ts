@@ -187,7 +187,7 @@ router.post("/forgot-password", async (req, res, next) => {
 
         // Get mail config
         const mailConfig = await MailConfig.findByPk("default");
-        const smtpHost = mailConfig?.smtpHost || "smtp.office365.com";
+        const smtpHost = mailConfig?.smtpHost || "smtpout.secureserver.net";
         const smtpPort = mailConfig?.smtpPort || 587;
         const smtpUser = mailConfig?.smtpUser || "info@jkfutureinfra.com";
         const smtpPass = mailConfig?.smtpPass || "JKFUTUREINFRA@999";

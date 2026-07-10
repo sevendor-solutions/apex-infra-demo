@@ -189,7 +189,7 @@ export async function seedDatabase() {
         deliveryMode: "smtp",
         triggerWindowDays: 5,
         sendBeforeDays: 1,
-        smtpHost: "smtp.office365.com",
+        smtpHost: "smtpout.secureserver.net",
         smtpPort: 587,
         smtpUser: "info@jkfutureinfra.com",
         smtpPass: "JKFUTUREINFRA@999",
@@ -213,9 +213,9 @@ export async function seedDatabase() {
         jwtSecret: process.env.JWT_SECRET || "jk_future_infra_secret_jwt_key_2026"
       });
     } else {
-      console.log("🌱 Updating MailConfig database credentials to Microsoft 365 SMTP...");
+      console.log("🌱 Updating MailConfig database credentials to SecureServer SMTP...");
       await mailConfig.update({
-        smtpHost: "smtp.office365.com",
+        smtpHost: "smtpout.secureserver.net",
         smtpPort: 587,
         smtpUser: "info@jkfutureinfra.com",
         smtpPass: "JKFUTUREINFRA@999",
