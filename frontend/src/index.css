@@ -730,6 +730,20 @@ button {
   margin-top: 0.4rem;
   margin-bottom: 0.1rem;
 }
+.admin-sidebar-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+.admin-sidebar-group-header:hover .admin-sidebar-group-title {
+  color: rgba(255, 255, 255, 0.75);
+}
+.admin-sidebar-group-header:hover .group-arrow-icon {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
 .admin-sidebar-group-title {
   font-size: 0.65rem;
   text-transform: uppercase;

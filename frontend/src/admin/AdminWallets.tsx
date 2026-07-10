@@ -302,168 +302,164 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="modal-overlay" onClick={() => setShowWalletModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '450px' }}>
+          <form className="modal-content" onSubmit={handleCreateWallet} onClick={e => e.stopPropagation()} style={{ width: '450px' }}>
             <div className="modal-header">
               <h3>Create New Account</h3>
-              <button onClick={() => setShowWalletModal(false)} className="close-btn"><X size={20} /></button>
+              <button type="button" onClick={() => setShowWalletModal(false)} className="close-btn"><X size={20} /></button>
             </div>
-            <form onSubmit={handleCreateWallet}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Account / Wallet Name</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    value={walletName} 
-                    onChange={e => setWalletName(e.target.value)} 
-                    placeholder="e.g. SBI Current A/c"
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Account Type</label>
-                  <select 
-                    value={walletType} 
-                    onChange={e => setWalletType(e.target.value)} 
-                    className="form-control"
-                  >
-                    <option value="Cash">Cash (Cash Register/Drawer)</option>
-                    <option value="Bank">Bank (Savings/Checking Account)</option>
-                    <option value="Digital Wallet">Digital Wallet (GPay, PhonePe, Paytm)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Opening Balance (INR)</label>
-                  <input 
-                    type="number" 
-                    className="form-control" 
-                    value={openingBalance} 
-                    onChange={e => setOpeningBalance(parseFloat(e.target.value) || 0)} 
-                    min={0}
-                    required 
-                  />
-                </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Account / Wallet Name</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  value={walletName} 
+                  onChange={e => setWalletName(e.target.value)} 
+                  placeholder="e.g. SBI Current A/c"
+                  required 
+                />
               </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowWalletModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-secondary">Create Account</button>
+              <div className="form-group">
+                <label className="form-label">Account Type</label>
+                <select 
+                  value={walletType} 
+                  onChange={e => setWalletType(e.target.value)} 
+                  className="form-control"
+                >
+                  <option value="Cash">Cash (Cash Register/Drawer)</option>
+                  <option value="Bank">Bank (Savings/Checking Account)</option>
+                  <option value="Digital Wallet">Digital Wallet (GPay, PhonePe, Paytm)</option>
+                </select>
               </div>
-            </form>
-          </div>
+              <div className="form-group">
+                <label className="form-label">Opening Balance (INR)</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  value={openingBalance} 
+                  onChange={e => setOpeningBalance(parseFloat(e.target.value) || 0)} 
+                  min={0}
+                  required 
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setShowWalletModal(false)} className="btn btn-outline">Cancel</button>
+              <button type="submit" className="btn btn-secondary">Create Account</button>
+            </div>
+          </form>
         </div>
       )}
 
       {/* Transaction Modal */}
       {showTxModal && (
         <div className="modal-overlay" onClick={() => setShowTxModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '480px' }}>
+          <form className="modal-content" onSubmit={handleTransaction} onClick={e => e.stopPropagation()} style={{ width: '480px' }}>
             <div className="modal-header">
               <h3>{txType === 'Add' ? 'Add Deposit Money' : txType === 'Withdraw' ? 'Record Withdrawal / Expense Payment' : 'Internal Account Transfer'}</h3>
-              <button onClick={() => setShowTxModal(false)} className="close-btn"><X size={20} /></button>
+              <button type="button" onClick={() => setShowTxModal(false)} className="close-btn"><X size={20} /></button>
             </div>
-            <form onSubmit={handleTransaction}>
-              <div className="modal-body">
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">{txType === 'Transfer' ? 'Source Account' : 'Account'}</label>
+                <select 
+                  value={txWalletId} 
+                  onChange={e => setTxWalletId(e.target.value)} 
+                  className="form-control"
+                  required
+                >
+                  <option value="">Select Account...</option>
+                  {wallets.map(w => (
+                    <option key={w.id} value={w.id}>{w.name} ({fmt(w.currentBalance)})</option>
+                  ))}
+                </select>
+              </div>
+
+              {txType === 'Transfer' && (
                 <div className="form-group">
-                  <label className="form-label">{txType === 'Transfer' ? 'Source Account' : 'Account'}</label>
+                  <label className="form-label">Destination Account</label>
                   <select 
-                    value={txWalletId} 
-                    onChange={e => setTxWalletId(e.target.value)} 
+                    value={txToWalletId} 
+                    onChange={e => setTxToWalletId(e.target.value)} 
                     className="form-control"
                     required
                   >
-                    <option value="">Select Account...</option>
+                    <option value="">Select Target Account...</option>
                     {wallets.map(w => (
                       <option key={w.id} value={w.id}>{w.name} ({fmt(w.currentBalance)})</option>
                     ))}
                   </select>
                 </div>
+              )}
 
-                {txType === 'Transfer' && (
-                  <div className="form-group">
-                    <label className="form-label">Destination Account</label>
-                    <select 
-                      value={txToWalletId} 
-                      onChange={e => setTxToWalletId(e.target.value)} 
-                      className="form-control"
-                      required
-                    >
-                      <option value="">Select Target Account...</option>
-                      {wallets.map(w => (
-                        <option key={w.id} value={w.id}>{w.name} ({fmt(w.currentBalance)})</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label className="form-label">Amount (INR)</label>
-                  <input 
-                    type="number" 
-                    className="form-control" 
-                    value={txAmount} 
-                    onChange={e => setTxAmount(parseFloat(e.target.value) || 0)} 
-                    min={0.01}
-                    step="any"
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Post Date</label>
-                  <input 
-                    type="date" 
-                    className="form-control" 
-                    value={txDate} 
-                    onChange={e => setTxDate(e.target.value)} 
-                    required 
-                  />
-                </div>
-
-                {txType !== 'Transfer' && (
-                  <div className="form-group">
-                    <label className="form-label">Payment Mode</label>
-                    <select 
-                      value={txPaymentMode} 
-                      onChange={e => setTxPaymentMode(e.target.value)} 
-                      className="form-control"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="UPI">UPI Payment</option>
-                      <option value="Bank Transfer">Net Banking / NEFT</option>
-                      <option value="Cheque">Bank Cheque</option>
-                    </select>
-                  </div>
-                )}
-
-                {txType !== 'Transfer' && (
-                  <div className="form-group">
-                    <label className="form-label">Reference Number (Optional)</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={txRef} 
-                      onChange={e => setTxRef(e.target.value)} 
-                      placeholder="e.g. UTR / Tx ID"
-                    />
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label className="form-label">Post Description / Memo</label>
-                  <textarea 
-                    className="form-control" 
-                    value={txDesc} 
-                    onChange={e => setTxDesc(e.target.value)} 
-                    placeholder="Brief notes about the transaction..."
-                  />
-                </div>
+              <div className="form-group">
+                <label className="form-label">Amount (INR)</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  value={txAmount} 
+                  onChange={e => setTxAmount(parseFloat(e.target.value) || 0)} 
+                  min={0.01}
+                  step="any"
+                  required 
+                />
               </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowTxModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-secondary">Submit Transaction</button>
+
+              <div className="form-group">
+                <label className="form-label">Post Date</label>
+                <input 
+                  type="date" 
+                  className="form-control" 
+                  value={txDate} 
+                  onChange={e => setTxDate(e.target.value)} 
+                  required 
+                />
               </div>
-            </form>
-          </div>
+
+              {txType !== 'Transfer' && (
+                <div className="form-group">
+                  <label className="form-label">Payment Mode</label>
+                  <select 
+                    value={txPaymentMode} 
+                    onChange={e => setTxPaymentMode(e.target.value)} 
+                    className="form-control"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI Payment</option>
+                    <option value="Bank Transfer">Net Banking / NEFT</option>
+                    <option value="Cheque">Bank Cheque</option>
+                  </select>
+                </div>
+              )}
+
+              {txType !== 'Transfer' && (
+                <div className="form-group">
+                  <label className="form-label">Reference Number (Optional)</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    value={txRef} 
+                    onChange={e => setTxRef(e.target.value)} 
+                    placeholder="e.g. UTR / Tx ID"
+                  />
+                </div>
+              )}
+
+              <div className="form-group">
+                <label className="form-label">Post Description / Memo</label>
+                <textarea 
+                  className="form-control" 
+                  value={txDesc} 
+                  onChange={e => setTxDesc(e.target.value)} 
+                  placeholder="Brief notes about the transaction..."
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setShowTxModal(false)} className="btn btn-outline">Cancel</button>
+              <button type="submit" className="btn btn-secondary">Submit Transaction</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

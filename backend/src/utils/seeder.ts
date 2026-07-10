@@ -191,9 +191,9 @@ export async function seedDatabase() {
         sendBeforeDays: 1,
         smtpHost: "smtpout.secureserver.net",
         smtpPort: 587,
-        smtpUser: "info@sevendorsolutions.com",
-        smtpPass: "Chinna@123",
-        senderEmail: "info@sevendorsolutions.com",
+        smtpUser: "info@jkfutureinfra.com",
+        smtpPass: "JKFUTUREINFRA@999",
+        senderEmail: "info@jkfutureinfra.com",
         summaryEmail: "jkfutureinfra@gmail.com",
         emailSubject: "Reminder: Scheduled Site Visit for {projectName}",
         emailTemplate: "Hello {customerName},\n\nThis is a friendly reminder that you have a scheduled site visit for {projectName} on {visitDate} at {visitTime}.\n\nLocation: {location}\n\nOur property consultant {assignedAgent} (Phone: {assignedAgentPhone}) will guide you.\n\nWarm regards,\nJK Future Infra Team",
@@ -217,9 +217,9 @@ export async function seedDatabase() {
       await mailConfig.update({
         smtpHost: "smtpout.secureserver.net",
         smtpPort: 587,
-        smtpUser: "info@sevendorsolutions.com",
-        smtpPass: "Chinna@123",
-        senderEmail: "info@sevendorsolutions.com",
+        smtpUser: "info@jkfutureinfra.com",
+        smtpPass: "JKFUTUREINFRA@999",
+        senderEmail: "info@jkfutureinfra.com",
         deliveryMode: "smtp"
       });
     }

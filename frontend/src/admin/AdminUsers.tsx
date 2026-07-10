@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { User, MarketingAgent } from '../types';
-import { Trash2, Edit2, Shield, UserCheck, Key } from 'lucide-react';
+import { Trash2, Edit2, Shield, UserCheck, Key, X } from 'lucide-react';
 import { addUser, deleteUser, updateUser } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -287,12 +287,13 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px' }}>
-            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>
-              {editingUser ? `Edit Account: ${editingUser.name}` : 'Register New Staff Login'}
-            </h3>
+          <form onSubmit={handleSubmit} className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px' }}>
+            <div className="modal-header">
+              <h3>{editingUser ? `Edit Account: ${editingUser.name}` : 'Register New Staff Login'}</h3>
+              <button type="button" onClick={() => setModalOpen(false)} className="close-btn"><X size={20} /></button>
+            </div>
             
-            <form onSubmit={handleSubmit} className="p-3">
+            <div className="modal-body">
               <div className="form-group">
                 <label className="form-label">Full Name *</label>
                 <input 
@@ -343,7 +344,19 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                   <select
                     className="form-control"
                     value={agentId}
-                    onChange={e => setAgentId(e.target.value)}
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setAgentId(selectedId);
+                      if (selectedId) {
+                        const agent = agents.find(a => a.id === selectedId);
+                        if (agent) {
+                          setName(agent.name);
+                          if (agent.email) {
+                            setEmail(agent.email);
+                          }
+                        }
+                      }
+                    }}
                     required
                   >
                     <option value="">-- Select Marketing Agent --</option>
@@ -461,15 +474,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                   </div>
                 </div>
               )}
+            </div>
 
-              <div className="flex gap-2 justify-end mt-2">
-                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm">
-                  {editingUser ? 'Save Changes' : 'Create Login'}
-                </button>
-              </div>
-            </form>
-          </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+              <button type="submit" className="btn btn-secondary btn-sm">
+                {editingUser ? 'Save Changes' : 'Create Login'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

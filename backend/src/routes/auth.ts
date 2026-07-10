@@ -189,9 +189,9 @@ router.post("/forgot-password", async (req, res, next) => {
         const mailConfig = await MailConfig.findByPk("default");
         const smtpHost = mailConfig?.smtpHost || "smtpout.secureserver.net";
         const smtpPort = mailConfig?.smtpPort || 587;
-        const smtpUser = mailConfig?.smtpUser || "";
-        const smtpPass = mailConfig?.smtpPass || "";
-        const senderEmail = mailConfig?.senderEmail || "info@sevendorsolutions.com";
+        const smtpUser = mailConfig?.smtpUser || "info@jkfutureinfra.com";
+        const smtpPass = mailConfig?.smtpPass || "JKFUTUREINFRA@999";
+        const senderEmail = mailConfig?.senderEmail || "info@jkfutureinfra.com";
         const deliveryMode = mailConfig?.deliveryMode || "simulation";
 
         if (deliveryMode === "simulation") {

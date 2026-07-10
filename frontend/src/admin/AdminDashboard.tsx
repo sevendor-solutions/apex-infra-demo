@@ -31,7 +31,8 @@ import {
   addCustomer, 
   addSupplier,
   addSiteVisit,
-  getSiteVisits
+  getSiteVisits,
+  getWalletTransactions
 } from '../utils/db';
 
 interface AdminDashboardProps {
@@ -83,6 +84,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   quotations = []
 }) => {
   const [localSiteVisits, setLocalSiteVisits] = useState<SiteVisit[]>([]);
+  const [latestTransactions, setLatestTransactions] = useState<WalletTransaction[]>([]);
 
   // Load site visits locally for dashboard counts
   useEffect(() => {
@@ -90,6 +92,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       getSiteVisits().then(setLocalSiteVisits).catch(() => {});
     }
   }, [enquiries]);
+
+  // Load ledger transactions locally for dashboard listing
+  useEffect(() => {
+    if (hasScreenAccess('wallets')) {
+      getWalletTransactions()
+        .then((txs) => {
+          const sorted = [...txs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          setLatestTransactions(sorted.slice(0, 5));
+        })
+        .catch(() => {});
+    }
+  }, [wallets, hasScreenAccess]);
 
   useEffect(() => {
     // Inject elegant fonts dynamically
@@ -1278,6 +1292,129 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               {localSiteVisits.length === 0 && (
                 <p style={{ textAlign: 'center', color: colors.textMuted, fontSize: '0.75rem', padding: '1rem 0' }}>No site visits scheduled.</p>
               )}
+            </div>
+          </div>
+        )}
+
+        {hasScreenAccess('wallets') && wallets && wallets.length > 0 && (
+          <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <WalletIcon size={16} style={{ color: colors.accent }} /> Cash & Bank Accounts
+              </h3>
+              <button 
+                onClick={() => onSetTab('wallets')} 
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+              >
+                Manage <ArrowUpRight size={10} />
+              </button>
+            </div>
+            <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                <thead>
+                  <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Account Name</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Type</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', color: colors.textMain }}>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wallets.map(w => (
+                    <tr key={w.id} style={{ borderBottom: colors.border }}>
+                      <td style={{ padding: '6px 8px' }}>
+                        <strong style={{ color: colors.textMain }}>{w.name}</strong>
+                      </td>
+                      <td style={{ padding: '6px 8px', color: colors.textMuted }}>
+                        {w.type}
+                      </td>
+                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: w.currentBalance < 0 ? '#ef4444' : '#10b981' }}>
+                        {fmt(w.currentBalance)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {hasScreenAccess('wallets') && latestTransactions.length > 0 && (
+          <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <WalletIcon size={16} style={{ color: colors.accent }} /> Account Ledger: Last Transactions
+              </h3>
+              <button 
+                onClick={() => onSetTab('wallets')} 
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+              >
+                View Ledger <ArrowUpRight size={10} />
+              </button>
+            </div>
+            <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                <thead>
+                  <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Date</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Account / Details</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Type</th>
+                    <th style={{ padding: '6px 8px', textAlign: 'right', color: colors.textMain }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {latestTransactions.map(tx => {
+                    const walletName = wallets.find(w => w.id === tx.walletId)?.name || 'Unknown';
+                    const targetName = tx.toWalletId ? wallets.find(w => w.id === tx.toWalletId)?.name : null;
+                    
+                    // Format type label and colors
+                    let typeLabel = tx.type;
+                    let typeColor = colors.textMain;
+                    let amountPrefix = '';
+                    let amountColor = '#10b981'; // positive default
+                    
+                    if (tx.type === 'Add') {
+                      typeLabel = 'Deposit';
+                      typeColor = '#10b981';
+                      amountPrefix = '+';
+                    } else if (tx.type === 'Withdraw') {
+                      typeLabel = 'Withdrawal';
+                      typeColor = '#ef4444';
+                      amountPrefix = '-';
+                      amountColor = '#ef4444';
+                    } else if (tx.type === 'Transfer') {
+                      typeLabel = 'Transfer';
+                      typeColor = colors.accent;
+                      amountPrefix = '⇄';
+                      amountColor = colors.accent;
+                    }
+                    
+                    return (
+                      <tr key={tx.id} style={{ borderBottom: colors.border }}>
+                        <td style={{ padding: '6px 8px', color: colors.textMuted }}>
+                          {tx.date ? new Date(tx.date).toLocaleDateString('en-IN') : '-'}
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <div style={{ color: colors.textMain, fontWeight: 600 }}>{walletName}</div>
+                          {targetName && (
+                            <div style={{ fontSize: '0.65rem', color: colors.textMuted }}>to: {targetName}</div>
+                          )}
+                          {tx.description && !targetName && (
+                            <div style={{ fontSize: '0.65rem', color: colors.textMuted, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }}>{tx.description}</div>
+                          )}
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: typeColor }}>
+                            {typeLabel}
+                          </span>
+                        </td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: amountColor }}>
+                          {amountPrefix} {fmt(tx.amount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

@@ -86,6 +86,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   AlertTriangle,
   Eye,
   EyeOff,
@@ -183,6 +184,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Collapsible groups state
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    overview: true,
+    projectPortfolio: false,
+    marketingCampaigns: false,
+    landPlotting: false,
+    mediaGallery: false,
+    blogsArticles: false,
+    documentArchive: false,
+    leadsManagement: false,
+    talentAcquisition: false,
+    siteVisits: false,
+    communicationConfig: false,
+    expenseManagement: false,
+    clientVendorAccounts: false,
+    salesBilling: false,
+    systemGovernance: false,
+  });
+
+  const toggleGroup = (groupKey: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupKey]: !prev[groupKey]
+    }));
+  };
+
+  const tabToGroupMap = useMemo(() => {
+    const map: Record<string, string> = {
+      dashboard: 'overview',
+      projects: 'projectPortfolio',
+      marketing: 'marketingCampaigns',
+      marketing_agents: 'marketingCampaigns',
+      sites: 'landPlotting',
+      project_gallery: 'mediaGallery',
+      marketing_gallery: 'mediaGallery',
+      blogs: 'blogsArticles',
+      documents: 'documentArchive',
+      project_enquiries: 'leadsManagement',
+      marketing_enquiries: 'leadsManagement',
+      careers: 'talentAcquisition',
+      site_visits: 'siteVisits',
+      mail_config: 'communicationConfig',
+      expenses: 'expenseManagement',
+      wallets: 'expenseManagement',
+      customers: 'clientVendorAccounts',
+      suppliers: 'clientVendorAccounts',
+      inventory: 'salesBilling',
+      quotations: 'salesBilling',
+      invoices: 'salesBilling',
+      payments_in: 'salesBilling',
+      payments_out: 'salesBilling',
+      payments_pending: 'salesBilling',
+      loans: 'salesBilling',
+      auditor_reports: 'salesBilling',
+      users: 'systemGovernance',
+      masters: 'systemGovernance',
+      audit_logs: 'systemGovernance',
+    };
+    return map;
+  }, []);
+
+  // Auto-expand group when activeTab changes
+  useEffect(() => {
+    if (activeTab) {
+      const group = tabToGroupMap[activeTab];
+      if (group) {
+        setExpandedGroups(prev => {
+          if (!prev[group]) {
+            return { ...prev, [group]: true };
+          }
+          return prev;
+        });
+      }
+    }
+  }, [activeTab, tabToGroupMap]);
 
   // Triggered review from main dashboard click
   const [focusedEnquiry, setFocusedEnquiry] = useState<Enquiry | null>(null);
@@ -707,14 +784,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   }, [projects, searchQuery]);
 
   const searchedMarketing = useMemo(() => {
-    if (!searchQuery.trim()) return marketing;
+    let filtered = marketing;
+    if (currentUser && currentUser.role !== 'Admin') {
+      if (currentUser.agentId) {
+        filtered = marketing.filter(m => m.agentId === currentUser.agentId);
+      } else {
+        filtered = [];
+      }
+    }
+    if (!searchQuery.trim()) return filtered;
     const query = searchQuery.toLowerCase();
-    return marketing.filter(m => 
+    return filtered.filter(m => 
       m.name.toLowerCase().includes(query) || 
       m.location.toLowerCase().includes(query) || 
       m.category.toLowerCase().includes(query)
     );
-  }, [marketing, searchQuery]);
+  }, [marketing, searchQuery, currentUser]);
 
   const searchedEnquiries = useMemo(() => {
     if (!searchQuery.trim()) return enquiries;
@@ -1085,6 +1170,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <img 
             src={logoImg} 
             alt="JK Logo" 
+            onClick={() => {
+              handleOpenTab('dashboard');
+              setExpandedGroups({
+                overview: true,
+                projectPortfolio: false,
+                marketingCampaigns: false,
+                landPlotting: false,
+                mediaGallery: false,
+                blogsArticles: false,
+                documentArchive: false,
+                leadsManagement: false,
+                talentAcquisition: false,
+                siteVisits: false,
+                communicationConfig: false,
+                expenseManagement: false,
+                clientVendorAccounts: false,
+                salesBilling: false,
+                systemGovernance: false,
+              });
+            }}
             style={{
               marginTop: '10px',
               height: '119px',
@@ -1093,7 +1198,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               backgroundColor: 'rgb(255, 255, 255)',
               padding: '4px 12px',
               borderRadius: '44px',
-              display: 'block'
+              display: 'block',
+              cursor: 'pointer'
             }} 
           />
           <button 
@@ -1108,396 +1214,845 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
         <ul className="admin-sidebar-menu">
           
-          {/* Group 1: General */}
+          {/* Group 1: Overview & Dashboard */}
           <div className="admin-sidebar-group">
-            <div className="admin-sidebar-group-title">Overview</div>
-            {hasScreenAccess('dashboard') && (
-              <li className="admin-sidebar-item">
-                <button 
-                  onClick={() => handleOpenTab('dashboard')} 
-                  className={`admin-sidebar-link ${activeTab === 'dashboard' ? 'active' : ''}`}
-                  data-tooltip="Launchpad Overview"
-                >
-                  <LayoutDashboard size={16} /> <span className="admin-sidebar-link-text">Dashboard</span>
-                </button>
-              </li>
+            <div 
+              className="admin-sidebar-group-header" 
+              onClick={() => toggleGroup('overview')}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                cursor: 'pointer',
+                paddingRight: '1.25rem',
+                userSelect: 'none'
+              }}
+            >
+              <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Overview & Dashboard</div>
+              {!sidebarCollapsed && (
+                <ChevronDown 
+                  size={14} 
+                  className="group-arrow-icon"
+                  style={{ 
+                    transform: expandedGroups.overview ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                    transition: 'transform 0.2s ease',
+                    color: 'rgba(255, 255, 255, 0.4)',
+                    flexShrink: 0
+                  }} 
+                />
+              )}
+            </div>
+            {(expandedGroups.overview || sidebarCollapsed) && (
+              <>
+                {hasScreenAccess('dashboard') && (
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('dashboard')} 
+                      className={`admin-sidebar-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+                      data-tooltip="Launchpad Overview"
+                    >
+                      <LayoutDashboard size={16} /> <span className="admin-sidebar-link-text">Dashboard</span>
+                    </button>
+                  </li>
+                )}
+              </>
             )}
           </div>
 
-          {/* Group 2: Listings & Properties */}
-          {(hasScreenAccess('projects') || hasScreenAccess('marketing') || hasScreenAccess('sites')) && (
+          {/* Group 2: Project Portfolio */}
+          {hasScreenAccess('projects') && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">Business Operations</div>
-              
-              {hasScreenAccess('projects') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('projects')} 
-                    className={`admin-sidebar-link ${activeTab === 'projects' ? 'active' : ''}`}
-                    data-tooltip="Manage Projects"
-                  >
-                    <Building size={16} /> <span className="admin-sidebar-link-text">Manage Projects</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('marketing') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('marketing')} 
-                    className={`admin-sidebar-link ${activeTab === 'marketing' ? 'active' : ''}`}
-                    data-tooltip="Manage Marketing"
-                  >
-                    <Layers size={16} /> <span className="admin-sidebar-link-text">Manage Marketing</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('marketing_agents') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('marketing_agents')} 
-                    className={`admin-sidebar-link ${activeTab === 'marketing_agents' ? 'active' : ''}`}
-                    data-tooltip="Marketing Agents"
-                  >
-                    <Users size={16} /> <span className="admin-sidebar-link-text">Marketing Agents</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('sites') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('sites')} 
-                    className={`admin-sidebar-link ${activeTab === 'sites' ? 'active' : ''}`}
-                    data-tooltip="Plot Layouts"
-                  >
-                    <Map size={16} /> <span className="admin-sidebar-link-text">Plot Layouts</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('projectPortfolio')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Project Portfolio</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.projectPortfolio ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.projectPortfolio || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('projects')} 
+                      className={`admin-sidebar-link ${activeTab === 'projects' ? 'active' : ''}`}
+                      data-tooltip="Manage Projects"
+                    >
+                      <Building size={16} /> <span className="admin-sidebar-link-text">Manage Projects</span>
+                    </button>
+                  </li>
+                </>
               )}
             </div>
           )}
 
-          {/* Group 3: Media & Blogs */}
-          {(hasScreenAccess('project_gallery') || hasScreenAccess('marketing_gallery') || hasScreenAccess('blogs') || hasScreenAccess('documents')) && (
+          {/* Group 3: Marketing Campaigns */}
+          {(hasScreenAccess('marketing') || hasScreenAccess('marketing_agents')) && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">Media & Content</div>
-              
-              {hasScreenAccess('project_gallery') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('project_gallery')} 
-                    className={`admin-sidebar-link ${activeTab === 'project_gallery' ? 'active' : ''}`}
-                    data-tooltip="Project Gallery"
-                  >
-                    <ImageIcon size={16} /> <span className="admin-sidebar-link-text">Project Gallery</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('marketing_gallery') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('marketing_gallery')} 
-                    className={`admin-sidebar-link ${activeTab === 'marketing_gallery' ? 'active' : ''}`}
-                    data-tooltip="Marketing Gallery"
-                  >
-                    <ImageIcon size={16} /> <span className="admin-sidebar-link-text">Marketing Gallery</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('blogs') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('blogs')} 
-                    className={`admin-sidebar-link ${activeTab === 'blogs' ? 'active' : ''}`}
-                    data-tooltip="Blogs & News"
-                  >
-                    <FileText size={16} /> <span className="admin-sidebar-link-text">Blogs & News</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('documents') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('documents')} 
-                    className={`admin-sidebar-link ${activeTab === 'documents' ? 'active' : ''}`}
-                    data-tooltip="Document Storage"
-                  >
-                    <FolderOpen size={16} /> <span className="admin-sidebar-link-text">Document Storage</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('marketingCampaigns')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Marketing Campaigns</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.marketingCampaigns ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.marketingCampaigns || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('marketing') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('marketing')} 
+                        className={`admin-sidebar-link ${activeTab === 'marketing' ? 'active' : ''}`}
+                        data-tooltip="Manage Marketing"
+                      >
+                        <Layers size={16} /> <span className="admin-sidebar-link-text">Manage Marketing</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('marketing_agents') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('marketing_agents')} 
+                        className={`admin-sidebar-link ${activeTab === 'marketing_agents' ? 'active' : ''}`}
+                        data-tooltip="Marketing Agents"
+                      >
+                        <Users size={16} /> <span className="admin-sidebar-link-text">Marketing Agents</span>
+                      </button>
+                    </li>
+                  )}
+                </>
               )}
             </div>
           )}
 
-          {/* Group 4: Inquiries & Leads */}
-          {(hasScreenAccess('project_enquiries') || hasScreenAccess('marketing_enquiries') || hasScreenAccess('careers')) && (
+          {/* Group 4: Land Plotting */}
+          {hasScreenAccess('sites') && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">Inquiries & Leads</div>
-              
-              {hasScreenAccess('project_enquiries') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('project_enquiries')} 
-                    className={`admin-sidebar-link ${activeTab === 'project_enquiries' ? 'active' : ''}`}
-                    data-tooltip="Project Leads"
-                  >
-                    <MessageSquare size={16} /> <span className="admin-sidebar-link-text">Project Leads</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('marketing_enquiries') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('marketing_enquiries')} 
-                    className={`admin-sidebar-link ${activeTab === 'marketing_enquiries' ? 'active' : ''}`}
-                    data-tooltip="Marketing Leads"
-                  >
-                    <MessageSquare size={16} /> <span className="admin-sidebar-link-text">Marketing Leads</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('careers') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('careers')} 
-                    className={`admin-sidebar-link ${activeTab === 'careers' ? 'active' : ''}`}
-                    data-tooltip="Job Applications"
-                  >
-                    <Briefcase size={16} /> <span className="admin-sidebar-link-text">Job Applications</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('landPlotting')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Land Plotting</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.landPlotting ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.landPlotting || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('sites')} 
+                      className={`admin-sidebar-link ${activeTab === 'sites' ? 'active' : ''}`}
+                      data-tooltip="Plot Layouts"
+                    >
+                      <Map size={16} /> <span className="admin-sidebar-link-text">Plot Layouts</span>
+                    </button>
+                  </li>
+                </>
               )}
             </div>
           )}
 
-          {/* Group: Site Visit Reminders */}
-          {(hasScreenAccess('site_visits') || hasScreenAccess('mail_config')) && (
+          {/* Group 5: Media Gallery */}
+          {(hasScreenAccess('project_gallery') || hasScreenAccess('marketing_gallery')) && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">Site Reminders</div>
-              
-              {hasScreenAccess('site_visits') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('site_visits')} 
-                    className={`admin-sidebar-link ${activeTab === 'site_visits' ? 'active' : ''}`}
-                    data-tooltip="Site Visit Emails"
-                  >
-                    <Mail size={16} /> <span className="admin-sidebar-link-text">Site Visit Emails</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('mail_config') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('mail_config')} 
-                    className={`admin-sidebar-link ${activeTab === 'mail_config' ? 'active' : ''}`}
-                    data-tooltip="System Settings"
-                  >
-                    <Settings size={16} /> <span className="admin-sidebar-link-text">System Settings</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('mediaGallery')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Media Gallery</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.mediaGallery ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.mediaGallery || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('project_gallery') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('project_gallery')} 
+                        className={`admin-sidebar-link ${activeTab === 'project_gallery' ? 'active' : ''}`}
+                        data-tooltip="Project Gallery"
+                      >
+                        <ImageIcon size={16} /> <span className="admin-sidebar-link-text">Project Gallery</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('marketing_gallery') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('marketing_gallery')} 
+                        className={`admin-sidebar-link ${activeTab === 'marketing_gallery' ? 'active' : ''}`}
+                        data-tooltip="Marketing Gallery"
+                      >
+                        <ImageIcon size={16} /> <span className="admin-sidebar-link-text">Marketing Gallery</span>
+                      </button>
+                    </li>
+                  )}
+                </>
               )}
             </div>
           )}
 
-          {/* Group: Finance & Accounts */}
-          {(hasScreenAccess('expenses') || hasScreenAccess('wallets') || hasScreenAccess('invoices') || hasScreenAccess('quotations') || hasScreenAccess('inventory') || hasScreenAccess('loans') || hasScreenAccess('payments_in') || hasScreenAccess('payments_out') || hasScreenAccess('payments_pending') || hasScreenAccess('customers') || hasScreenAccess('suppliers') || hasScreenAccess('auditor_reports')) && (
+          {/* Group 6: Blogs & Articles */}
+          {hasScreenAccess('blogs') && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">Finance & Accounts</div>
-              
-              {hasScreenAccess('expenses') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('expenses')} 
-                    className={`admin-sidebar-link ${activeTab === 'expenses' ? 'active' : ''}`}
-                    data-tooltip="Expenses Ledger"
-                  >
-                    <Receipt size={16} /> <span className="admin-sidebar-link-text">Expenses Ledger</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('wallets') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('wallets')} 
-                    className={`admin-sidebar-link ${activeTab === 'wallets' ? 'active' : ''}`}
-                    data-tooltip="Digital Wallets"
-                  >
-                    <Landmark size={16} /> <span className="admin-sidebar-link-text">Digital Wallets</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('customers') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('customers')} 
-                    className={`admin-sidebar-link ${activeTab === 'customers' ? 'active' : ''}`}
-                    data-tooltip="Customer Accounts"
-                  >
-                    <Users size={16} /> <span className="admin-sidebar-link-text">Customers</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('suppliers') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('suppliers')} 
-                    className={`admin-sidebar-link ${activeTab === 'suppliers' ? 'active' : ''}`}
-                    data-tooltip="Supplier Accounts"
-                  >
-                    <Briefcase size={16} /> <span className="admin-sidebar-link-text">Suppliers</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('inventory') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('inventory')} 
-                    className={`admin-sidebar-link ${activeTab === 'inventory' ? 'active' : ''}`}
-                    data-tooltip="Stock & Inventory"
-                  >
-                    <Layers size={16} /> <span className="admin-sidebar-link-text">Stock & Inventory</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('quotations') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('quotations')} 
-                    className={`admin-sidebar-link ${activeTab === 'quotations' ? 'active' : ''}`}
-                    data-tooltip="Quotations"
-                  >
-                    <ClipboardList size={16} /> <span className="admin-sidebar-link-text">Quotations</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('invoices') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('invoices')} 
-                    className={`admin-sidebar-link ${activeTab === 'invoices' ? 'active' : ''}`}
-                    data-tooltip="Sales Invoices"
-                  >
-                    <FileText size={16} /> <span className="admin-sidebar-link-text">Sales Invoices</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('payments_in') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('payments_in')} 
-                    className={`admin-sidebar-link ${activeTab === 'payments_in' ? 'active' : ''}`}
-                    data-tooltip="Payments In"
-                  >
-                    <ArrowUpRight size={16} /> <span className="admin-sidebar-link-text">Payments In</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('payments_out') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('payments_out')} 
-                    className={`admin-sidebar-link ${activeTab === 'payments_out' ? 'active' : ''}`}
-                    data-tooltip="Payments Out"
-                  >
-                    <ArrowDownLeft size={16} /> <span className="admin-sidebar-link-text">Payments Out</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('payments_pending') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('payments_pending')} 
-                    className={`admin-sidebar-link ${activeTab === 'payments_pending' ? 'active' : ''}`}
-                    data-tooltip="Pending Collections"
-                  >
-                    <AlertTriangle size={16} /> <span className="admin-sidebar-link-text">Pending Collections</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('loans') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('loans')} 
-                    className={`admin-sidebar-link ${activeTab === 'loans' ? 'active' : ''}`}
-                    data-tooltip="Loans Tracker"
-                  >
-                    <Coins size={16} /> <span className="admin-sidebar-link-text">Loans Tracker</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('auditor_reports') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('auditor_reports')} 
-                    className={`admin-sidebar-link ${activeTab === 'auditor_reports' ? 'active' : ''}`}
-                    data-tooltip="Auditor Reports"
-                  >
-                    <FileText size={16} /> <span className="admin-sidebar-link-text">Auditor Reports</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('blogsArticles')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Blogs & Articles</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.blogsArticles ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.blogsArticles || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('blogs')} 
+                      className={`admin-sidebar-link ${activeTab === 'blogs' ? 'active' : ''}`}
+                      data-tooltip="Blogs & News"
+                    >
+                      <FileText size={16} /> <span className="admin-sidebar-link-text">Blogs & News</span>
+                    </button>
+                  </li>
+                </>
               )}
             </div>
           )}
 
-          {/* Group 5: Administration */}
+          {/* Group 7: Document Archive */}
+          {hasScreenAccess('documents') && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('documentArchive')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Document Archive</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.documentArchive ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.documentArchive || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('documents')} 
+                      className={`admin-sidebar-link ${activeTab === 'documents' ? 'active' : ''}`}
+                      data-tooltip="Document Storage"
+                    >
+                      <FolderOpen size={16} /> <span className="admin-sidebar-link-text">Document Storage</span>
+                    </button>
+                  </li>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 8: Leads Management */}
+          {(hasScreenAccess('project_enquiries') || hasScreenAccess('marketing_enquiries')) && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('leadsManagement')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Leads Management</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.leadsManagement ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.leadsManagement || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('project_enquiries') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('project_enquiries')} 
+                        className={`admin-sidebar-link ${activeTab === 'project_enquiries' ? 'active' : ''}`}
+                        data-tooltip="Project Leads"
+                      >
+                        <MessageSquare size={16} /> <span className="admin-sidebar-link-text">Project Leads</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('marketing_enquiries') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('marketing_enquiries')} 
+                        className={`admin-sidebar-link ${activeTab === 'marketing_enquiries' ? 'active' : ''}`}
+                        data-tooltip="Marketing Leads"
+                      >
+                        <MessageSquare size={16} /> <span className="admin-sidebar-link-text">Marketing Leads</span>
+                      </button>
+                    </li>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 9: Talent Acquisition */}
+          {hasScreenAccess('careers') && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('talentAcquisition')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Talent Acquisition</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.talentAcquisition ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.talentAcquisition || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('careers')} 
+                      className={`admin-sidebar-link ${activeTab === 'careers' ? 'active' : ''}`}
+                      data-tooltip="Job Applications"
+                    >
+                      <Briefcase size={16} /> <span className="admin-sidebar-link-text">Job Applications</span>
+                    </button>
+                  </li>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 10: Site Visits */}
+          {hasScreenAccess('site_visits') && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('siteVisits')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Site Visits</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.siteVisits ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.siteVisits || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('site_visits')} 
+                      className={`admin-sidebar-link ${activeTab === 'site_visits' ? 'active' : ''}`}
+                      data-tooltip="Site Visit Emails"
+                    >
+                      <Mail size={16} /> <span className="admin-sidebar-link-text">Site Visit Emails</span>
+                    </button>
+                  </li>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 11: Communication Config */}
+          {hasScreenAccess('mail_config') && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('communicationConfig')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Communication Config</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.communicationConfig ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.communicationConfig || sidebarCollapsed) && (
+                <>
+                  <li className="admin-sidebar-item">
+                    <button 
+                      onClick={() => handleOpenTab('mail_config')} 
+                      className={`admin-sidebar-link ${activeTab === 'mail_config' ? 'active' : ''}`}
+                      data-tooltip="System Settings"
+                    >
+                      <Settings size={16} /> <span className="admin-sidebar-link-text">System Settings</span>
+                    </button>
+                  </li>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 12: Expense Management */}
+          {(hasScreenAccess('expenses') || hasScreenAccess('wallets')) && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('expenseManagement')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Expense Management</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.expenseManagement ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.expenseManagement || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('expenses') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('expenses')} 
+                        className={`admin-sidebar-link ${activeTab === 'expenses' ? 'active' : ''}`}
+                        data-tooltip="Expenses Ledger"
+                      >
+                        <Receipt size={16} /> <span className="admin-sidebar-link-text">Expenses Ledger</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('wallets') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('wallets')} 
+                        className={`admin-sidebar-link ${activeTab === 'wallets' ? 'active' : ''}`}
+                        data-tooltip="Digital Wallets"
+                      >
+                        <Landmark size={16} /> <span className="admin-sidebar-link-text">Digital Wallets</span>
+                      </button>
+                    </li>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 13: Client & Vendor Accounts */}
+          {(hasScreenAccess('customers') || hasScreenAccess('suppliers')) && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('clientVendorAccounts')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Client & Vendor Accounts</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.clientVendorAccounts ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.clientVendorAccounts || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('customers') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('customers')} 
+                        className={`admin-sidebar-link ${activeTab === 'customers' ? 'active' : ''}`}
+                        data-tooltip="Customer Accounts"
+                      >
+                        <Users size={16} /> <span className="admin-sidebar-link-text">Customers</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('suppliers') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('suppliers')} 
+                        className={`admin-sidebar-link ${activeTab === 'suppliers' ? 'active' : ''}`}
+                        data-tooltip="Supplier Accounts"
+                      >
+                        <Briefcase size={16} /> <span className="admin-sidebar-link-text">Suppliers</span>
+                      </button>
+                    </li>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 14: Sales & Billing */}
+          {(hasScreenAccess('inventory') || hasScreenAccess('quotations') || hasScreenAccess('invoices') || hasScreenAccess('payments_in') || hasScreenAccess('payments_out') || hasScreenAccess('payments_pending') || hasScreenAccess('loans') || hasScreenAccess('auditor_reports')) && (
+            <div className="admin-sidebar-group">
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('salesBilling')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Sales & Billing</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.salesBilling ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.salesBilling || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('inventory') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('inventory')} 
+                        className={`admin-sidebar-link ${activeTab === 'inventory' ? 'active' : ''}`}
+                        data-tooltip="Stock & Inventory"
+                      >
+                        <Layers size={16} /> <span className="admin-sidebar-link-text">Stock & Inventory</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('quotations') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('quotations')} 
+                        className={`admin-sidebar-link ${activeTab === 'quotations' ? 'active' : ''}`}
+                        data-tooltip="Quotations"
+                      >
+                        <ClipboardList size={16} /> <span className="admin-sidebar-link-text">Quotations</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('invoices') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('invoices')} 
+                        className={`admin-sidebar-link ${activeTab === 'invoices' ? 'active' : ''}`}
+                        data-tooltip="Sales Invoices"
+                      >
+                        <FileText size={16} /> <span className="admin-sidebar-link-text">Sales Invoices</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('payments_in') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('payments_in')} 
+                        className={`admin-sidebar-link ${activeTab === 'payments_in' ? 'active' : ''}`}
+                        data-tooltip="Payments In"
+                      >
+                        <ArrowUpRight size={16} /> <span className="admin-sidebar-link-text">Payments In</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('payments_out') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('payments_out')} 
+                        className={`admin-sidebar-link ${activeTab === 'payments_out' ? 'active' : ''}`}
+                        data-tooltip="Payments Out"
+                      >
+                        <ArrowDownLeft size={16} /> <span className="admin-sidebar-link-text">Payments Out</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('payments_pending') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('payments_pending')} 
+                        className={`admin-sidebar-link ${activeTab === 'payments_pending' ? 'active' : ''}`}
+                        data-tooltip="Pending Collections"
+                      >
+                        <AlertTriangle size={16} /> <span className="admin-sidebar-link-text">Pending Collections</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('loans') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('loans')} 
+                        className={`admin-sidebar-link ${activeTab === 'loans' ? 'active' : ''}`}
+                        data-tooltip="Loans Tracker"
+                      >
+                        <Coins size={16} /> <span className="admin-sidebar-link-text">Loans Tracker</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('auditor_reports') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('auditor_reports')} 
+                        className={`admin-sidebar-link ${activeTab === 'auditor_reports' ? 'active' : ''}`}
+                        data-tooltip="Auditor Reports"
+                      >
+                        <FileText size={16} /> <span className="admin-sidebar-link-text">Auditor Reports</span>
+                      </button>
+                    </li>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Group 15: System Governance */}
           {(hasScreenAccess('users') || hasScreenAccess('masters') || hasScreenAccess('audit_logs')) && (
             <div className="admin-sidebar-group">
-              <div className="admin-sidebar-group-title">System Admin</div>
-              
-              {hasScreenAccess('users') && currentUser.role === 'Admin' && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('users')} 
-                    className={`admin-sidebar-link ${activeTab === 'users' ? 'active' : ''}`}
-                    data-tooltip="Staff Logins"
-                  >
-                    <Users size={16} /> <span className="admin-sidebar-link-text">Staff Logins</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('masters') && currentUser.role === 'Admin' && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('masters')} 
-                    className={`admin-sidebar-link ${activeTab === 'masters' ? 'active' : ''}`}
-                    data-tooltip="Masters Config"
-                  >
-                    <Database size={16} /> <span className="admin-sidebar-link-text">Masters Config</span>
-                  </button>
-                </li>
-              )}
-
-              {hasScreenAccess('audit_logs') && (
-                <li className="admin-sidebar-item">
-                  <button 
-                    onClick={() => handleOpenTab('audit_logs')} 
-                    className={`admin-sidebar-link ${activeTab === 'audit_logs' ? 'active' : ''}`}
-                    data-tooltip="System Audit Trail"
-                  >
-                    <ClipboardList size={16} /> <span className="admin-sidebar-link-text">Audit Trail</span>
-                  </button>
-                </li>
+              <div 
+                className="admin-sidebar-group-header" 
+                onClick={() => toggleGroup('systemGovernance')}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  cursor: 'pointer',
+                  paddingRight: '1.25rem',
+                  userSelect: 'none'
+                }}
+              >
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>System Governance</div>
+                {!sidebarCollapsed && (
+                  <ChevronDown 
+                    size={14} 
+                    className="group-arrow-icon"
+                    style={{ 
+                      transform: expandedGroups.systemGovernance ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transition: 'transform 0.2s ease',
+                      color: 'rgba(255, 255, 255, 0.4)',
+                      flexShrink: 0
+                    }} 
+                  />
+                )}
+              </div>
+              {(expandedGroups.systemGovernance || sidebarCollapsed) && (
+                <>
+                  {hasScreenAccess('users') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('users')} 
+                        className={`admin-sidebar-link ${activeTab === 'users' ? 'active' : ''}`}
+                        data-tooltip="Staff Logins"
+                      >
+                        <Users size={16} /> <span className="admin-sidebar-link-text">Staff Logins</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('masters') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('masters')} 
+                        className={`admin-sidebar-link ${activeTab === 'masters' ? 'active' : ''}`}
+                        data-tooltip="Masters Config"
+                      >
+                        <Database size={16} /> <span className="admin-sidebar-link-text">Masters Config</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('audit_logs') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('audit_logs')} 
+                        className={`admin-sidebar-link ${activeTab === 'audit_logs' ? 'active' : ''}`}
+                        data-tooltip="System Audit Trail"
+                      >
+                        <ClipboardList size={16} /> <span className="admin-sidebar-link-text">Audit Trail</span>
+                      </button>
+                    </li>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1879,7 +2434,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
-          {activeTab === 'users' && hasScreenAccess('users') && currentUser.role === 'Admin' && (
+          {activeTab === 'users' && hasScreenAccess('users') && (
             <AdminUsers 
               users={users}
               currentUser={currentUser}
@@ -1908,7 +2463,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
-          {activeTab === 'masters' && hasScreenAccess('masters') && currentUser.role === 'Admin' && (
+          {activeTab === 'masters' && hasScreenAccess('masters') && (
             <AdminMasters 
               cities={cities}
               locations={locations}
