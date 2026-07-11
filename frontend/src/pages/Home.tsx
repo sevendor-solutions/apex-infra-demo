@@ -265,7 +265,8 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           </div>
           <div className="why-right">
             <img 
-              src="https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80" 
+              src="https://images.unsplash.com/photo-1627640268913-91cfd4675b65?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+              // "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&auto=format&fit=crop&q=80" 
               alt="Luxury Estate" 
               className="why-img" 
             />
@@ -332,7 +333,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
       </section>
 
       {/* CTA Box */}
-      <section className="cta-banner py-8 text-center text-white" style={{ background: 'linear-gradient(rgba(11, 25, 44, 0.55), rgba(11, 25, 44, 0.55)), url(https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
+      <section className="cta-banner py-8 text-center text-white" style={{ background: 'linear-gradient(rgba(11, 25, 44, 0.55), rgba(11, 25, 44, 0.55)), url(https://plus.unsplash.com/premium_photo-1661750186284-3df32c804102?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover', backgroundAttachment: 'fixed' }}>
         <div className="container">
           <h2 className="text-4xl mb-2 text-white">Find Your Perfect Living Environment Today</h2>
           <p className="text-lg text-muted mb-4" style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Get in touch with our expert property advisors for site visits, brochures, or booking details.</p>

@@ -836,10 +836,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return (
       <>
         <div className="login-screen-wrapper">
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=1600&auto=format&fit=crop&q=80')" }}></div>
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1600&auto=format&fit=crop&q=80')" }}></div>
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&auto=format&fit=crop&q=80')" }}></div>
-
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1689574666551-52eb11c37bcd?q=1600&auto=format&fit=crop&q=80')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1577335029365-35029f68d093?w=1600&auto=format&fit=crop&q=80')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1682148938395-a7e0da637cd7?w=1600&auto=format&fit=crop&q=80')" }}></div>
+          {/* <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1661963582600-3f5c843cd296?w=1600&auto=format&fit=crop&q=80')" }}></div> */}
+          {/* <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1682148932578-5566a9808f48?w=1600&auto=format&fit=crop&q=80')" }}></div> */}
           <div className="login-card">
             <div className="login-card-header">
               <img 

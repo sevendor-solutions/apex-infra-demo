@@ -341,7 +341,7 @@ export const Marketing: React.FC<MarketingProps> = ({
   return (
     <div className="marketing-page">
       {/* Hero Banner */}
-      <section className="marketing-hero py-6 text-white text-center" style={{ background: 'linear-gradient(rgba(11,25,44,0.9), rgba(11,25,44,0.75)), url(https://images.unsplash.com/photo-1613977257363-707ba9348227?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <section className="marketing-hero py-6 text-white text-center" style={{ background: 'linear-gradient(rgba(11,25,44,0.9), rgba(11,25,44,0.75)), url(https://images.unsplash.com/photo-1642228149568-919fb69a09f7?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="container">
           <span className="text-secondary font-bold text-sm uppercase tracking-widest">JK Marketing Showcase</span>
           <h1 className="text-white text-4xl my-1">{marketingInfo.title}</h1>

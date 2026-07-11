@@ -7,19 +7,19 @@ export const About: React.FC = () => {
       name: 'J. K. Rama Rao',
       role: 'Founder & Managing Director',
       bio: 'With over 20 years of expertise in civil planning and real estate ventures across Andhra Pradesh, Mr. Rama Rao establishes the vision and corporate governance guidelines for JK Future Infra.',
-      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&auto=format&fit=crop&q=80'
+      image: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop&q=80'
     },
     {
       name: 'K. Prasad Kumar',
       role: 'Director - Land & Acquisitions',
       bio: 'Prasad specializes in scouting high-potential development corridors, managing legal verifications, and securing regulatory clearances from VUDA/VMRDA and Panchayati departments.',
-      image: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80'
+      image: 'https://images.unsplash.com/photo-1544502062-f82887f03d1c?w=400&auto=format&fit=crop&q=80'
     },
     {
       name: 'M. Sriman',
       role: 'Chief Structural Engineer',
       bio: 'An alumnus of IIT Madras, Sriman oversees all project designs, material testing checks, and ensures our gated communities are built with the highest earthquake-resistant standards.',
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&auto=format&fit=crop&q=80'
+      image: 'https://images.unsplash.com/photo-1620500152176-2e8372ef8f52?w=400&auto=format&fit=crop&q=80'
     }
   ];
 
@@ -67,7 +67,8 @@ export const About: React.FC = () => {
           </div>
           <div className="overview-right">
             <img 
-              src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80" 
+              src="https://images.unsplash.com/photo-1627640268913-91cfd4675b65?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+              //"https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80" 
               alt="JK Corporate" 
               className="overview-img"
             />

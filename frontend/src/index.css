@@ -2368,9 +2368,10 @@ button {
     align-items: flex-start; /* Shift card to top side on mobile */
     padding: 1.25rem 1.5rem 1.5rem;
   }
-  .cta-banner {
+  /* .cta-banner {
     background-attachment: scroll !important;
-  }
+  } */
+   
   .premium-article {
     padding: 1.5rem 1.25rem !important;
   }
