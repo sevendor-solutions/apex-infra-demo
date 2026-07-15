@@ -19,6 +19,7 @@ interface AdminQuotationsProps {
 }
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const fmtPDF = (n: number) => `Rs. ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   onAddToast,
@@ -253,7 +254,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       let qrData: string | null = null;
       try {
         const upiString = `upi://pay?pa=jkfutureinfra@sbi&pn=JK FUTURE INFRA&tn=Quotation ${q.quotationNumber}&am=${q.totalAmount}`;
-        const qrUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(upiString)}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
         qrData = await new Promise<string>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
@@ -327,7 +328,9 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setLineWidth(0.5);
       doc.line(15, 56, 195, 56);
 
-      // Metadata Block
+      // Metadata Block - Customer details looked up from database
+      const customerDetail = customersList.find(c => c.name.toLowerCase() === q.customerName.toLowerCase() || c.mobile === q.customerMobile);
+
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
@@ -340,12 +343,30 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Contact No.: ${q.customerMobile}`, 15, 74);
-      if (q.customerAddress) {
-        doc.text(q.customerAddress, 15, 79);
+      
+      let currentInfoY = 74;
+      doc.text(`Contact No.: ${q.customerMobile}`, 15, currentInfoY);
+      currentInfoY += 4.5;
+
+      if (customerDetail?.email) {
+        doc.text(`Email: ${customerDetail.email}`, 15, currentInfoY);
+        currentInfoY += 4.5;
+      }
+      
+      if (customerDetail?.gstNumber) {
+        doc.text(`GSTIN: ${customerDetail.gstNumber}`, 15, currentInfoY);
+        currentInfoY += 4.5;
       }
 
-      // Right Info
+      if (q.customerAddress) {
+        const addressLines = doc.splitTextToSize(q.customerAddress, 90);
+        addressLines.forEach((line: string) => {
+          doc.text(line, 15, currentInfoY);
+          currentInfoY += 4.5;
+        });
+      }
+
+      // Right Info (Metadata)
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
@@ -362,8 +383,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.text(q.validTillDate, 155, 74);
       doc.text(q.projectName || '— General / None —', 155, 79);
 
-      // Line items table
-      let y = 88;
+      // Line items table (vertical position dynamically shifts if customer details are long)
+      let y = Math.max(92, currentInfoY + 6);
       doc.setFillColor(15, 43, 70); // Deep Navy Header background
       doc.rect(15, y, 180, 8, 'F');
       
@@ -393,10 +414,10 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         doc.text(String(idx + 1), 18, y + 5.5);
         doc.text(item.productName, 26, y + 5.5);
         doc.text(String(item.quantity), 110, y + 5.5, { align: 'right' });
-        doc.text(fmt(item.unitPrice), 135, y + 5.5, { align: 'right' });
-        doc.text(fmt(item.discount), 155, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.unitPrice), 135, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.discount), 155, y + 5.5, { align: 'right' });
         doc.text(`${item.gstPercentage}%`, 170, y + 5.5, { align: 'right' });
-        doc.text(fmt(item.total), 190, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.total), 190, y + 5.5, { align: 'right' });
         
         doc.setDrawColor(241, 245, 249); // Slate 100 border
         doc.setLineWidth(0.5);
@@ -414,7 +435,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.text('Grand Total:', 125, y + 1.5);
       doc.setTextColor(15, 23, 42); // Slate 900
-      doc.text(fmt(q.totalAmount), 190, y + 1.5, { align: 'right' });
+      doc.text(fmtPDF(q.totalAmount), 190, y + 1.5, { align: 'right' });
 
       // Terms & Banking section
       y += 12;
