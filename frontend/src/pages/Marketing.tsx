@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Project, ProjectCategory, PropertyType, Facing } from '../types';
 import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
+import { getProjectMainImage } from '../utils/image';
 
 interface MarketingProps {
   category: ProjectCategory;
@@ -59,7 +60,7 @@ export const Marketing: React.FC<MarketingProps> = ({
   
   // Mobile drawer controls
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Dynamic filter options from master database
   const propertyTypesOptions = useMemo(() => {
@@ -266,6 +267,15 @@ export const Marketing: React.FC<MarketingProps> = ({
       } else if (siteCategory === 'Ventures') {
         subTitle = 'Gated Venture Communities';
         desc = 'Theme-based plot layouts featuring compound walls, entrance arches, landscaped children parks, and modular utility connections.';
+      } else if (siteCategory === 'Agriculture Lands') {
+        subTitle = 'Agriculture Lands & Farm Plots';
+        desc = 'Farming lands, fertile agricultural plots, and green estates perfect for farmhouses and organic cultivation with water source connectivity.';
+      } else if (siteCategory === 'Non-Agri Lands') {
+        subTitle = 'Non-Agricultural Lands';
+        desc = 'Converted dry lands ready for construction, commercial warehousing, or open layout plotting with clear title documentations.';
+      } else if (siteCategory === 'Industrial Sites') {
+        subTitle = 'Industrial Sites & Zones';
+        desc = 'Specially zoned industrial parcels suitable for manufacturing plants, storage yards, heavy-duty processing, and transport corridors.';
       }
 
       return {
@@ -503,7 +513,7 @@ export const Marketing: React.FC<MarketingProps> = ({
             {renderFilterPanel('Property Types', 'propertyType', propertyTypesOptions, selectedPropertyTypes, togglePropertyType, clearPropertyTypes, '#d9534f')}
 
             {/* SubCategory Filter for Sites general view */}
-            {category === 'Sites' && !siteCategory && renderFilterPanel('Site Classification', 'siteCategory', ['VUDA Approved Sites', 'Panchayati Approved Sites', 'Development Sites', 'Ventures'], selectedSubCategories, toggleSubCategory, clearSubCategories, '#00a884')}
+            {category === 'Sites' && !siteCategory && renderFilterPanel('Site Classification', 'siteCategory', ['VUDA Approved Sites', 'Panchayati Approved Sites', 'Development Sites', 'Ventures', 'Agriculture Lands', 'Non-Agri Lands', 'Industrial Sites'], selectedSubCategories, toggleSubCategory, clearSubCategories, '#00a884')}
             {renderFilterPanel('Facings', 'facing', facingsOptions, selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
             {renderFilterPanel('Cities', 'city', citiesList, selectedCities, toggleCity, clearCities, '#3a9ad9')}
             {renderFilterPanel('Locations', 'location', locationsList, selectedLocations, toggleLocation, clearLocations, '#e68a00')}
@@ -533,7 +543,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                     <div key={project.id} className="property-card flex flex-col" style={{ height: '100%', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
                       <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>
                         <img 
-                          src={project.images && project.images[0] ? project.images[0] : 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&auto=format&fit=crop&q=60'} 
+                          src={getProjectMainImage(project)} 
                           alt={project.name || 'Project'} 
                           className="property-card-img" 
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
@@ -550,10 +560,13 @@ export const Marketing: React.FC<MarketingProps> = ({
                             {project.availabilityDetails && (
                               <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                                 {project.availabilityDetails.split(',').map((part, idx) => {
-                                  const [type, qty] = part.split(':').map(s => s.trim());
+                                  const parts = part.split(':').map(s => s.trim());
+                                  const type = parts[0];
+                                  const qty = parts[1];
+                                  const udsVal = parts[2];
                                   return (
                                     <span key={idx} className="text-xxs font-bold" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '4px', border: '1px solid #d0e1f5', fontWeight: 600 }}>
-                                      {type} {qty ? `(${qty})` : ''}
+                                      {type} {qty ? `(${qty})` : ''}{udsVal ? ` - UDS: ${udsVal} Sq.Yds` : ''}
                                     </span>
                                   );
                                 })}
@@ -570,9 +583,9 @@ export const Marketing: React.FC<MarketingProps> = ({
                               <Compass size={13} className="text-secondary" /> {project.facing}
                             </span>
                           )}
-                          {project.floors !== undefined && (
+                          {project.category !== 'Sites' && project.floors !== undefined && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors} Floors`}
+                              <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `${project.floors} Floors`}
                             </span>
                           )}
                           {!!project.unitsCount && (
@@ -580,9 +593,9 @@ export const Marketing: React.FC<MarketingProps> = ({
                               <Home size={13} className="text-secondary" /> {project.unitsCount} Units
                             </span>
                           )}
-                          {project.uds && (
+                          {project.category === 'Sites' && project.uds && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
+                              <Sparkles size={13} className="text-secondary" /> Total Yards: {project.uds} Sq.Yds
                             </span>
                           )}
                           {project.width && project.length && (
@@ -614,7 +627,7 @@ export const Marketing: React.FC<MarketingProps> = ({
               <div className="mkt-list-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {finalFilteredProjects.map(project => {
                   const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
-                  const elevationImage = (project.images && project.images[0]) || '';
+                  const elevationImage = getProjectMainImage(project);
                   return (
                     <div key={project.id} className="mkt-list-card" style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                       {/* Left: Image Column */}
@@ -648,12 +661,12 @@ export const Marketing: React.FC<MarketingProps> = ({
                           </span>
                           <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--secondary)' }}>{project.priceRange || 'Contact Us'}</span>
                         </div>
-                        <h3 className="mkt-list-title" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', margin: 0 }}>{project.name}</h3>
+                <h3 className="mkt-list-title" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', margin: 0 }}>{project.name}</h3>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} className="text-secondary" /> {project.location}</p>
                         
                         <div className="mkt-list-specs-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.35rem 0', margin: '0.2rem 0' }}>
                           {project.facing && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Compass size={11} className="text-secondary" /> {project.facing}</span>}
-                          {project.floors !== undefined && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Building2 size={11} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors}`}</span>}
+                          {project.category !== 'Sites' && project.floors !== undefined && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Building2 size={11} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `${project.floors}`}</span>}
                           {!!project.unitsCount && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Home size={11} className="text-secondary" /> {project.unitsCount} Units</span>}
                         </div>
                         

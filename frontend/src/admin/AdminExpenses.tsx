@@ -5,7 +5,7 @@ import {
   Receipt, Search, X, IndianRupee, Calendar,
   FileDown, Filter, BarChart3
 } from 'lucide-react';
-import { addExpense, updateExpense, deleteExpense } from '../utils/db';
+import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities } from '../utils/db';
 
 interface AdminExpensesProps {
   expenses: Expense[];
@@ -48,6 +48,24 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeSuggestRow, setActiveSuggestRow] = useState<number | null>(null);
+  const [activeFieldSuggest, setActiveFieldSuggest] = useState<'category' | 'state' | 'location' | 'project' | null>(null);
+
+  const suggestedItems = useMemo(() => {
+    const list: { name: string; price: number }[] = [];
+    const seen = new Set<string>();
+    expenses.forEach(e => {
+      if (e.lineItems) {
+        e.lineItems.forEach(li => {
+          if (li.item && !seen.has(li.item.toLowerCase())) {
+            seen.add(li.item.toLowerCase());
+            list.push({ name: li.item, price: li.priceUnit });
+          }
+        });
+      }
+    });
+    return list;
+  }, [expenses]);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
   const [saving, setSaving] = useState(false);
@@ -156,6 +174,33 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     setLineItems(exp.lineItems?.length ? exp.lineItems : [emptyLine()]);
     setIsFormOpen(true);
   };
+
+  const handleCreateCategory = async (catName: string) => {
+    try {
+      await addExpenseCategory({ name: catName });
+      onAddToast(`Category "${catName}" added successfully.`, 'success');
+      onRefresh();
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to add category.', 'error');
+    }
+  };
+
+  const handleCreateLocation = async (locName: string) => {
+    try {
+      const cities = await getCities();
+      if (cities.length === 0) {
+        onAddToast('Please register at least one City under masters first.', 'error');
+        return;
+      }
+      await addLocation({ id: '', name: locName, cityId: cities[0].id });
+      onAddToast(`Location "${locName}" added successfully under "${cities[0].name}".`, 'success');
+      onRefresh();
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to add location.', 'error');
+    }
+  };
+
+
 
   const handleSave = async () => {
     if (!party.trim()) { onAddToast('Party / Vendor name is required.', 'error'); return; }
@@ -407,12 +452,79 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     <label style={labelStyle}>Vendor / Party <span style={{ color: '#ef4444' }}>*</span></label>
                     <input value={party} onChange={e => setParty(e.target.value)} placeholder="Vendor or supplier name" style={inputStyle} />
                   </div>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Expense Category <span style={{ color: '#ef4444' }}>*</span></label>
-                    <select value={expenseCategory} onChange={e => setExpenseCategory(e.target.value)} style={inputStyle}>
-                      <option value="">— Select Category —</option>
-                      {expenseCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                    </select>
+                    <input 
+                      type="text" 
+                      value={expenseCategory} 
+                      onChange={e => {
+                        setExpenseCategory(e.target.value);
+                        setActiveFieldSuggest('category');
+                      }} 
+                      onFocus={() => setActiveFieldSuggest('category')}
+                      onBlur={() => setTimeout(() => setActiveFieldSuggest(null), 250)}
+                      placeholder="Search category..." 
+                      style={inputStyle}
+                    />
+                    {activeFieldSuggest === 'category' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {!expenseCategories.some(c => c.name.toLowerCase() === expenseCategory.toLowerCase()) && expenseCategory.trim() !== '' && (
+                          <div 
+                            onMouseDown={() => {
+                              handleCreateCategory(expenseCategory);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: 'var(--sap-fiori-blue)',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            + Add Category: "{expenseCategory}"
+                          </div>
+                        )}
+                        {expenseCategories.filter(c => c.name.toLowerCase().includes(expenseCategory.toLowerCase())).map((c, idx) => (
+                          <div 
+                            key={c.id || idx}
+                            onMouseDown={() => {
+                              setExpenseCategory(c.name);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Bill Date</label>
@@ -422,11 +534,58 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     <label style={labelStyle}>Bill / Ref. No</label>
                     <input value={expenseNo} onChange={e => setExpenseNo(e.target.value)} placeholder="Auto-generated if blank" style={inputStyle} />
                   </div>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>State of Supply</label>
-                    <select value={stateOfSupply} onChange={e => setStateOfSupply(e.target.value)} style={inputStyle}>
-                      {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <input 
+                      type="text" 
+                      value={stateOfSupply} 
+                      onChange={e => {
+                        setStateOfSupply(e.target.value);
+                        setActiveFieldSuggest('state');
+                      }} 
+                      onFocus={() => setActiveFieldSuggest('state')}
+                      onBlur={() => setTimeout(() => setActiveFieldSuggest(null), 250)}
+                      placeholder="Search state..." 
+                      style={inputStyle}
+                    />
+                    {activeFieldSuggest === 'state' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {INDIAN_STATES.filter(s => s.toLowerCase().includes(stateOfSupply.toLowerCase())).map((s, idx) => (
+                          <div 
+                            key={idx}
+                            onMouseDown={() => {
+                              setStateOfSupply(s);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Payment Mode</label>
@@ -447,19 +606,138 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     <label style={labelStyle}>Reference No.</label>
                     <input value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="Cheque / UTR / Txn ID" style={inputStyle} />
                   </div>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Project Association</label>
-                    <select value={projectName} onChange={e => setProjectName(e.target.value)} style={inputStyle}>
-                      <option value="">— None —</option>
-                      {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
+                    <input 
+                      type="text" 
+                      value={projectName} 
+                      onChange={e => {
+                        setProjectName(e.target.value);
+                        setActiveFieldSuggest('project');
+                      }} 
+                      onFocus={() => setActiveFieldSuggest('project')}
+                      onBlur={() => setTimeout(() => {
+                        setActiveFieldSuggest(null);
+                        // Auto-clear if typed value doesn't match any existing project
+                        if (projectName.trim() !== '' && !projects.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
+                          setProjectName('');
+                        }
+                      }, 250)}
+                      placeholder="Search existing project..." 
+                      style={inputStyle}
+                    />
+                    {activeFieldSuggest === 'project' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {projects.filter(p => p.name.toLowerCase().includes(projectName.toLowerCase())).map((p, idx) => (
+                          <div 
+                            key={p.id || idx}
+                            onMouseDown={() => {
+                              setProjectName(p.name);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            {p.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Location</label>
-                    <select value={location} onChange={e => setLocation(e.target.value)} style={inputStyle}>
-                      <option value="">— None —</option>
-                      {locations.map(l => <option key={l.id} value={l.name}>{l.name}</option>)}
-                    </select>
+                    <input 
+                      type="text" 
+                      value={location} 
+                      onChange={e => {
+                        setLocation(e.target.value);
+                        setActiveFieldSuggest('location');
+                      }} 
+                      onFocus={() => setActiveFieldSuggest('location')}
+                      onBlur={() => setTimeout(() => setActiveFieldSuggest(null), 250)}
+                      placeholder="Search location..." 
+                      style={inputStyle}
+                    />
+                    {activeFieldSuggest === 'location' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {!locations.some(l => l.name.toLowerCase() === location.toLowerCase()) && location.trim() !== '' && (
+                          <div 
+                            onMouseDown={() => {
+                              handleCreateLocation(location);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: 'var(--sap-fiori-blue)',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            + Add Location: "{location}"
+                          </div>
+                        )}
+                        {locations.filter(l => l.name.toLowerCase().includes(location.toLowerCase())).map((l, idx) => (
+                          <div 
+                            key={l.id || idx}
+                            onMouseDown={() => {
+                              setLocation(l.name);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            {l.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Apartment / Block</label>
@@ -503,8 +781,81 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     <tbody>
                       {computedLineItems.map((li, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '0.4rem 0.4rem' }}>
-                            <input value={li.item} onChange={e => updateLineItem(idx, 'item', e.target.value)} placeholder="Item description" style={{ ...inputStyle, margin: 0, padding: '0.3rem 0.5rem', fontSize: '0.78rem' }} />
+                          <td style={{ padding: '0.4rem 0.4rem', position: 'relative' }}>
+                            <input 
+                              value={li.item} 
+                              onChange={e => {
+                                updateLineItem(idx, 'item', e.target.value);
+                                setActiveSuggestRow(idx);
+                              }} 
+                              onFocus={() => setActiveSuggestRow(idx)}
+                              onBlur={() => setTimeout(() => setActiveSuggestRow(null), 250)}
+                              placeholder="Item description" 
+                              style={{ ...inputStyle, margin: 0, padding: '0.3rem 0.5rem', fontSize: '0.78rem' }} 
+                            />
+                            {activeSuggestRow === idx && li.item.trim() !== '' && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: '4px',
+                                right: '4px',
+                                backgroundColor: '#fff',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '6px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                zIndex: 999,
+                                maxHeight: '180px',
+                                overflowY: 'auto',
+                                marginTop: '2px'
+                              }}>
+                                <div 
+                                  onMouseDown={() => {
+                                    setActiveSuggestRow(null);
+                                  }}
+                                  style={{ 
+                                    padding: '8px 12px', 
+                                    cursor: 'pointer', 
+                                    borderBottom: '1px solid #f1f5f9', 
+                                    fontSize: '0.78rem',
+                                    fontWeight: 'bold',
+                                    color: 'var(--sap-fiori-blue)',
+                                    backgroundColor: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                >
+                                  + Add Expense Item
+                                </div>
+                                {suggestedItems.filter(item => item.name.toLowerCase().includes(li.item.toLowerCase())).map((item, itemIdx) => (
+                                  <div 
+                                    key={itemIdx}
+                                    onMouseDown={() => {
+                                      updateLineItem(idx, 'item', item.name);
+                                      updateLineItem(idx, 'priceUnit', item.price);
+                                      setActiveSuggestRow(null);
+                                    }}
+                                    style={{ 
+                                      padding: '8px 12px', 
+                                      cursor: 'pointer', 
+                                      borderBottom: '1px solid #f1f5f9', 
+                                      fontSize: '0.78rem',
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      alignItems: 'center',
+                                      backgroundColor: '#fff'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                  >
+                                    <span style={{ fontWeight: 600, color: '#1e293b' }}>{item.name}</span>
+                                    <span style={{ color: 'var(--sap-fiori-blue)', fontWeight: 600 }}>₹{item.price}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '0.4rem 0.4rem', width: '70px' }}>
                             <input type="number" min={1} value={li.qty} onChange={e => updateLineItem(idx, 'qty', parseFloat(e.target.value) || 1)} style={{ ...inputStyle, margin: 0, padding: '0.3rem 0.5rem', fontSize: '0.78rem', textAlign: 'right' }} />

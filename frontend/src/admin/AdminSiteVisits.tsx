@@ -107,8 +107,8 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
     }
     if (!formPhone.trim()) {
       errors.phone = "Phone number is required";
-    } else if (!/^\+?[0-9\s-]{10,14}$/.test(formPhone.replace(/\s+/g, ''))) {
-      errors.phone = "Please enter a valid phone number";
+    } else if (!/^[6-9]\d{9}$/.test(formPhone.trim())) {
+      errors.phone = "Enter a valid 10-digit Indian mobile number (starts with 6–9)";
     }
     if (!formProject) errors.project = "Please select a property/site";
     if (!formDate) errors.date = "Visit date is required";
@@ -547,11 +547,16 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
                   <div className="input-with-icon">
                     <Phone size={16} className="input-icon" />
                     <input 
-                      type="text" 
+                      type="tel" 
                       className="form-control-premium"
                       value={formPhone}
-                      onChange={e => setFormPhone(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormPhone(val);
+                      }}
                       placeholder="e.g. 9000553832"
+                      maxLength={10}
+                      inputMode="numeric"
                       required
                     />
                   </div>

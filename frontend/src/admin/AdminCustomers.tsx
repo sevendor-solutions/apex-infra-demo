@@ -29,6 +29,10 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
   const [gstNumber, setGstNumber] = useState('');
   const [creditLimit, setCreditLimit] = useState(100000);
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [formErrors, setFormErrors] = useState<{ mobile?: string; email?: string }>({});
+
+  const phoneRegex = /^[6-9]\d{9}$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const loadData = async () => {
     setLoading(true);
@@ -48,10 +52,22 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors: { mobile?: string; email?: string } = {};
     if (!name.trim() || !mobile.trim()) {
       onAddToast('Customer name and mobile number are required.', 'error');
       return;
     }
+    if (!phoneRegex.test(mobile.trim())) {
+      errors.mobile = 'Enter a valid 10-digit Indian mobile number (starts with 6–9)';
+    }
+    if (email.trim() && !emailRegex.test(email.trim())) {
+      errors.email = 'Enter a valid email address (e.g. user@domain.com)';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
     try {
       const payload = {
         name, mobile, email, address, gstNumber, creditLimit, openingBalance
@@ -100,6 +116,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
     setName(''); setMobile(''); setEmail(''); setAddress(''); setGstNumber('');
     setCreditLimit(100000); setOpeningBalance(0);
     setEditingCustomer(null);
+    setFormErrors({});
   };
 
   // KPIs
@@ -224,22 +241,33 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
                   <label className="form-label">Mobile Number</label>
                   <input 
                     type="tel" 
-                    className="form-control" 
+                    className={`form-control${formErrors.mobile ? ' input-error' : ''}`}
                     value={mobile} 
-                    onChange={e => setMobile(e.target.value)} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setMobile(val);
+                      if (formErrors.mobile) setFormErrors(prev => ({ ...prev, mobile: undefined }));
+                    }}
                     placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    inputMode="numeric"
                     required 
                   />
+                  {formErrors.mobile && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.mobile}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
                   <input 
                     type="email" 
-                    className="form-control" 
+                    className={`form-control${formErrors.email ? ' input-error' : ''}`}
                     value={email} 
-                    onChange={e => setEmail(e.target.value)} 
+                    onChange={e => {
+                      setEmail(e.target.value);
+                      if (formErrors.email) setFormErrors(prev => ({ ...prev, email: undefined }));
+                    }}
                     placeholder="e.g. john@domain.com"
                   />
+                  {formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.email}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Office/Billing Address</label>

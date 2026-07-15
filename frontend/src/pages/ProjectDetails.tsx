@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { MapPin, Download, CheckSquare, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert } from 'lucide-react';
 import type { Project, Enquiry } from '../types';
+import { getProjectGalleryImages } from '../utils/image';
 import { addEnquiry } from '../utils/db';
 import logoImg from '../assets/logo.png';
 
@@ -34,6 +35,8 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       </div>
     );
   }
+
+  const galleryImages = getProjectGalleryImages(project);
 
   // Gallery slider state
   const [activeImgIdx, setActiveImgIdx] = useState(0);
@@ -213,14 +216,14 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       if (project.facing) {
         drawSpecLine('Facing Directions:', project.facing);
       }
-      if (project.floors !== undefined && project.floors > 0) {
-        drawSpecLine('Total Floors:', `G+${project.floors}`);
+      if (project.category !== 'Sites' && project.floors !== undefined && project.floors > 0) {
+        drawSpecLine('Total Floors:', `${project.floors}`);
       }
       if (project.unitsCount) {
         drawSpecLine('Total Units:', `${project.unitsCount}`);
       }
-      if (project.uds) {
-        drawSpecLine('UDS Share:', `${project.uds} Sq. Yds`);
+      if (project.category === 'Sites' && project.uds) {
+        drawSpecLine('Total Area:', `${project.uds} Sq. Yds`);
       }
       if (project.width && project.length) {
         drawSpecLine('Dimensions:', `${project.width} x ${project.length} ft`);
@@ -257,9 +260,9 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       doc.text('Call: 9000553832, 7893963322  |  Email: jkfutureinfra@gmail.com', 105, 285, { align: 'center' });
 
       // Add Project Images
-      if (project.images && project.images.length > 0) {
-        for (let idx = 0; idx < project.images.length; idx++) {
-          const imgUrl = project.images[idx];
+      if (galleryImages && galleryImages.length > 0) {
+        for (let idx = 0; idx < galleryImages.length; idx++) {
+          const imgUrl = galleryImages[idx];
           try {
             const base64Data = await new Promise<string>((resolve, reject) => {
               const img = new Image();
@@ -320,7 +323,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
             doc.setTextColor(150, 150, 150);
-            doc.text(`Page ${idx + 2} of ${project.images.length + 1}`, 105, 287, { align: 'center' });
+            doc.text(`Page ${idx + 2} of ${galleryImages.length + 1}`, 105, 287, { align: 'center' });
           } catch (e) {
             console.warn(`Could not load image ${idx}: ${imgUrl}`, e);
           }
@@ -343,7 +346,7 @@ Status: ${project.status}
 Category: ${project.category}
 Location: ${project.location}
 Price Target: ${project.priceRange}
-${project.uds ? `UDS: ${project.uds} Sq. Yds\n` : ''}${project.width && project.length ? `Dimensions: ${project.width} x ${project.length} ft\n` : ''}
+${project.category === 'Sites' && project.uds ? `Total Area: ${project.uds} Sq. Yds\n` : ''}${project.width && project.length ? `Dimensions: ${project.width} x ${project.length} ft\n` : ''}
 --- Highlights ---
 ${project.highlights.join('\n')}
 
@@ -396,11 +399,11 @@ Email: jkfutureinfra@gmail.com
           {/* Slider gallery */}
           <div className="detail-gallery-slider mb-3">
             <div className="active-img-wrapper" onClick={() => setLightboxOpen(true)}>
-              <img src={project.images[activeImgIdx]} alt={project.name} />
+              <img src={galleryImages[activeImgIdx]} alt={project.name} />
               <button className="slider-lightbox-btn"><ImageIcon size={18} /> View All Images</button>
             </div>
             <div className="thumbnails-wrapper flex gap-1 mt-1 overflow-x-auto">
-              {project.images.map((img, idx) => (
+              {galleryImages.map((img, idx) => (
                 <div 
                   key={idx} 
                   className={`thumb-box ${idx === activeImgIdx ? 'active' : ''}`}
@@ -451,10 +454,10 @@ Email: jkfutureinfra@gmail.com
                 </div>
               )}
 
-              {project.floors !== undefined && project.floors > 0 && (
+              {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
                   <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Floors:</span>
-                  <strong className="text-sm text-primary">G + {project.floors}</strong>
+                  <strong className="text-sm text-primary">{project.floors}</strong>
                 </div>
               )}
 
@@ -465,9 +468,9 @@ Email: jkfutureinfra@gmail.com
                 </div>
               )}
 
-              {project.uds && (
+              {project.category === 'Sites' && project.uds && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>UDS Share:</span>
+                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Area:</span>
                   <strong className="text-sm text-primary">{project.uds} Sq. Yds</strong>
                 </div>
               )}
@@ -491,10 +494,13 @@ Email: jkfutureinfra@gmail.com
                   <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Availability & Quantities:</span>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
                     {project.availabilityDetails.split(',').map((part, idx) => {
-                      const [type, qty] = part.split(':').map(s => s.trim());
+                      const parts = part.split(':').map(s => s.trim());
+                      const type = parts[0];
+                      const qty = parts[1];
+                      const udsVal = parts[2];
                       return (
                         <span key={idx} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.25rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '6px', border: '1px solid #d0e1f5', display: 'inline-flex', alignItems: 'center' }}>
-                          {type} : <span style={{ color: 'var(--secondary)', marginLeft: '4px', fontWeight: 700 }}>{qty || '0'} Units</span>
+                          {type} : <span style={{ color: 'var(--secondary)', marginLeft: '4px', fontWeight: 700 }}>{qty || '0'} Units</span>{udsVal ? <span style={{ color: '#0b2c5c', marginLeft: '6px', fontSize: '0.7rem', fontWeight: 500 }}>({udsVal} Sq.Yds UDS)</span> : ''}
                         </span>
                       );
                     })}
@@ -725,25 +731,25 @@ Email: jkfutureinfra@gmail.com
           <div className="lightbox-modal-content" onClick={e => e.stopPropagation()}>
             <button className="lightbox-close-btn" onClick={() => setLightboxOpen(false)}><X size={32} /></button>
             <div className="lightbox-image-box">
-              <img src={project.images[activeImgIdx]} alt={project.name} />
+              <img src={galleryImages[activeImgIdx]} alt={project.name} />
             </div>
             
             {/* Arrows */}
             <button 
               className="lightbox-nav-btn prev"
-              onClick={() => setActiveImgIdx(prev => (prev - 1 + project.images.length) % project.images.length)}
+              onClick={() => setActiveImgIdx(prev => (prev - 1 + galleryImages.length) % galleryImages.length)}
             >
               <ArrowLeft size={24} />
             </button>
             <button 
               className="lightbox-nav-btn next"
-              onClick={() => setActiveImgIdx(prev => (prev + 1) % project.images.length)}
+              onClick={() => setActiveImgIdx(prev => (prev + 1) % galleryImages.length)}
             >
               <ArrowRight size={24} />
             </button>
 
             <div className="lightbox-counter">
-              {activeImgIdx + 1} / {project.images.length}
+              {activeImgIdx + 1} / {galleryImages.length}
             </div>
           </div>
         </div>

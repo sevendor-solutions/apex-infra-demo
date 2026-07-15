@@ -370,6 +370,7 @@ export interface Quotation {
   customerName: string;
   customerMobile: string;
   customerAddress?: string;
+  projectName?: string;
   date: string;
   validTillDate: string;
   items: QuotationItem[];

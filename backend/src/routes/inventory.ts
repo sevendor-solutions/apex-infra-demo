@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { InventoryItem } from "../models/InventoryItem";
 import { StockMovement } from "../models/StockMovement";
 import { authenticateToken } from "../middleware/auth";
@@ -25,10 +26,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Name and Unique Code are required" });
         }
 
-        // Check uniqueness of code
-        const exists = await InventoryItem.findOne({ where: { code } });
-        if (exists) {
+        // Check uniqueness of code AND name
+        const codeExists = await InventoryItem.findOne({ where: { code } });
+        if (codeExists) {
             return res.status(400).json({ success: false, message: `Product code "${code}" already exists` });
+        }
+        const nameExists = await InventoryItem.findOne({ where: { name: { [Op.iLike]: name.trim() } } });
+        if (nameExists) {
+            return res.status(400).json({ success: false, message: `A product with name "${name}" already exists (Code: ${nameExists.code})` });
         }
 
         const item = await InventoryItem.create({
@@ -44,7 +49,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
             currentStock: openingStock || 0,
             minimumStockLevel: minimumStockLevel || 0,
             supplierName,
-            warehouseLocation
+            warehouseLocation,
+            userId: req.user?.id
         });
 
         // Record opening stock as initial Stock In movement if > 0
@@ -55,7 +61,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
                 quantity: openingStock,
                 date: new Date().toISOString().split("T")[0],
                 warehouse: warehouseLocation || "Main Warehouse",
-                notes: "Opening Stock Initial Seeding"
+                notes: "Opening Stock Initial Seeding",
+                userId: req.user?.id
             });
         }
 
@@ -73,6 +80,19 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (!item) return res.status(404).json({ success: false, message: "Product not found" });
 
         const { name, category, brand, unit, purchasePrice, sellingPrice, gstPercentage, minimumStockLevel, supplierName, warehouseLocation } = req.body;
+
+        // Duplicate check on name (exclude current)
+        if (name && name.trim().toLowerCase() !== item.name.toLowerCase()) {
+            const nameExists = await InventoryItem.findOne({
+                where: {
+                    id: { [Op.ne]: item.id },
+                    name: { [Op.iLike]: name.trim() }
+                }
+            });
+            if (nameExists) {
+                return res.status(400).json({ success: false, message: `Another product with name "${name}" already exists (Code: ${nameExists.code})` });
+            }
+        }
 
         if (name) item.name = name;
         if (category !== undefined) item.category = category;
@@ -137,7 +157,8 @@ router.post("/stock-in", authenticateToken, async (req, res, next) => {
             quantity: parseFloat(quantity),
             date,
             warehouse: warehouse || item.warehouseLocation,
-            notes
+            notes,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Stock In", `Added stock of ${quantity} for ${item.name}`, "Success", { movementId: movement.id });
@@ -167,7 +188,8 @@ router.post("/stock-out", authenticateToken, async (req, res, next) => {
             quantity: parseFloat(quantity),
             date,
             warehouse: warehouse || item.warehouseLocation,
-            notes
+            notes,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Stock Out", `Removed stock of ${quantity} for ${item.name}`, "Success", { movementId: movement.id });
@@ -197,7 +219,8 @@ router.post("/adjust", authenticateToken, async (req, res, next) => {
             quantity: parseFloat(quantity),
             date,
             warehouse: item.warehouseLocation || "Main Warehouse",
-            notes: notes || "Manual stock override adjustment"
+            notes: notes || "Manual stock override adjustment",
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Stock Adjustment", `Adjusted stock of ${item.name} to ${quantity}`, "Success", { movementId: movement.id });

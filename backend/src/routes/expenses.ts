@@ -60,7 +60,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
                     date: body.billDate,
                     paymentMode: body.paymentType || "Cash",
                     referenceNumber: body.referenceNo,
-                    description: `Paid expense: ${body.party} (${body.expenseCategory})`
+                    description: `Paid expense: ${body.party} (${body.expenseCategory})`,
+                    userId: req.user?.id
                 });
             }
         }
@@ -68,7 +69,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
         const newExpense = await Expense.create({ 
             ...body, 
             id: `exp${nextNum}`,
-            accountName
+            accountName,
+            userId: req.user?.id
         });
         
         await logAuditAction(req, "Expense Created", `Created expense bill: "${newExpense.expenseNo || newExpense.id}" for party: "${newExpense.party}" (Total: ₹${newExpense.totalAmount})`, "Success", { expenseId: newExpense.id });
@@ -112,7 +114,8 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
                     date: body.billDate,
                     paymentMode: body.paymentType || "Cash",
                     referenceNumber: body.referenceNo,
-                    description: `Updated expense: ${body.party} (${body.expenseCategory})`
+                    description: `Updated expense: ${body.party} (${body.expenseCategory})`,
+                    userId: req.user?.id
                 });
             }
         }
@@ -153,7 +156,8 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
                     amount: expense.totalAmount,
                     date: new Date().toISOString().split('T')[0],
                     paymentMode: expense.paymentType || "Cash",
-                    description: `Deleted expense: ${expense.party} (${expense.expenseCategory})`
+                    description: `Deleted expense: ${expense.party} (${expense.expenseCategory})`,
+                    userId: req.user?.id
                 });
             }
         }

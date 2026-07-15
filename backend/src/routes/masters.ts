@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { City } from "../models/City";
 import { LocationMaster } from "../models/LocationMaster";
 import { PropertyType } from "../models/PropertyType";
@@ -25,7 +26,19 @@ router.get("/cities", async (req, res, next) => {
 // POST create city
 router.post("/cities", authenticateToken, async (req, res, next) => {
     try {
-        const city = await City.create(req.body);
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: "City name is required" });
+        }
+        
+        const existing = await City.findOne({
+            where: { name: { [Op.iLike]: name.trim() } }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `City "${name}" already exists` });
+        }
+
+        const city = await City.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: city });
     } catch (error) {
         next(error);
@@ -72,7 +85,22 @@ router.get("/locations", async (req, res, next) => {
 // POST create location
 router.post("/locations", authenticateToken, async (req, res, next) => {
     try {
-        const location = await LocationMaster.create(req.body);
+        const { name, cityId } = req.body;
+        if (!name || !name.trim() || !cityId) {
+            return res.status(400).json({ success: false, message: "Location name and City ID are required" });
+        }
+
+        const existing = await LocationMaster.findOne({
+            where: {
+                name: { [Op.iLike]: name.trim() },
+                cityId
+            }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `Location "${name}" already exists in this city` });
+        }
+
+        const location = await LocationMaster.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: location });
     } catch (error) {
         next(error);
@@ -111,7 +139,19 @@ router.get("/property-types", async (req, res, next) => {
 // POST create property type
 router.post("/property-types", authenticateToken, async (req, res, next) => {
     try {
-        const type = await PropertyType.create(req.body);
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: "Property Type name is required" });
+        }
+
+        const existing = await PropertyType.findOne({
+            where: { name: { [Op.iLike]: name.trim() } }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `Property Type "${name}" already exists` });
+        }
+
+        const type = await PropertyType.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: type });
     } catch (error) {
         next(error);
@@ -150,7 +190,19 @@ router.get("/facings", async (req, res, next) => {
 // POST create facing
 router.post("/facings", authenticateToken, async (req, res, next) => {
     try {
-        const facing = await Facing.create(req.body);
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: "Facing direction name is required" });
+        }
+
+        const existing = await Facing.findOne({
+            where: { name: { [Op.iLike]: name.trim() } }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `Facing direction "${name}" already exists` });
+        }
+
+        const facing = await Facing.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: facing });
     } catch (error) {
         next(error);
@@ -189,7 +241,19 @@ router.get("/amenities", async (req, res, next) => {
 // POST create amenity
 router.post("/amenities", authenticateToken, async (req, res, next) => {
     try {
-        const amenity = await Amenity.create(req.body);
+        const { name } = req.body;
+        if (!name || !name.trim()) {
+            return res.status(400).json({ success: false, message: "Amenity name is required" });
+        }
+
+        const existing = await Amenity.findOne({
+            where: { name: { [Op.iLike]: name.trim() } }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `Amenity "${name}" already exists` });
+        }
+
+        const amenity = await Amenity.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: amenity });
     } catch (error) {
         next(error);

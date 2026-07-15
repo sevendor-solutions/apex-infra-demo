@@ -33,6 +33,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
   const [password, setPassword] = useState('');
   const [allowedScreens, setAllowedScreens] = useState<string[]>([]);
   const [agentId, setAgentId] = useState('');
+  const [formErrors, setFormErrors] = useState<{ email?: string }>({});
 
   // Filter users based on logged-in user role
   const isSuperAdmin = currentUser?.role === 'Admin';
@@ -121,9 +122,10 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      onAddToast('Please enter a valid email address', 'error');
+      setFormErrors({ email: 'Enter a valid email address (e.g. user@domain.com)' });
       return;
     }
+    setFormErrors({});
 
     const cleanUsername = username.trim().toLowerCase();
 
@@ -372,11 +374,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                   <label className="form-label">Official Email *</label>
                   <input 
                     type="email" 
-                    className="form-control" 
+                    className={`form-control${formErrors.email ? ' input-error' : ''}`}
                     value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    onChange={e => {
+                      setEmail(e.target.value);
+                      if (formErrors.email) setFormErrors({});
+                    }}
                     required
                   />
+                  {formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.email}</span>}
                 </div>
 
                 <div className="form-group">

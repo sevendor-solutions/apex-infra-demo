@@ -49,7 +49,8 @@ router.post("/in", authenticateToken, async (req, res, next) => {
                     date: paymentDate,
                     paymentMode: paymentMethod,
                     referenceNumber,
-                    description: `Payment In from customer ${customerName}`
+                    description: `Payment In from customer ${customerName}`,
+                    userId: req.user?.id
                 });
             }
         }
@@ -62,7 +63,8 @@ router.post("/in", authenticateToken, async (req, res, next) => {
             paymentMethod,
             accountName,
             referenceNumber,
-            notes
+            notes,
+            userId: req.user?.id
         });
 
         // 2. Reduce Customer Outstanding Balance
@@ -135,7 +137,8 @@ router.post("/out", authenticateToken, async (req, res, next) => {
                     date: paymentDate,
                     paymentMode: paymentMethod,
                     referenceNumber,
-                    description: `Payment Out to supplier ${supplierName}`
+                    description: `Payment Out to supplier ${supplierName}`,
+                    userId: req.user?.id
                 });
             }
         }
@@ -148,7 +151,8 @@ router.post("/out", authenticateToken, async (req, res, next) => {
             paymentMethod,
             accountName,
             referenceNumber,
-            notes
+            notes,
+            userId: req.user?.id
         });
 
         // 2. Reduce Supplier Outstanding Balance

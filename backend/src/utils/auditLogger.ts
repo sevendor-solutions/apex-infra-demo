@@ -11,6 +11,7 @@ export const logAuditAction = async (
     try {
         const username = req?.user?.username || fallbackUser?.username || "System/Guest";
         const role = req?.user?.role || fallbackUser?.role || "Guest";
+        const userId = req?.user?.id || fallbackUser?.id || null;
         
         let ip = "127.0.0.1";
         if (req) {
@@ -26,10 +27,11 @@ export const logAuditAction = async (
             action: action,
             details: details,
             ip: typeof ip === "string" ? ip : String(ip),
-            status: status
+            status: status,
+            userId: userId
         });
         
-        console.log(`[AUDIT LOG] ${action} - User: ${username} - Status: ${status} - Details: ${details}`);
+        console.log(`[AUDIT LOG] ${action} - User: ${username} (ID: ${userId}) - Status: ${status} - Details: ${details}`);
     } catch (err) {
         console.error("❌ Failed to write system audit log:", err);
     }

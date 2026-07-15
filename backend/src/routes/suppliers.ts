@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { Supplier } from "../models/Supplier";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
@@ -24,13 +25,28 @@ router.post("/", authenticateToken, async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Supplier name and Contact number are required" });
         }
 
+        // Duplicate check on name or contactNumber
+        const existing = await Supplier.findOne({
+            where: {
+                [Op.or]: [
+                    { name: { [Op.iLike]: name.trim() } },
+                    { contactNumber: contactNumber.trim() }
+                ]
+            }
+        });
+        if (existing) {
+            const matchesField = existing.contactNumber === contactNumber.trim() ? "contact number" : "name";
+            return res.status(400).json({ success: false, message: `A supplier with this ${matchesField} already exists` });
+        }
+
         const supplier = await Supplier.create({
             name,
             contactNumber,
             address,
             gstNumber,
             openingBalance: parseFloat(openingBalance || 0),
-            outstandingAmount: parseFloat(openingBalance || 0)
+            outstandingAmount: parseFloat(openingBalance || 0),
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Create Supplier", `Created supplier account for: ${name}`, "Success", { supplierId: supplier.id });
@@ -47,6 +63,28 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found" });
 
         const { name, contactNumber, address, gstNumber, openingBalance, outstandingAmount } = req.body;
+
+        // Duplicate check on name or contactNumber (exclude current)
+        const checkFields: any[] = [];
+        if (name && name.trim().toLowerCase() !== supplier.name.toLowerCase()) {
+            checkFields.push({ name: { [Op.iLike]: name.trim() } });
+        }
+        if (contactNumber && contactNumber.trim() !== supplier.contactNumber) {
+            checkFields.push({ contactNumber: contactNumber.trim() });
+        }
+
+        if (checkFields.length > 0) {
+            const existing = await Supplier.findOne({
+                where: {
+                    id: { [Op.ne]: supplier.id },
+                    [Op.or]: checkFields
+                }
+            });
+            if (existing) {
+                const matchesField = contactNumber && existing.contactNumber === contactNumber.trim() ? "contact number" : "name";
+                return res.status(400).json({ success: false, message: `Another supplier with this ${matchesField} already exists` });
+            }
+        }
 
         if (name) supplier.name = name;
         if (contactNumber) supplier.contactNumber = contactNumber;

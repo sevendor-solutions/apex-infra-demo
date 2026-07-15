@@ -1,6 +1,19 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
+// Globally augment Express Request so req.user is available everywhere
+declare global {
+    namespace Express {
+        interface Request {
+            user?: {
+                id: string;
+                username: string;
+                role: string;
+            };
+        }
+    }
+}
+
 // Extend Express Request interface to include decoded user
 export interface AuthRequest extends Request {
     user?: {

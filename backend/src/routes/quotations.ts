@@ -18,7 +18,7 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST create quotation
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions } = req.body;
+        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions, projectName } = req.body;
 
         if (!customerName || !customerMobile || !date || !validTillDate || !items) {
             return res.status(400).json({ success: false, message: "Required fields missing" });
@@ -39,7 +39,9 @@ router.post("/", authenticateToken, async (req, res, next) => {
             totalAmount: totalAmount || 0,
             notes,
             termsAndConditions,
-            status: "Draft"
+            status: "Draft",
+            projectName,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Create Quotation", `Created quotation: ${quotationNumber} for ${customerName}`, "Success", { quotationId: quotation.id });
@@ -55,7 +57,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         const quotation = await Quotation.findByPk(req.params.id);
         if (!quotation) return res.status(404).json({ success: false, message: "Quotation not found" });
 
-        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions, status } = req.body;
+        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions, status, projectName } = req.body;
 
         if (customerName) quotation.customerName = customerName;
         if (customerMobile) quotation.customerMobile = customerMobile;
@@ -67,6 +69,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (notes !== undefined) quotation.notes = notes;
         if (termsAndConditions !== undefined) quotation.termsAndConditions = termsAndConditions;
         if (status) quotation.status = status;
+        if (projectName !== undefined) quotation.projectName = projectName;
 
         await quotation.save();
         await logAuditAction(req, "Update Quotation", `Updated quotation: ${quotation.quotationNumber}`, "Success", { quotationId: quotation.id });

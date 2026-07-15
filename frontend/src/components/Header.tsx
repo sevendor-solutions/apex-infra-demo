@@ -132,6 +132,15 @@ export const Header: React.FC<HeaderProps> = ({
                       <li>
                         <button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>Ventures</button>
                       </li>
+                      <li>
+                        <button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>Agriculture Lands</button>
+                      </li>
+                      <li>
+                        <button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>Non-Agri Lands</button>
+                      </li>
+                      <li>
+                        <button onClick={() => handleLinkClick('marketing', 'Sites', 'Industrial Sites')}>Industrial Sites</button>
+                      </li>
                     </ul>
                   </li>
                 </ul>
@@ -219,6 +228,9 @@ export const Header: React.FC<HeaderProps> = ({
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>- Panchayati Approved</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA Approved Sites')}>- VUDA Approved</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>- Ventures</button></li>
+                  <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>- Agriculture Lands</button></li>
+                  <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>- Non-Agri Lands</button></li>
+                  <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Industrial Sites')}>- Industrial Sites</button></li>
                 </ul>
               </li>
             </ul>

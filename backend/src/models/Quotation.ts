@@ -36,6 +36,12 @@ export class Quotation extends Model {
 
     @Column({
         type: DataType.STRING,
+        allowNull: true
+    })
+    projectName?: string;
+
+    @Column({
+        type: DataType.STRING,
         allowNull: false
     })
     date!: string;

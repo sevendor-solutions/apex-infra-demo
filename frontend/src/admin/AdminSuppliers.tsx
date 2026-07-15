@@ -27,6 +27,9 @@ export const AdminSuppliers: React.FC<AdminSuppliersProps> = ({
   const [address, setAddress] = useState('');
   const [gst, setGst] = useState('');
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [formErrors, setFormErrors] = useState<{ contact?: string }>({});
+
+  const phoneRegex = /^[6-9]\d{9}$/;
 
   const loadData = async () => {
     setLoading(true);
@@ -50,6 +53,11 @@ export const AdminSuppliers: React.FC<AdminSuppliersProps> = ({
       onAddToast('Supplier name and contact number are required.', 'error');
       return;
     }
+    if (!phoneRegex.test(contact.trim())) {
+      setFormErrors({ contact: 'Enter a valid 10-digit Indian phone number (starts with 6–9)' });
+      return;
+    }
+    setFormErrors({});
     try {
       const payload = {
         name, contactNumber: contact, address, gstNumber: gst, openingBalance
@@ -95,6 +103,7 @@ export const AdminSuppliers: React.FC<AdminSuppliersProps> = ({
   const resetForm = () => {
     setName(''); setContact(''); setAddress(''); setGst(''); setOpeningBalance(0);
     setEditingSupplier(null);
+    setFormErrors({});
   };
 
   // KPIs
@@ -206,12 +215,19 @@ export const AdminSuppliers: React.FC<AdminSuppliersProps> = ({
                   <label className="form-label">Contact / Phone Number</label>
                   <input 
                     type="tel" 
-                    className="form-control" 
+                    className={`form-control${formErrors.contact ? ' input-error' : ''}`}
                     value={contact} 
-                    onChange={e => setContact(e.target.value)} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setContact(val);
+                      if (formErrors.contact) setFormErrors({});
+                    }}
                     placeholder="e.g. 7890123456"
+                    maxLength={10}
+                    inputMode="numeric"
                     required 
                   />
+                  {formErrors.contact && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px', display: 'block' }}>{formErrors.contact}</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Office Address</label>

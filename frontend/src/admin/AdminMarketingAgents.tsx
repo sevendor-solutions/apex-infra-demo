@@ -33,6 +33,7 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
   
   // Image uploading state
   const [uploading, setUploading] = useState(false);
+  const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({});
 
   const handleOpenAdd = () => {
     setEditingAgent(null);
@@ -42,6 +43,7 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
     setDesignation('');
     setPhotoUrl('');
     setStatus('Active');
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -53,6 +55,7 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
     setDesignation(agent.designation || '');
     setPhotoUrl(agent.photoUrl || '');
     setStatus(agent.status || 'Active');
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -93,18 +96,19 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
     if (email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(email.trim())) {
-        onAddToast('Please enter a valid email address', 'error');
+        setFormErrors(prev => ({ ...prev, email: 'Enter a valid email address (e.g. user@domain.com)' }));
         return;
       }
     }
 
     if (phone.trim()) {
-      const phoneRegex = /^\+?[0-9\s-]{10,14}$/;
-      if (!phoneRegex.test(phone.replace(/\s+/g, ''))) {
-        onAddToast('Please enter a valid phone number', 'error');
+      const phoneRegex = /^[6-9]\d{9}$/;
+      if (!phoneRegex.test(phone.trim())) {
+        setFormErrors(prev => ({ ...prev, phone: 'Enter a valid 10-digit Indian mobile number (starts with 6–9)' }));
         return;
       }
     }
+    setFormErrors({});
 
     const agentData: Omit<MarketingAgent, 'id'> & { id?: string } = {
       name: name.trim(),
@@ -299,14 +303,21 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
                     <div style={{ position: 'relative' }}>
                       <Phone size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                       <input 
-                        type="text" 
+                        type="tel" 
                         className="form-control" 
-                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.6rem 0.85rem 0.6rem 2.5rem', border: '1.5px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box', outline: 'none', fontSize: '0.88rem' }} 
-                        placeholder="e.g. +91 9876543210" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.6rem 0.85rem 0.6rem 2.5rem', border: `1.5px solid ${formErrors.phone ? '#ef4444' : '#cbd5e1'}`, borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box', outline: 'none', fontSize: '0.88rem' }} 
+                        placeholder="e.g. 9876543210" 
                         value={phone} 
-                        onChange={e => setPhone(e.target.value)} 
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setPhone(val);
+                          if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: undefined }));
+                        }}
+                        maxLength={10}
+                        inputMode="numeric"
                       />
                     </div>
+                    {formErrors.phone && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>{formErrors.phone}</span>}
                   </div>
 
                   <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -316,12 +327,16 @@ export const AdminMarketingAgents: React.FC<AdminMarketingAgentsProps> = ({
                       <input 
                         type="email" 
                         className="form-control" 
-                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.6rem 0.85rem 0.6rem 2.5rem', border: '1.5px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box', outline: 'none', fontSize: '0.88rem' }} 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.6rem 0.85rem 0.6rem 2.5rem', border: `1.5px solid ${formErrors.email ? '#ef4444' : '#cbd5e1'}`, borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box', outline: 'none', fontSize: '0.88rem' }} 
                         placeholder="e.g. agent@company.com" 
                         value={email} 
-                        onChange={e => setEmail(e.target.value)} 
+                        onChange={e => {
+                          setEmail(e.target.value);
+                          if (formErrors.email) setFormErrors(prev => ({ ...prev, email: undefined }));
+                        }}
                       />
                     </div>
+                    {formErrors.email && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '2px' }}>{formErrors.email}</span>}
                   </div>
                 </div>
 

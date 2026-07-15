@@ -26,7 +26,7 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST schedule new site visit
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const newVisit = await SiteVisit.create(req.body);
+        const newVisit = await SiteVisit.create({ ...req.body, userId: req.user?.id });
         await logAuditAction(req, "Site Visit Scheduled", `Scheduled site visit for client "${newVisit.customerName}" (Project: ${newVisit.projectName})`, "Success");
         return res.status(201).json({ success: true, data: newVisit });
     } catch (error) {
@@ -620,6 +620,12 @@ export const runAutomatedSiteVisitReminders = async () => {
             }
 
             if (diffDays === config.sendBeforeDays) {
+                // Only send reminders in the evening or night (at or after 5:00 PM / 17:00)
+                const currentHour = new Date().getHours();
+                if (currentHour < 17) {
+                    continue; // Leave as Pending to trigger during evening/night runs
+                }
+
                 try {
                     let location = "At the project site";
                     const project = await Project.findByPk(visit.projectAssociation);

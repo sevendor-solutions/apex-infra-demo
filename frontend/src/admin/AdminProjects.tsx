@@ -104,17 +104,33 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     }
   };
 
-  // Helper function to parse availability string (e.g. "2 BHK: 30, 3 BHK: 20")
+  // Helper function to parse availability string (e.g. "2 BHK: 30: 35, 3 BHK: 20: 45")
   const parseAvailabilityDetails = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
     details.split(',').forEach(item => {
       const parts = item.split(':');
-      if (parts.length === 2) {
+      if (parts.length >= 2) {
         const type = parts[0].trim();
         const count = parts[1].trim();
         if (type && count !== '') {
           result[type] = count;
+        }
+      }
+    });
+    return result;
+  };
+
+  const parseAvailabilityUds = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length >= 3) {
+        const type = parts[0].trim();
+        const udsVal = parts[2].trim();
+        if (type && udsVal !== '') {
+          result[type] = udsVal;
         }
       }
     });
@@ -146,6 +162,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [unitsCount, setUnitsCount] = useState(0);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
+  const [configUdsValues, setConfigUdsValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
@@ -177,6 +194,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setUnitsCount(50);
     setSelectedPropertyTypes(['2 BHK', '3 BHK']);
     setConfigValues({ '2 BHK': '20', '3 BHK': '30' });
+    setConfigUdsValues({ '2 BHK': '', '3 BHK': '' });
     setSpecImage('');
     setWidth('');
     setLength('');
@@ -215,8 +233,10 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setUnitsCount(proj.unitsCount || 0);
     
     const parsedValues = parseAvailabilityDetails(proj.availabilityDetails || '');
+    const parsedUdsValues = parseAvailabilityUds(proj.availabilityDetails || '');
     setSelectedPropertyTypes(Object.keys(parsedValues));
     setConfigValues(parsedValues);
+    setConfigUdsValues(parsedUdsValues);
     
     setSpecImage(proj.specImage || '');
     setWidth(proj.width || '');
@@ -284,8 +304,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
         return;
       }
     }
-    if (uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
-      onAddToast('UDS must be a positive number', 'error');
+    if (category === 'Sites' && uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
+      onAddToast('Total Sq. Yards must be a positive number', 'error');
       return;
     }
 
@@ -298,7 +318,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     const availabilityString = selectedPropertyTypes
       .map(type => {
         const val = configValues[type] !== undefined ? configValues[type] : '0';
-        return `${type}: ${val}`;
+        const udsVal = configUdsValues[type] !== undefined ? configUdsValues[type] : '';
+        return `${type}: ${val}: ${udsVal}`;
       })
       .join(', ');
 
@@ -368,8 +389,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
         });
         setShowSharePreview(true);
       }
-    } catch (error) {
-      onAddToast('Failed to save project.', 'error');
+    } catch (error: any) {
+      onAddToast(error?.message || 'Failed to save project.', 'error');
     }
   };
 
@@ -621,23 +642,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </fieldset>
                 )}
 
-                {category === 'Flats' && (
-                  <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                    <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>UDS (Sq. Yds) *</label>
-                    <div style={{ position: 'relative' }}>
-                      <Layers size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input
-                        type="text"
-                        className="form-control"
-                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
-                        placeholder="e.g. 35"
-                        value={uds}
-                        onChange={e => setUds(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
+                {/* Overall UDS field removed for Flats as requested */}
 
                 {/* Section 2: Location & Address */}
                 <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Location & Address</div>
@@ -816,8 +821,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       const isChecked = selectedPropertyTypes.includes(pt.name);
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
-                        <div key={pt.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', flex: 1, userSelect: 'none' }}>
+                        <div key={pt.id} style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', width: '100px', userSelect: 'none' }}>
                             <input 
                               type="checkbox"
                               checked={isChecked}
@@ -825,9 +830,15 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                                 if (e.target.checked) {
                                   setSelectedPropertyTypes(prev => [...prev, pt.name]);
                                   setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                  setConfigUdsValues(prev => ({ ...prev, [pt.name]: '' }));
                                 } else {
                                   setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
                                   setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                  setConfigUdsValues(prev => {
                                     const next = { ...prev };
                                     delete next[pt.name];
                                     return next;
@@ -838,19 +849,33 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                             />
                             {pt.name}
                           </label>
-                          <input 
-                            type="number"
-                            placeholder="Qty"
-                            className="form-control"
-                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
-                            value={countValue}
-                            disabled={!isChecked}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setConfigValues(prev => ({ ...prev, [pt.name]: val }));
-                            }}
-                            min="0"
-                          />
+                          <div style={{ display: 'flex', gap: '0.4rem', flex: 1 }}>
+                            <input 
+                              type="number"
+                              placeholder="Qty"
+                              className="form-control"
+                              style={{ flex: 1, minWidth: '55px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
+                              value={countValue}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                              min="0"
+                            />
+                            <input 
+                              type="text"
+                              placeholder="UDS (Sq.Yds)"
+                              className="form-control"
+                              style={{ flex: 1.5, minWidth: '85px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
+                              value={configUdsValues[pt.name] !== undefined ? configUdsValues[pt.name] : ''}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigUdsValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                            />
+                          </div>
                         </div>
                       );
                     })}

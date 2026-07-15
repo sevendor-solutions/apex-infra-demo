@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Quotation, QuotationItem, Customer, InventoryItem } from '../types';
+import { jsPDF } from 'jspdf';
+import type { Quotation, QuotationItem, Customer, InventoryItem, Project } from '../types';
 import { 
-  X, Trash 
+  X, Trash, Download, Share2
 } from 'lucide-react';
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
-  getInventoryItems, getCustomers, addInvoice 
+  getInventoryItems, getCustomers, addInvoice, getProjects
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
+import logoImg from '../assets/logo.png';
 
 interface AdminQuotationsProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -24,6 +26,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -32,6 +35,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [projectName, setProjectName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [validTillDate, setValidTillDate] = useState(() => {
     const d = new Date();
@@ -50,14 +54,16 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [quotes, items, customers] = await Promise.all([
+      const [quotes, items, customers, projs] = await Promise.all([
         getQuotations(),
         getInventoryItems(),
-        getCustomers()
+        getCustomers(),
+        getProjects()
       ]);
       setQuotations(quotes);
       setItemsList(items);
       setCustomersList(customers);
+      setProjectsList(projs);
     } catch (err) {
       onAddToast('Failed to load quotations data.', 'error');
     } finally {
@@ -141,6 +147,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setCustomerName('');
     setCustomerMobile('');
     setCustomerAddress('');
+    setProjectName('');
     setDate(new Date().toISOString().split('T')[0]);
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -168,6 +175,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         customerName,
         customerMobile,
         customerAddress,
+        projectName,
         date,
         validTillDate,
         items: lineItems,
@@ -197,6 +205,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setCustomerName(q.customerName);
     setCustomerMobile(q.customerMobile);
     setCustomerAddress(q.customerAddress || '');
+    setProjectName(q.projectName || '');
     setDate(q.date);
     setValidTillDate(q.validTillDate);
     setNotes(q.notes || '');
@@ -204,6 +213,260 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setStatus(q.status);
     setLineItems(q.items && q.items.length ? q.items : []);
     setShowModal(true);
+  };
+
+  const handleDownloadPDF = async (q: Quotation) => {
+    onAddToast('Generating PDF, please wait...', 'info');
+    try {
+      const doc = new jsPDF();
+      
+      // Load logo
+      let logoData: { base64: string, ratio: number } | null = null;
+      try {
+        logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = logoImg;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              const ratio = img.naturalWidth / img.naturalHeight;
+              resolve({ base64, ratio });
+            } else {
+              reject(new Error('Canvas context error'));
+            }
+          };
+          img.onerror = (e) => reject(e);
+        });
+      } catch (e) {
+        console.warn('Logo loading failed:', e);
+      }
+
+      // Load UPI QR Code
+      let qrData: string | null = null;
+      try {
+        const upiString = `upi://pay?pa=jkfutureinfra@sbi&pn=JK FUTURE INFRA&tn=Quotation ${q.quotationNumber}&am=${q.totalAmount}`;
+        const qrUrl = `https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=${encodeURIComponent(upiString)}`;
+        qrData = await new Promise<string>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = qrUrl;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              resolve(canvas.toDataURL('image/png'));
+            } else {
+              reject(new Error('Canvas context error'));
+            }
+          };
+          img.onerror = (e) => reject(e);
+        });
+      } catch (e) {
+        console.warn('QR Code loading failed:', e);
+      }
+
+      // Top green banner
+      doc.setFillColor(16, 185, 129); // Emerald Green
+      doc.rect(0, 0, 210, 30, 'F');
+
+      // Contact info inside green banner
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Call: 9000553832', 50, 12);
+      doc.text('Email: jkfutureinfra@gmail.com', 50, 18);
+      
+      doc.text('Door No: 4-92/1/6, FLAT No: 202', 130, 10);
+      doc.text('LEE INFRA, TALRI VANIPALEM', 130, 15);
+      doc.text('AGANAMPUDI, VSP-530053', 130, 20);
+
+      // Logo or text if logo failed
+      if (logoData) {
+        doc.addImage(logoData.base64, 'PNG', 10, 5, 20 * logoData.ratio, 20);
+      } else {
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('JK FUTURE', 10, 16);
+      }
+
+      // Under banner Details
+      doc.setTextColor(15, 23, 42); // slate 900
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('JK FUTURE INFRA', 15, 42);
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('GSTIN: 37AAWFJ6705B1Z6', 15, 48);
+      doc.text('State: 37-Andhra Pradesh', 15, 52);
+
+      // Title Right
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(16, 185, 129);
+      doc.text('QUOTATION', 195, 45, { align: 'right' });
+
+      // Horizontal separator line
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.5);
+      doc.line(15, 57, 195, 57);
+
+      // Metadata Block
+      doc.setTextColor(15, 23, 42);
+      // Left Info
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Bill To:', 15, 65);
+      doc.setFont('helvetica', 'normal');
+      doc.text(q.customerName, 15, 70);
+      doc.text(`Contact No.: ${q.customerMobile}`, 15, 75);
+      if (q.customerAddress) {
+        doc.text(q.customerAddress, 15, 80);
+      }
+
+      // Right Info
+      doc.setFont('helvetica', 'bold');
+      doc.text('Quotation No.:', 120, 65);
+      doc.text('Date:', 120, 70);
+      doc.text('Valid Until:', 120, 75);
+      doc.text('Project Name:', 120, 80);
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(q.quotationNumber, 155, 65);
+      doc.text(q.date, 155, 70);
+      doc.text(q.validTillDate, 155, 75);
+      doc.text(q.projectName || '— General / None —', 155, 80);
+
+      // Line items table
+      let y = 90;
+      doc.setFillColor(16, 185, 129);
+      doc.rect(15, y, 180, 8, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('#', 18, y + 5);
+      doc.text('PRODUCT / DESCRIPTION', 26, y + 5);
+      doc.text('QTY', 110, y + 5, { align: 'right' });
+      doc.text('UNIT PRICE', 135, y + 5, { align: 'right' });
+      doc.text('DISCOUNT', 155, y + 5, { align: 'right' });
+      doc.text('GST %', 170, y + 5, { align: 'right' });
+      doc.text('TOTAL', 190, y + 5, { align: 'right' });
+
+      y += 8;
+      doc.setTextColor(15, 23, 42);
+      
+      q.items.forEach((item, idx) => {
+        doc.setFont('helvetica', 'normal');
+        doc.text(String(idx + 1), 18, y + 5);
+        doc.text(item.productName, 26, y + 5);
+        doc.text(String(item.quantity), 110, y + 5, { align: 'right' });
+        doc.text(fmt(item.unitPrice), 135, y + 5, { align: 'right' });
+        doc.text(fmt(item.discount), 155, y + 5, { align: 'right' });
+        doc.text(`${item.gstPercentage}%`, 170, y + 5, { align: 'right' });
+        doc.text(fmt(item.total), 190, y + 5, { align: 'right' });
+        
+        doc.setDrawColor(241, 245, 249);
+        doc.line(15, y + 8, 195, y + 8);
+        y += 8;
+      });
+
+      // Totals
+      y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Grand Total:', 140, y);
+      doc.text(fmt(q.totalAmount), 190, y, { align: 'right' });
+
+      // Terms & Banking section
+      y += 15;
+      if (y > 220) {
+        doc.addPage();
+        y = 20;
+      }
+
+      // Draw box for Banking details
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(15, y, 110, 42, 'FD');
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.text('Pay To (Bank Details):', 18, y + 6);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('Bank Name: STATE BANK OF INDIA, AGANAMPUDI', 18, y + 13);
+      doc.text('Bank Account No.: 45116449587', 18, y + 19);
+      doc.text('Bank IFSC code: SBIN0006832', 18, y + 25);
+      doc.text("Account Holder's Name: JK FUTURE INFRA", 18, y + 31);
+
+      // UPI QR Code on the right of the bank box
+      if (qrData) {
+        doc.addImage(qrData, 'PNG', 135, y, 32, 32);
+        doc.setFontSize(7);
+        doc.setTextColor(100, 116, 139);
+        doc.text('Scan with any UPI app to pay', 135, y + 36);
+      }
+
+      y += 48;
+
+      // Terms
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('Terms and Conditions:', 15, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      const lines = doc.splitTextToSize(q.termsAndConditions || '', 180);
+      doc.text(lines, 15, y + 5);
+
+      // Signatory
+      y += 20;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('For: JK FUTURE INFRA', 140, y);
+      doc.text('Authorized Signatory', 140, y + 20);
+
+      doc.save(`Quotation_${q.quotationNumber}.pdf`);
+      onAddToast('Quotation PDF downloaded.', 'success');
+    } catch (err) {
+      console.error(err);
+      onAddToast('Failed to generate PDF.', 'error');
+    }
+  };
+
+  const handleShareQuotation = async (q: Quotation) => {
+    const text = `Hi, here is the Quotation ${q.quotationNumber} from JK Future Infra.\n\nCustomer: ${q.customerName}\nTotal Amount: ${fmt(q.totalAmount)}\nValid Until: ${q.validTillDate}\nProject: ${q.projectName || 'General'}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Quotation ${q.quotationNumber}`,
+          text: text
+        });
+        onAddToast('Shared successfully', 'success');
+      } catch (err) {
+        // Cancelled
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        onAddToast('Quotation details copied to clipboard!', 'success');
+        const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank');
+      } catch (err) {
+        onAddToast('Could not copy details.', 'error');
+      }
+    }
   };
 
   const handleDelete = async (id: string, num: string) => {
@@ -301,6 +564,22 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
               Edit
             </button>
             <button 
+              onClick={() => handleDownloadPDF(q)} 
+              className="btn btn-sm btn-outline text-secondary flex align-center gap-1"
+              style={{ padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+              title="Download PDF"
+            >
+              <Download size={12} /> PDF
+            </button>
+            <button 
+              onClick={() => handleShareQuotation(q)} 
+              className="btn btn-sm btn-outline text-info flex align-center gap-1"
+              style={{ padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+              title="Share Quotation"
+            >
+              <Share2 size={12} /> Share
+            </button>
+            <button 
               onClick={() => handleDelete(q.id, q.quotationNumber)} 
               className="btn btn-sm btn-outline text-danger"
               style={{ padding: '2px 8px', color: '#ef4444', borderColor: '#ef4444' }}
@@ -378,7 +657,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-2 gap-2">
+                <div className="grid grid-3 gap-2">
                   <div className="form-group">
                     <label className="form-label">Customer Address</label>
                     <input 
@@ -398,6 +677,26 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       onChange={e => setValidTillDate(e.target.value)} 
                       required
                     />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Project Association</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={projectName} 
+                      onChange={e => setProjectName(e.target.value)} 
+                      onBlur={() => {
+                        // Auto-clear if typed value doesn't match any existing project
+                        if (projectName.trim() !== '' && !projectsList.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
+                          setProjectName('');
+                        }
+                      }}
+                      placeholder="Search existing project..." 
+                      list="quotations-projects-datalist"
+                    />
+                    <datalist id="quotations-projects-datalist">
+                      {projectsList.map(p => <option key={p.id} value={p.name} />)}
+                    </datalist>
                   </div>
                 </div>
 

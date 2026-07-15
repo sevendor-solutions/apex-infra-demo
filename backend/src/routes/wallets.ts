@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { Wallet } from "../models/Wallet";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { authenticateToken } from "../middleware/auth";
@@ -24,11 +25,20 @@ router.post("/", authenticateToken, async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Name and Type are required" });
         }
 
+        // Duplicate check on name
+        const existing = await Wallet.findOne({
+            where: { name: { [Op.iLike]: name.trim() } }
+        });
+        if (existing) {
+            return res.status(400).json({ success: false, message: `A wallet account with name "${name}" already exists` });
+        }
+
         const wallet = await Wallet.create({
             name,
             openingBalance: openingBalance || 0,
             currentBalance: openingBalance || 0,
-            type
+            type,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Create Wallet", `Created wallet: ${name} (${type})`, "Success", { walletId: wallet.id });
@@ -45,6 +55,20 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (!wallet) return res.status(404).json({ success: false, message: "Wallet not found" });
 
         const { name, type } = req.body;
+
+        // Duplicate check on name (exclude current)
+        if (name && name.trim().toLowerCase() !== wallet.name.toLowerCase()) {
+            const existing = await Wallet.findOne({
+                where: {
+                    id: { [Op.ne]: wallet.id },
+                    name: { [Op.iLike]: name.trim() }
+                }
+            });
+            if (existing) {
+                return res.status(400).json({ success: false, message: `Another wallet account with name "${name}" already exists` });
+            }
+        }
+
         if (name) wallet.name = name;
         if (type) wallet.type = type;
 
@@ -107,7 +131,8 @@ router.post("/add-money", authenticateToken, async (req, res, next) => {
             paymentMode,
             referenceNumber,
             description,
-            receiptUrl
+            receiptUrl,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Wallet Credit", `Credited ${amount} to wallet: ${wallet.name}`, "Success", { transactionId: transaction.id });
@@ -139,7 +164,8 @@ router.post("/withdraw-money", authenticateToken, async (req, res, next) => {
             paymentMode,
             referenceNumber,
             description,
-            receiptUrl
+            receiptUrl,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Wallet Debit", `Debited ${amount} from wallet: ${wallet.name}`, "Success", { transactionId: transaction.id });
@@ -177,7 +203,8 @@ router.post("/transfer", authenticateToken, async (req, res, next) => {
             amount: parseFloat(amount),
             date,
             paymentMode: "Transfer",
-            description: description || `Transfer to ${toWallet.name}`
+            description: description || `Transfer to ${toWallet.name}`,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Wallet Transfer", `Transferred ${amount} from ${fromWallet.name} to ${toWallet.name}`, "Success", { transactionId: transaction.id });

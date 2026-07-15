@@ -268,17 +268,33 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     }
   };
 
-  // Helper function to parse availability string (e.g. "2 BHK: 30, 3 BHK: 20")
+  // Helper function to parse availability string (e.g. "2 BHK: 30: 35, 3 BHK: 20: 45")
   const parseAvailabilityDetails = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
     details.split(',').forEach(item => {
       const parts = item.split(':');
-      if (parts.length === 2) {
+      if (parts.length >= 2) {
         const type = parts[0].trim();
         const count = parts[1].trim();
         if (type && count !== '') {
           result[type] = count;
+        }
+      }
+    });
+    return result;
+  };
+
+  const parseAvailabilityUds = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length >= 3) {
+        const type = parts[0].trim();
+        const udsVal = parts[2].trim();
+        if (type && udsVal !== '') {
+          result[type] = udsVal;
         }
       }
     });
@@ -309,6 +325,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [unitsCount, setUnitsCount] = useState(0);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
+  const [configUdsValues, setConfigUdsValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
   const [uds, setUds] = useState('');
   const [width, setWidth] = useState('');
@@ -344,6 +361,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUnitsCount(0);
     setSelectedPropertyTypes(['2 BHK', '3 BHK']);
     setConfigValues({ '2 BHK': '30', '3 BHK': '20' });
+    setConfigUdsValues({ '2 BHK': '', '3 BHK': '' });
     setSpecImage('');
     setUds('');
     setWidth('');
@@ -386,8 +404,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUnitsCount(prop.unitsCount || 0);
     
     const parsedValues = parseAvailabilityDetails(prop.availabilityDetails || '');
+    const parsedUdsValues = parseAvailabilityUds(prop.availabilityDetails || '');
     setSelectedPropertyTypes(Object.keys(parsedValues));
     setConfigValues(parsedValues);
+    setConfigUdsValues(parsedUdsValues);
     
     setSpecImage(prop.specImage || '');
     setUds(prop.uds || '');
@@ -465,8 +485,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         return;
       }
     }
-    if (uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
-      onAddToast('UDS must be a positive number', 'error');
+    if (category === 'Sites' && uds && (isNaN(Number(uds)) || Number(uds) <= 0)) {
+      onAddToast('Total Sq. Yards must be a positive number', 'error');
       return;
     }
 
@@ -478,7 +498,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     const availabilityString = selectedPropertyTypes
       .map(type => {
         const val = configValues[type] !== undefined ? configValues[type] : '0';
-        return `${type}: ${val}`;
+        const udsVal = configUdsValues[type] !== undefined ? configUdsValues[type] : '';
+        return `${type}: ${val}: ${udsVal}`;
       })
       .join(', ');
 
@@ -567,8 +588,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         });
         setShowSharePreview(true);
       }
-    } catch (error) {
-      onAddToast('Failed to save marketing property.', 'error');
+    } catch (error: any) {
+      onAddToast(error?.message || 'Failed to save marketing property.', 'error');
     }
   };
 
@@ -958,19 +979,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
-                {category === 'Flats' && (
-                  <div className="form-group">
-                    <label className="form-label">UDS (Sq. Yds) *</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. 35"
-                      value={uds}
-                      onChange={e => setUds(e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
+                {/* Overall UDS field removed for Flats as requested */}
 
                 {category === 'Sites' && (
                   <>
@@ -1194,8 +1203,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       const isChecked = selectedPropertyTypes.includes(pt.name);
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
-                        <div key={pt.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', padding: '0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', flex: 1, userSelect: 'none' }}>
+                        <div key={pt.id} style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', width: '100px', userSelect: 'none' }}>
                             <input 
                               type="checkbox"
                               checked={isChecked}
@@ -1203,9 +1212,15 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                                 if (e.target.checked) {
                                   setSelectedPropertyTypes(prev => [...prev, pt.name]);
                                   setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                  setConfigUdsValues(prev => ({ ...prev, [pt.name]: '' }));
                                 } else {
                                   setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
                                   setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                  setConfigUdsValues(prev => {
                                     const next = { ...prev };
                                     delete next[pt.name];
                                     return next;
@@ -1216,19 +1231,33 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                             />
                             {pt.name}
                           </label>
-                          <input 
-                            type="number"
-                            placeholder="Qty"
-                            className="form-control"
-                            style={{ width: '70px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
-                            value={countValue}
-                            disabled={!isChecked}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setConfigValues(prev => ({ ...prev, [pt.name]: val }));
-                            }}
-                            min="0"
-                          />
+                          <div style={{ display: 'flex', gap: '0.4rem', flex: 1 }}>
+                            <input 
+                              type="number"
+                              placeholder="Qty"
+                              className="form-control"
+                              style={{ flex: 1, minWidth: '55px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                              value={countValue}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                              min="0"
+                            />
+                            <input 
+                              type="text"
+                              placeholder="UDS (Sq.Yds)"
+                              className="form-control"
+                              style={{ flex: 1.5, minWidth: '85px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                              value={configUdsValues[pt.name] !== undefined ? configUdsValues[pt.name] : ''}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigUdsValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                            />
+                          </div>
                         </div>
                       );
                     })}
@@ -1530,7 +1559,12 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <a 
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `Check out this property: *${sharingProperty.name}* at ${sharingProperty.location}.\nPrice: ${sharingProperty.priceRange}\nView details here: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`
+                    `🏠 *${sharingProperty.name}*\n` +
+                    `📍 Location: ${sharingProperty.location}\n` +
+                    `🏗️ Segment: ${sharingProperty.category || ''}${sharingProperty.subCategory ? ' | ' + sharingProperty.subCategory : ''}\n` +
+                    `🏷️ Classification: ${sharingProperty.classification || 'N/A'}\n` +
+                    `💰 Price: ${sharingProperty.priceRange}\n` +
+                    `🔗 View details: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`
                   )}`}
                   target="_blank"
                   rel="noreferrer"
@@ -1611,14 +1645,14 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <a 
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `Check out J.K. Future Infra properties.` +
-                    (selectedCityFilters.length > 0 ? `\n📍 Cities: ${selectedCityFilters.join(', ')}` : '') +
-                    (selectedLocationFilters.length > 0 ? `\n📌 Locations: ${selectedLocationFilters.join(', ')}` : '') +
-                    (selectedCategoryFilters.length > 0 ? `\n🏠 Categories: ${selectedCategoryFilters.join(', ')}` : '') +
-                    (selectedFacingFilters.length > 0 ? `\n🧭 Facings: ${selectedFacingFilters.join(', ')}` : '') +
-                    (selectedPropertyTypeFilters.length > 0 ? `\n🏗️ Types: ${selectedPropertyTypeFilters.join(', ')}` : '') +
-                    (selectedAgentFilters.length > 0 ? `\n👤 Agents: ${selectedAgentFilters.map(id => agents.find(a => a.id === id)?.name || id).join(', ')}` : '') +
-                    `\n\nView list here: ${buildShareParams(filterShareMapEnabled)}`
+                    `🏢 *J.K. Future Infra — Property Listings*\n` +
+                    (selectedCategoryFilters.length > 0 ? `🏠 Segment: ${selectedCategoryFilters.join(', ')}\n` : '') +
+                    (selectedCityFilters.length > 0 ? `📍 Cities: ${selectedCityFilters.join(', ')}\n` : '') +
+                    (selectedLocationFilters.length > 0 ? `📌 Locations: ${selectedLocationFilters.join(', ')}\n` : '') +
+                    (selectedFacingFilters.length > 0 ? `🧭 Facings: ${selectedFacingFilters.join(', ')}\n` : '') +
+                    (selectedPropertyTypeFilters.length > 0 ? `🏗️ Sub-Category / Types: ${selectedPropertyTypeFilters.join(', ')}\n` : '') +
+                    (selectedAgentFilters.length > 0 ? `👤 Agents: ${selectedAgentFilters.map(id => agents.find(a => a.id === id)?.name || id).join(', ')}\n` : '') +
+                    `\n🔗 View listings: ${buildShareParams(filterShareMapEnabled)}`
                   )}`}
                   target="_blank"
                   rel="noreferrer"

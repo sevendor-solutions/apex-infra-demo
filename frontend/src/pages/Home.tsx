@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Flame, Landmark, Trees, Send } from 'lucide-react';
 import type { Project, Blog, ProjectCategory, SiteCategory } from '../types';
+import { getProjectMainImage } from '../utils/image';
 
 interface HomeProps {
   projects: Project[];
@@ -68,7 +69,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           <div 
             key={project.id} 
             className={`hero-slide ${idx === heroIndex ? 'active' : ''}`}
-            style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${project.images[0]})` }}
+            style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${getProjectMainImage(project)})` }}
           >
             <div className="container hero-slide-content">
               <h1 className="hero-title">{project.name}</h1>

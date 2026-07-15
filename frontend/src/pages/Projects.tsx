@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
 import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing } from '../types';
+import { getProjectMainImage } from '../utils/image';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -21,7 +22,7 @@ export const Projects: React.FC<ProjectsProps> = ({
   propertyTypes = [],
   facings = []
 }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showMap, setShowMap] = useState<boolean>(false);
   const [search, setSearch] = useState<string>(initialParams?.search || '');
   const [statusFilter, setStatusFilter] = useState<string>(initialParams?.status || 'All');
@@ -613,7 +614,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                   {selectedMapProject ? (
                     <div className="flex flex-col gap-2">
                       <div className="map-proj-img-box" style={{ height: '140px', borderRadius: '8px', overflow: 'hidden' }}>
-                        <img src={selectedMapProject.images[0]} alt={selectedMapProject.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={getProjectMainImage(selectedMapProject)} alt={selectedMapProject.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                       <span className={`badge badge-${selectedMapProject.status.toLowerCase()}`}>{selectedMapProject.status}</span>
                       <h3>{selectedMapProject.name}</h3>
@@ -659,7 +660,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                     {paginatedProjects.map(project => (
                       <div key={project.id} className="property-card flex flex-col shadow-sm" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', height: '200px' }}>
-                          <img src={project.images[0]} alt={project.name} className="property-card-img" />
+                          <img src={getProjectMainImage(project)} alt={project.name} className="property-card-img" />
                           <span className={`property-card-badge badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
                           <span className="property-card-price">{project.priceRange}</span>
                         </div>
@@ -678,9 +679,9 @@ export const Projects: React.FC<ProjectsProps> = ({
                                   <Compass size={13} className="text-secondary" /> {project.facing}
                                 </span>
                               )}
-                              {project.floors !== undefined && (
+                              {project.category !== 'Sites' && project.floors !== undefined && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots Layout' : `G+${project.floors} Floors`}
+                                  <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots Layout' : `${project.floors} Floors`}
                                 </span>
                               )}
                               {project.unitsCount !== undefined && (
@@ -688,9 +689,9 @@ export const Projects: React.FC<ProjectsProps> = ({
                                   <Home size={13} className="text-secondary" /> {project.unitsCount} Units
                                 </span>
                               )}
-                              {project.uds && (
+                              {project.category === 'Sites' && project.uds && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
+                                  <Sparkles size={13} className="text-secondary" /> Total Yards: {project.uds} Sq.Yds
                                 </span>
                               )}
                               {project.width && project.length && (
@@ -763,9 +764,9 @@ export const Projects: React.FC<ProjectsProps> = ({
                               
                               {/* Specs row stats */}
                               <div className="highlights-row flex gap-2 my-1 text-sm font-semibold text-primary" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '0.75rem 0' }}>
-                                {project.floors !== undefined && (
+                                {project.category !== 'Sites' && project.floors !== undefined && (
                                   <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
-                                    <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Open Plots Layout' : `Floors: G+${project.floors}`}
+                                    <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Open Plots Layout' : `Floors: ${project.floors}`}
                                   </span>
                                 )}
                                 {project.unitsCount !== undefined && (
@@ -778,7 +779,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                                     <Compass size={13} className="text-secondary" /> Facing: {project.facing}
                                   </span>
                                 )}
-                                {project.uds && (
+                                {project.category === 'Sites' && project.uds && (
                                   <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
                                     <Sparkles size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
                                   </span>
@@ -799,10 +800,13 @@ export const Projects: React.FC<ProjectsProps> = ({
                                   </span>
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                                     {project.availabilityDetails.split(',').map((part, idx) => {
-                                      const [type, qty] = part.split(':').map(s => s.trim());
+                                      const parts = part.split(':').map(s => s.trim());
+                                      const type = parts[0];
+                                      const qty = parts[1];
+                                      const udsVal = parts[2];
                                       return (
                                         <span key={idx} className="badge badge-ongoing" style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', border: '1px solid #d0e1f5', borderRadius: '4px', fontWeight: 600 }}>
-                                          {type} {qty ? `(${qty} units)` : ''}
+                                          {type} {qty ? `(${qty} units)` : ''}{udsVal ? ` - UDS: ${udsVal} Sq.Yds` : ''}
                                         </span>
                                       );
                                     })}

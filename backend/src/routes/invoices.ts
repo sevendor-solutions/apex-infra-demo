@@ -48,7 +48,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
             discountAmount: parseFloat(discountAmount || 0),
             paidAmount: paid,
             pendingAmount: pending,
-            paymentStatus
+            paymentStatus,
+            userId: req.user?.id
         });
 
         // 1. Update Customer Outstanding Balance
@@ -70,7 +71,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
                     type: "Stock Out",
                     quantity: parseFloat(item.quantity),
                     date,
-                    notes: `Sales Invoice reference: ${invoiceNumber}`
+                    notes: `Sales Invoice reference: ${invoiceNumber}`,
+                    userId: req.user?.id
                 });
             }
         }

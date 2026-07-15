@@ -210,7 +210,10 @@ export async function seedDatabase() {
         dbUser: process.env.PG_USER || "postgres",
         dbPassword: process.env.PG_PASSWORD || "Admin@123",
         dbName: process.env.PG_DB || "JKFutureDB",
-        jwtSecret: process.env.JWT_SECRET || "jk_future_infra_secret_jwt_key_2026"
+        jwtSecret: process.env.JWT_SECRET || "jk_future_infra_secret_jwt_key_2026",
+        facebookPageId: "1234774963046460",
+        facebookPageAccessToken: "EAGKi3t8SWnQBRxgbgOB9k8pZBuTZBZCUqUWOU4zzMvfZCnloGDEeiO10o6OvRkfusjteyMIr1WkPRlwsY8xGKY5KY69QWW9GPwUI38FR7mlSTEt1yZB24c6jEc91JnCszDif5w3ZBLIhqINbD6kyAWAVZBehHZBb3v4fLRpZAemwHgZBqASMjRIuBOvcoZBlnEB9IrNZBuFSNqfF",
+        instagramAccountId: "17841448069548253"
       });
     } else {
       console.log("🌱 Updating MailConfig database credentials to SecureServer SMTP...");
@@ -220,7 +223,10 @@ export async function seedDatabase() {
         smtpUser: "info@jkfutureinfra.com",
         smtpPass: "JKFUTUREINFRA@999",
         senderEmail: "info@jkfutureinfra.com",
-        deliveryMode: "smtp"
+        deliveryMode: "smtp",
+        facebookPageId: "1234774963046460",
+        facebookPageAccessToken: "EAGKi3t8SWnQBRxgbgOB9k8pZBuTZBZCUqUWOU4zzMvfZCnloGDEeiO10o6OvRkfusjteyMIr1WkPRlwsY8xGKY5KY69QWW9GPwUI38FR7mlSTEt1yZB24c6jEc91JnCszDif5w3ZBLIhqINbD6kyAWAVZBehHZBb3v4fLRpZAemwHgZBqASMjRIuBOvcoZBlnEB9IrNZBuFSNqfF",
+        instagramAccountId: "17841448069548253"
       });
     }
 

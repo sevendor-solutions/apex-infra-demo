@@ -26,7 +26,7 @@ router.get("/", async (req, res, next) => {
 // POST create gallery item
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const newItem = await GalleryItem.create(req.body);
+        const newItem = await GalleryItem.create({ ...req.body, userId: req.user?.id });
         return res.status(201).json({ success: true, data: newItem });
     } catch (error) {
         next(error);

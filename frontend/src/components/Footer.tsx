@@ -61,6 +61,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA Approved Sites')}>VUDA Approved Plots</button></li>
               <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>Panchayati Approved Sites</button></li>
               <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>Venture Layouts</button></li>
+              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>Agriculture Lands</button></li>
+              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>Non-Agri Lands</button></li>
+              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Industrial Sites')}>Industrial Sites</button></li>
             </ul>
           </div>
 

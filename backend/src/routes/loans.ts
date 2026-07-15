@@ -44,7 +44,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
             paidAmount: 0,
             pendingAmount: parseFloat(amount),
             nextDueDate,
-            documentUrl
+            documentUrl,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Create Loan", `Created loan account: ${accountNumber} with ${providerName}`, "Success", { loanId: loan.id });
@@ -128,7 +129,8 @@ router.post("/:id/pay-emi", authenticateToken, async (req, res, next) => {
             loanId: loan.id,
             paymentDate,
             amount: payAmt,
-            reference
+            reference,
+            userId: req.user?.id
         });
 
         await logAuditAction(req, "Pay Loan EMI", `Paid EMI of ${amount} for loan: ${loan.accountNumber}`, "Success", { paymentId: payment.id });

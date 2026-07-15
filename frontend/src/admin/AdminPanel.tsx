@@ -198,9 +198,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     talentAcquisition: false,
     siteVisits: false,
     communicationConfig: false,
-    expenseManagement: false,
-    clientVendorAccounts: false,
-    salesBilling: false,
+    accounting: false,
     systemGovernance: false,
   });
 
@@ -227,18 +225,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       careers: 'talentAcquisition',
       site_visits: 'siteVisits',
       mail_config: 'communicationConfig',
-      expenses: 'expenseManagement',
-      wallets: 'expenseManagement',
-      customers: 'clientVendorAccounts',
-      suppliers: 'clientVendorAccounts',
-      inventory: 'salesBilling',
-      quotations: 'salesBilling',
-      invoices: 'salesBilling',
-      payments_in: 'salesBilling',
-      payments_out: 'salesBilling',
-      payments_pending: 'salesBilling',
-      loans: 'salesBilling',
-      auditor_reports: 'salesBilling',
+      expenses: 'accounting',
+      wallets: 'accounting',
+      customers: 'accounting',
+      suppliers: 'accounting',
+      inventory: 'accounting',
+      quotations: 'accounting',
+      invoices: 'accounting',
+      payments_in: 'accounting',
+      payments_out: 'accounting',
+      payments_pending: 'accounting',
+      loans: 'accounting',
+      auditor_reports: 'accounting',
       users: 'systemGovernance',
       masters: 'systemGovernance',
       audit_logs: 'systemGovernance',
@@ -1185,9 +1183,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 talentAcquisition: false,
                 siteVisits: false,
                 communicationConfig: false,
-                expenseManagement: false,
-                clientVendorAccounts: false,
-                salesBilling: false,
+                accounting: false,
                 systemGovernance: false,
               });
             }}
@@ -1749,12 +1745,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {/* Group 12: Expense Management */}
-          {(hasScreenAccess('expenses') || hasScreenAccess('wallets')) && (
+          {/* Consolidated Group: Accounting */}
+          {(hasScreenAccess('expenses') || hasScreenAccess('wallets') || 
+            hasScreenAccess('customers') || hasScreenAccess('suppliers') || 
+            hasScreenAccess('inventory') || hasScreenAccess('quotations') || 
+            hasScreenAccess('invoices') || hasScreenAccess('payments_in') || 
+            hasScreenAccess('payments_out') || hasScreenAccess('payments_pending') || 
+            hasScreenAccess('loans') || hasScreenAccess('auditor_reports')) && (
             <div className="admin-sidebar-group">
               <div 
                 className="admin-sidebar-group-header" 
-                onClick={() => toggleGroup('expenseManagement')}
+                onClick={() => toggleGroup('accounting')}
                 style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1764,13 +1765,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   userSelect: 'none'
                 }}
               >
-                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Expense Management</div>
+                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Accounting</div>
                 {!sidebarCollapsed && (
                   <ChevronDown 
                     size={14} 
                     className="group-arrow-icon"
                     style={{ 
-                      transform: expandedGroups.expenseManagement ? 'rotate(0deg)' : 'rotate(-90deg)', 
+                      transform: expandedGroups.accounting ? 'rotate(0deg)' : 'rotate(-90deg)', 
                       transition: 'transform 0.2s ease',
                       color: 'rgba(255, 255, 255, 0.4)',
                       flexShrink: 0
@@ -1778,7 +1779,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   />
                 )}
               </div>
-              {(expandedGroups.expenseManagement || sidebarCollapsed) && (
+              {(expandedGroups.accounting || sidebarCollapsed) && (
                 <>
                   {hasScreenAccess('expenses') && (
                     <li className="admin-sidebar-item">
@@ -1802,42 +1803,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                     </li>
                   )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Group 13: Client & Vendor Accounts */}
-          {(hasScreenAccess('customers') || hasScreenAccess('suppliers')) && (
-            <div className="admin-sidebar-group">
-              <div 
-                className="admin-sidebar-group-header" 
-                onClick={() => toggleGroup('clientVendorAccounts')}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  cursor: 'pointer',
-                  paddingRight: '1.25rem',
-                  userSelect: 'none'
-                }}
-              >
-                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Client & Vendor Accounts</div>
-                {!sidebarCollapsed && (
-                  <ChevronDown 
-                    size={14} 
-                    className="group-arrow-icon"
-                    style={{ 
-                      transform: expandedGroups.clientVendorAccounts ? 'rotate(0deg)' : 'rotate(-90deg)', 
-                      transition: 'transform 0.2s ease',
-                      color: 'rgba(255, 255, 255, 0.4)',
-                      flexShrink: 0
-                    }} 
-                  />
-                )}
-              </div>
-              {(expandedGroups.clientVendorAccounts || sidebarCollapsed) && (
-                <>
                   {hasScreenAccess('customers') && (
                     <li className="admin-sidebar-item">
                       <button 
@@ -1860,42 +1825,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                     </li>
                   )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Group 14: Sales & Billing */}
-          {(hasScreenAccess('inventory') || hasScreenAccess('quotations') || hasScreenAccess('invoices') || hasScreenAccess('payments_in') || hasScreenAccess('payments_out') || hasScreenAccess('payments_pending') || hasScreenAccess('loans') || hasScreenAccess('auditor_reports')) && (
-            <div className="admin-sidebar-group">
-              <div 
-                className="admin-sidebar-group-header" 
-                onClick={() => toggleGroup('salesBilling')}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  cursor: 'pointer',
-                  paddingRight: '1.25rem',
-                  userSelect: 'none'
-                }}
-              >
-                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Sales & Billing</div>
-                {!sidebarCollapsed && (
-                  <ChevronDown 
-                    size={14} 
-                    className="group-arrow-icon"
-                    style={{ 
-                      transform: expandedGroups.salesBilling ? 'rotate(0deg)' : 'rotate(-90deg)', 
-                      transition: 'transform 0.2s ease',
-                      color: 'rgba(255, 255, 255, 0.4)',
-                      flexShrink: 0
-                    }} 
-                  />
-                )}
-              </div>
-              {(expandedGroups.salesBilling || sidebarCollapsed) && (
-                <>
                   {hasScreenAccess('inventory') && (
                     <li className="admin-sidebar-item">
                       <button 
