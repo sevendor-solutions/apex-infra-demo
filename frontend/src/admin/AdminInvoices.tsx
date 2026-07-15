@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { 
   getInvoices, addInvoice, deleteInvoice,
-  getInventoryItems, getCustomers, getWallets 
+  getInventoryItems, getCustomers, getWallets,
+  addInventoryItem
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -37,6 +38,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
   // Invoice Line Items
   const [lineItems, setLineItems] = useState<InvoiceItem[]>([]);
+  const [activeProductSearchIdx, setActiveProductSearchIdx] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -328,83 +330,169 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
                 <div className="form-group">
                   <label className="form-label font-bold" style={{ borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '8px' }}>Line Items / Products</label>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
-                    <thead>
-                      <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                        <th style={{ padding: '6px' }}>Product</th>
-                        <th style={{ padding: '6px', width: '90px' }}>Qty</th>
-                        <th style={{ padding: '6px', width: '120px' }}>Selling Price</th>
-                        <th style={{ padding: '6px', width: '100px' }}>Discount</th>
-                        <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
-                        <th style={{ padding: '6px', width: '40px' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '4px' }}>
-                            <select 
-                              value={item.productCode} 
-                              onChange={e => handleProductSelect(idx, e.target.value)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              required
-                            >
-                              <option value="">-- Select Product --</option>
-                              {itemsList.map(prod => (
-                                <option key={prod.id} value={prod.code}>{prod.name} ({prod.code}) [Available: {prod.currentStock}]</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.quantity} 
-                              onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={1}
-                              required 
-                            />
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.price} 
-                              onChange={e => updateLineItem(idx, 'price', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={0}
-                              required 
-                            />
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.discount} 
-                              onChange={e => updateLineItem(idx, 'discount', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={0}
-                            />
-                          </td>
-                          <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                            {fmt(item.total)}
-                          </td>
-                          <td style={{ padding: '4px', textAlign: 'center' }}>
-                            <button 
-                              type="button" 
-                              onClick={() => removeLineItem(idx)} 
-                              className="text-danger" 
-                              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                              <Trash size={16} />
-                            </button>
-                          </td>
+                  <div className="modal-table-wrapper">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
+                      <thead>
+                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
+                          <th style={{ padding: '6px' }}>Product</th>
+                          <th style={{ padding: '6px', width: '90px' }}>Qty</th>
+                          <th style={{ padding: '6px', width: '120px' }}>Selling Price</th>
+                          <th style={{ padding: '6px', width: '100px' }}>Discount</th>
+                          <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '6px', width: '40px' }}></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {lineItems.map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '4px', position: 'relative' }}>
+                              <input 
+                                type="text"
+                                value={item.productName}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, productName: val, productCode: '' } : li));
+                                  setActiveProductSearchIdx(idx);
+                                }}
+                                onFocus={() => setActiveProductSearchIdx(idx)}
+                                onBlur={() => setTimeout(() => setActiveProductSearchIdx(null), 250)}
+                                placeholder="Search or type product..."
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                required
+                              />
+                              {activeProductSearchIdx === idx && (
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 4,
+                                  right: 4,
+                                  backgroundColor: '#fff',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                  zIndex: 9999,
+                                  maxHeight: '180px',
+                                  overflowY: 'auto',
+                                  marginTop: '2px'
+                                }}>
+                                  {item.productName.trim() !== '' && !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
+                                    <div 
+                                      onMouseDown={async () => {
+                                        try {
+                                          const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
+                                          const newItem = await addInventoryItem({
+                                            name: item.productName,
+                                            code,
+                                            unit: 'Pcs',
+                                            openingStock: 0,
+                                            purchasePrice: 0,
+                                            sellingPrice: item.price || 0,
+                                            gstPercentage: 18
+                                          });
+                                          onAddToast(`Added "${newItem.name}" to database.`, 'success');
+                                          await loadData();
+                                          handleProductSelect(idx, newItem.code);
+                                        } catch (err: any) {
+                                          onAddToast(err.message || 'Failed to add item.', 'error');
+                                        }
+                                        setActiveProductSearchIdx(null);
+                                      }}
+                                      style={{ 
+                                        padding: '8px 12px', 
+                                        cursor: 'pointer', 
+                                        borderBottom: '1px solid #f1f5f9', 
+                                        fontSize: '0.78rem',
+                                        fontWeight: 'bold',
+                                        color: '#0854a0',
+                                        backgroundColor: '#fff'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                    >
+                                      + Add New Product/Service: "{item.productName}"
+                                    </div>
+                                  )}
+                                  {itemsList
+                                    .filter(prod => 
+                                      prod.name.toLowerCase().includes(item.productName.toLowerCase()) || 
+                                      prod.code.toLowerCase().includes(item.productName.toLowerCase())
+                                    )
+                                    .map((prod, pIdx) => (
+                                      <div 
+                                        key={prod.id || pIdx}
+                                        onMouseDown={() => {
+                                          handleProductSelect(idx, prod.code);
+                                          setActiveProductSearchIdx(null);
+                                        }}
+                                        style={{ 
+                                          padding: '8px 12px', 
+                                          cursor: 'pointer', 
+                                          borderBottom: '1px solid #f1f5f9', 
+                                          fontSize: '0.78rem',
+                                          color: '#1e293b',
+                                          backgroundColor: '#fff',
+                                          textAlign: 'left'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                      >
+                                        {prod.name} ({prod.code}) {prod.currentStock !== undefined ? `[Avail: ${prod.currentStock}]` : ''}
+                                      </div>
+                                    ))
+                                  }
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.quantity} 
+                                onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={1}
+                                required 
+                              />
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.price} 
+                                onChange={e => updateLineItem(idx, 'price', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={0}
+                                required 
+                              />
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.discount} 
+                                onChange={e => updateLineItem(idx, 'discount', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={0}
+                              />
+                            </td>
+                            <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                              {fmt(item.total)}
+                            </td>
+                            <td style={{ padding: '4px', textAlign: 'center' }}>
+                              <button 
+                                type="button" 
+                                onClick={() => removeLineItem(idx)} 
+                                className="text-danger" 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   <button 
                     type="button" 
                     onClick={addLineItem} 

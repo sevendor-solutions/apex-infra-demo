@@ -3510,3 +3510,26 @@ body.admin-body .page-body-container {
   gap: 1rem !important;
 }
 
+/* Ensure forms inside modals are flex containers so that modal-body scrolls and modal-footer remains sticky */
+.modal-content > form {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  flex-grow: 1 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+}
+
+/* Responsive Table Wrapper inside Modals */
+.modal-table-wrapper {
+  overflow-x: auto !important;
+  width: 100% !important;
+  margin-bottom: 1rem !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+}
+
+.modal-table-wrapper table {
+  min-width: 650px !important;
+  width: 100% !important;
+}

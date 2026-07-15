@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { Wallet, WalletTransaction } from '../types';
 import { 
   ArrowUpRight, ArrowDownLeft, RefreshCw, 
-  Wallet as WalletIcon, X 
+  Wallet as WalletIcon, X, Landmark
 } from 'lucide-react';
 import { 
   getWallets, addWallet, deleteWallet, 
@@ -211,11 +211,37 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
 
   return (
     <div className="admin-page-container">
+      {/* 💳 Page Header 💳 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <WalletIcon size={20} className="text-secondary" /> Cash & Bank Registry
+          </h2>
+          <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Manage cash boxes, bank checking accounts, and record transactions</p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button 
+            onClick={() => { setTxType('Add'); setTxWalletId(selectedWalletId); setShowTxModal(true); }}
+            className="btn btn-secondary flex align-center justify-center gap-1 font-bold"
+            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <ArrowUpRight size={16} /> Add Deposit
+          </button>
+          <button 
+            onClick={() => { setTxType('Withdraw'); setTxWalletId(selectedWalletId); setShowTxModal(true); }}
+            className="btn btn-outline flex align-center justify-center gap-1 font-bold"
+            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', borderColor: 'var(--primary)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            <ArrowDownLeft size={16} /> Record Withdrawal
+          </button>
+        </div>
+      </div>
+
       {/* KPI Stats Grid */}
       <div className="grid grid-3 gap-2 mb-3">
         <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--secondary)' }}>
           <div className="stat-icon-wrapper secondary-soft">
-            <WalletIcon size={24} className="text-secondary" />
+            <WalletIcon size={22} className="text-secondary" />
           </div>
           <div>
             <span className="stat-title">Total Cash/Bank Balance</span>
@@ -223,21 +249,25 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
           </div>
         </div>
 
-        <button 
-          onClick={() => { setTxType('Add'); setTxWalletId(selectedWalletId); setShowTxModal(true); }}
-          className="btn btn-secondary flex align-center justify-center gap-1 font-bold"
-          style={{ height: '72px', fontSize: '1.1rem' }}
-        >
-          <ArrowUpRight size={22} /> Add Cash/Bank Deposit
-        </button>
+        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid #3b82f6' }}>
+          <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+            <Landmark size={22} />
+          </div>
+          <div>
+            <span className="stat-title">Total Accounts</span>
+            <h3>{wallets.length}</h3>
+          </div>
+        </div>
 
-        <button 
-          onClick={() => { setTxType('Withdraw'); setTxWalletId(selectedWalletId); setShowTxModal(true); }}
-          className="btn btn-outline flex align-center justify-center gap-1 font-bold"
-          style={{ height: '72px', fontSize: '1.1rem', borderColor: 'var(--primary)', color: 'var(--primary)' }}
-        >
-          <ArrowDownLeft size={22} /> Record Cash Withdrawal
-        </button>
+        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid #10b981' }}>
+          <div className="stat-icon-wrapper" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+            <ArrowUpRight size={22} />
+          </div>
+          <div>
+            <span className="stat-title">Ledger Transactions</span>
+            <h3>{transactions.length} Records</h3>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-2 gap-3 mobile-stack">

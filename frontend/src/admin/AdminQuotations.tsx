@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
-  getInventoryItems, getCustomers, addInvoice, getProjects
+  getInventoryItems, getCustomers, addInvoice, getProjects,
+  addInventoryItem
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -50,6 +51,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [lineItems, setLineItems] = useState<QuotationItem[]>([
     { productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
   ]);
+  const [activeProductSearchIdx, setActiveProductSearchIdx] = useState<number | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -274,135 +276,165 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         console.warn('QR Code loading failed:', e);
       }
 
-      // Top green banner
-      doc.setFillColor(16, 185, 129); // Emerald Green
-      doc.rect(0, 0, 210, 30, 'F');
+      // Top decorative navy bar
+      doc.setFillColor(15, 43, 70); // Deep Navy brand color
+      doc.rect(0, 0, 210, 6, 'F');
 
-      // Contact info inside green banner
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Call: 9000553832', 50, 12);
-      doc.text('Email: jkfutureinfra@gmail.com', 50, 18);
-      
-      doc.text('Door No: 4-92/1/6, FLAT No: 202', 130, 10);
-      doc.text('LEE INFRA, TALRI VANIPALEM', 130, 15);
-      doc.text('AGANAMPUDI, VSP-530053', 130, 20);
-
-      // Logo or text if logo failed
+      // Header block
       if (logoData) {
-        doc.addImage(logoData.base64, 'PNG', 10, 5, 20 * logoData.ratio, 20);
+        doc.addImage(logoData.base64, 'PNG', 15, 12, 18 * logoData.ratio, 18);
       } else {
-        doc.setFontSize(14);
+        doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('JK FUTURE', 10, 16);
+        doc.setTextColor(15, 43, 70);
+        doc.text('JK FUTURE INFRA', 15, 22);
       }
 
-      // Under banner Details
-      doc.setTextColor(15, 23, 42); // slate 900
-      doc.setFontSize(14);
+      // Company Contact Info on the Right
+      doc.setTextColor(71, 85, 105); // Slate 600
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
+      doc.text('LEE INFRA, TALRI VANIPALEM', 120, 19);
+      doc.text('AGANAMPUDI, VSP-530053', 120, 23);
+      doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
+
+      // Horizontal separator line below header
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.setLineWidth(0.5);
+      doc.line(15, 34, 195, 34);
+
+      // Origin / GST Details & Title
+      doc.setTextColor(15, 43, 70); // Deep Navy
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('JK FUTURE INFRA', 15, 42);
+      doc.text('JK FUTURE INFRA', 15, 43);
       
+      doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.text('GSTIN: 37AAWFJ6705B1Z6', 15, 48);
       doc.text('State: 37-Andhra Pradesh', 15, 52);
 
       // Title Right
-      doc.setFontSize(18);
+      doc.setFontSize(20);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(16, 185, 129);
+      doc.setTextColor(15, 43, 70); // Deep Navy
       doc.text('QUOTATION', 195, 45, { align: 'right' });
 
       // Horizontal separator line
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.5);
-      doc.line(15, 57, 195, 57);
+      doc.line(15, 56, 195, 56);
 
       // Metadata Block
-      doc.setTextColor(15, 23, 42);
-      // Left Info
+      doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.text('Bill To:', 15, 65);
+      doc.text('Bill To:', 15, 64);
+      
+      doc.setTextColor(15, 23, 42); // Slate 900
+      doc.setFontSize(9.5);
+      doc.text(q.customerName, 15, 69);
+      
+      doc.setTextColor(71, 85, 105); // Slate 600
+      doc.setFontSize(8.5);
       doc.setFont('helvetica', 'normal');
-      doc.text(q.customerName, 15, 70);
-      doc.text(`Contact No.: ${q.customerMobile}`, 15, 75);
+      doc.text(`Contact No.: ${q.customerMobile}`, 15, 74);
       if (q.customerAddress) {
-        doc.text(q.customerAddress, 15, 80);
+        doc.text(q.customerAddress, 15, 79);
       }
 
       // Right Info
+      doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFont('helvetica', 'bold');
-      doc.text('Quotation No.:', 120, 65);
-      doc.text('Date:', 120, 70);
-      doc.text('Valid Until:', 120, 75);
-      doc.text('Project Name:', 120, 80);
+      doc.setFontSize(8.5);
+      doc.text('Quotation No.:', 120, 64);
+      doc.text('Date:', 120, 69);
+      doc.text('Valid Until:', 120, 74);
+      doc.text('Project Name:', 120, 79);
 
+      doc.setTextColor(15, 23, 42); // Slate 900
       doc.setFont('helvetica', 'normal');
-      doc.text(q.quotationNumber, 155, 65);
-      doc.text(q.date, 155, 70);
-      doc.text(q.validTillDate, 155, 75);
-      doc.text(q.projectName || '— General / None —', 155, 80);
+      doc.setFontSize(8.5);
+      doc.text(q.quotationNumber, 155, 64);
+      doc.text(q.date, 155, 69);
+      doc.text(q.validTillDate, 155, 74);
+      doc.text(q.projectName || '— General / None —', 155, 79);
 
       // Line items table
-      let y = 90;
-      doc.setFillColor(16, 185, 129);
+      let y = 88;
+      doc.setFillColor(15, 43, 70); // Deep Navy Header background
       doc.rect(15, y, 180, 8, 'F');
       
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text('#', 18, y + 5);
-      doc.text('PRODUCT / DESCRIPTION', 26, y + 5);
-      doc.text('QTY', 110, y + 5, { align: 'right' });
-      doc.text('UNIT PRICE', 135, y + 5, { align: 'right' });
-      doc.text('DISCOUNT', 155, y + 5, { align: 'right' });
-      doc.text('GST %', 170, y + 5, { align: 'right' });
-      doc.text('TOTAL', 190, y + 5, { align: 'right' });
+      doc.text('#', 18, y + 5.5);
+      doc.text('PRODUCT / DESCRIPTION', 26, y + 5.5);
+      doc.text('QTY', 110, y + 5.5, { align: 'right' });
+      doc.text('UNIT PRICE', 135, y + 5.5, { align: 'right' });
+      doc.text('DISCOUNT', 155, y + 5.5, { align: 'right' });
+      doc.text('GST %', 170, y + 5.5, { align: 'right' });
+      doc.text('TOTAL', 190, y + 5.5, { align: 'right' });
 
       y += 8;
-      doc.setTextColor(15, 23, 42);
+      doc.setTextColor(15, 23, 42); // Slate 900
       
       q.items.forEach((item, idx) => {
-        doc.setFont('helvetica', 'normal');
-        doc.text(String(idx + 1), 18, y + 5);
-        doc.text(item.productName, 26, y + 5);
-        doc.text(String(item.quantity), 110, y + 5, { align: 'right' });
-        doc.text(fmt(item.unitPrice), 135, y + 5, { align: 'right' });
-        doc.text(fmt(item.discount), 155, y + 5, { align: 'right' });
-        doc.text(`${item.gstPercentage}%`, 170, y + 5, { align: 'right' });
-        doc.text(fmt(item.total), 190, y + 5, { align: 'right' });
+        // Striped background rows
+        if (idx % 2 === 1) {
+          doc.setFillColor(248, 250, 252); // Slate 50
+          doc.rect(15, y, 180, 8, 'F');
+        }
         
-        doc.setDrawColor(241, 245, 249);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(String(idx + 1), 18, y + 5.5);
+        doc.text(item.productName, 26, y + 5.5);
+        doc.text(String(item.quantity), 110, y + 5.5, { align: 'right' });
+        doc.text(fmt(item.unitPrice), 135, y + 5.5, { align: 'right' });
+        doc.text(fmt(item.discount), 155, y + 5.5, { align: 'right' });
+        doc.text(`${item.gstPercentage}%`, 170, y + 5.5, { align: 'right' });
+        doc.text(fmt(item.total), 190, y + 5.5, { align: 'right' });
+        
+        doc.setDrawColor(241, 245, 249); // Slate 100 border
+        doc.setLineWidth(0.5);
         doc.line(15, y + 8, 195, y + 8);
         y += 8;
       });
 
       // Totals
-      y += 5;
+      y += 6;
+      doc.setFillColor(241, 245, 249); // slate 100 background highlight
+      doc.rect(120, y - 4, 75, 8, 'F');
+      
       doc.setFont('helvetica', 'bold');
-      doc.text('Grand Total:', 140, y);
-      doc.text(fmt(q.totalAmount), 190, y, { align: 'right' });
+      doc.setFontSize(9);
+      doc.setTextColor(15, 43, 70); // Deep Navy
+      doc.text('Grand Total:', 125, y + 1.5);
+      doc.setTextColor(15, 23, 42); // Slate 900
+      doc.text(fmt(q.totalAmount), 190, y + 1.5, { align: 'right' });
 
       // Terms & Banking section
-      y += 15;
-      if (y > 220) {
+      y += 12;
+      if (y > 210) {
         doc.addPage();
         y = 20;
       }
 
       // Draw box for Banking details
-      doc.setDrawColor(226, 232, 240);
-      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240); // Slate 200
+      doc.setFillColor(248, 250, 252); // Slate 50
+      doc.setLineWidth(0.5);
       doc.rect(15, y, 110, 42, 'FD');
       
-      doc.setTextColor(15, 23, 42);
+      doc.setTextColor(15, 43, 70); // Deep Navy title
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.text('Pay To (Bank Details):', 18, y + 6);
       
+      doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.text('Bank Name: STATE BANK OF INDIA, AGANAMPUDI', 18, y + 13);
@@ -421,21 +453,36 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       y += 48;
 
       // Terms
-      doc.setTextColor(15, 23, 42);
+      if (y > 240) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.text('Terms and Conditions:', 15, y);
+      
+      doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       const lines = doc.splitTextToSize(q.termsAndConditions || '', 180);
       doc.text(lines, 15, y + 5);
 
       // Signatory
-      y += 20;
+      y += Math.max(20, lines.length * 3.5);
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.text('For: JK FUTURE INFRA', 140, y);
-      doc.text('Authorized Signatory', 140, y + 20);
+      
+      doc.setTextColor(71, 85, 105); // Slate 600
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text('Authorized Signatory', 140, y + 18);
 
       doc.save(`Quotation_${q.quotationNumber}.pdf`);
       onAddToast('Quotation PDF downloaded.', 'success');
@@ -702,95 +749,181 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
 
                 <div className="form-group">
                   <label className="form-label font-bold" style={{ borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '8px' }}>Line Items / Products</label>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
-                    <thead>
-                      <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                        <th style={{ padding: '6px' }}>Product Select</th>
-                        <th style={{ padding: '6px', width: '90px' }}>Qty</th>
-                        <th style={{ padding: '6px', width: '120px' }}>Unit Price</th>
-                        <th style={{ padding: '6px', width: '100px' }}>Discount</th>
-                        <th style={{ padding: '6px', width: '100px' }}>GST%</th>
-                        <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
-                        <th style={{ padding: '6px', width: '40px' }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lineItems.map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                          <td style={{ padding: '4px' }}>
-                            <select 
-                              value={item.productCode} 
-                              onChange={e => handleProductSelect(idx, e.target.value)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              required
-                            >
-                              <option value="">-- Select Product --</option>
-                              {itemsList.map(prod => (
-                                <option key={prod.id} value={prod.code}>{prod.name} ({prod.code})</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.quantity} 
-                              onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={1}
-                              required 
-                            />
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.unitPrice} 
-                              onChange={e => updateLineItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={0}
-                              required 
-                            />
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.discount} 
-                              onChange={e => updateLineItem(idx, 'discount', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={0}
-                            />
-                          </td>
-                          <td style={{ padding: '4px' }}>
-                            <input 
-                              type="number" 
-                              value={item.gstPercentage} 
-                              onChange={e => updateLineItem(idx, 'gstPercentage', parseFloat(e.target.value) || 0)} 
-                              className="form-control"
-                              style={{ marginBottom: 0, padding: '4px' }}
-                              min={0}
-                              required
-                            />
-                          </td>
-                          <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
-                            {fmt(item.total)}
-                          </td>
-                          <td style={{ padding: '4px', textAlign: 'center' }}>
-                            <button 
-                              type="button" 
-                              onClick={() => removeLineItem(idx)} 
-                              className="text-danger" 
-                              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                            >
-                              <Trash size={16} />
-                            </button>
-                          </td>
+                  <div className="modal-table-wrapper">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
+                      <thead>
+                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
+                          <th style={{ padding: '6px' }}>Product Select</th>
+                          <th style={{ padding: '6px', width: '90px' }}>Qty</th>
+                          <th style={{ padding: '6px', width: '120px' }}>Unit Price</th>
+                          <th style={{ padding: '6px', width: '100px' }}>Discount</th>
+                          <th style={{ padding: '6px', width: '100px' }}>GST%</th>
+                          <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '6px', width: '40px' }}></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {lineItems.map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '4px', position: 'relative' }}>
+                              <input 
+                                type="text"
+                                value={item.productName}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, productName: val, productCode: '' } : li));
+                                  setActiveProductSearchIdx(idx);
+                                }}
+                                onFocus={() => setActiveProductSearchIdx(idx)}
+                                onBlur={() => setTimeout(() => setActiveProductSearchIdx(null), 250)}
+                                placeholder="Search or type product/service..."
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                required
+                              />
+                              {activeProductSearchIdx === idx && (
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 4,
+                                  right: 4,
+                                  backgroundColor: '#fff',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                  zIndex: 9999,
+                                  maxHeight: '180px',
+                                  overflowY: 'auto',
+                                  marginTop: '2px'
+                                }}>
+                                  {item.productName.trim() !== '' && !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
+                                    <div 
+                                      onMouseDown={async () => {
+                                        try {
+                                          const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
+                                          const newItem = await addInventoryItem({
+                                            name: item.productName,
+                                            code,
+                                            unit: 'Pcs',
+                                            openingStock: 0,
+                                            purchasePrice: 0,
+                                            sellingPrice: item.unitPrice || 0,
+                                            gstPercentage: item.gstPercentage || 18
+                                          });
+                                          onAddToast(`Added "${newItem.name}" to database.`, 'success');
+                                          await loadData();
+                                          handleProductSelect(idx, newItem.code);
+                                        } catch (err: any) {
+                                          onAddToast(err.message || 'Failed to add item.', 'error');
+                                        }
+                                        setActiveProductSearchIdx(null);
+                                      }}
+                                      style={{ 
+                                        padding: '8px 12px', 
+                                        cursor: 'pointer', 
+                                        borderBottom: '1px solid #f1f5f9', 
+                                        fontSize: '0.78rem',
+                                        fontWeight: 'bold',
+                                        color: '#0854a0',
+                                        backgroundColor: '#fff'
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                    >
+                                      + Add New Product/Service: "{item.productName}"
+                                    </div>
+                                  )}
+                                  {itemsList
+                                    .filter(prod => 
+                                      prod.name.toLowerCase().includes(item.productName.toLowerCase()) || 
+                                      prod.code.toLowerCase().includes(item.productName.toLowerCase())
+                                    )
+                                    .map((prod, pIdx) => (
+                                      <div 
+                                        key={prod.id || pIdx}
+                                        onMouseDown={() => {
+                                          handleProductSelect(idx, prod.code);
+                                          setActiveProductSearchIdx(null);
+                                        }}
+                                        style={{ 
+                                          padding: '8px 12px', 
+                                          cursor: 'pointer', 
+                                          borderBottom: '1px solid #f1f5f9', 
+                                          fontSize: '0.78rem',
+                                          color: '#1e293b',
+                                          backgroundColor: '#fff',
+                                          textAlign: 'left'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                      >
+                                        {prod.name} ({prod.code})
+                                      </div>
+                                    ))
+                                  }
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.quantity} 
+                                onChange={e => updateLineItem(idx, 'quantity', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={1}
+                                required 
+                              />
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.unitPrice} 
+                                onChange={e => updateLineItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={0}
+                                required 
+                              />
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.discount} 
+                                onChange={e => updateLineItem(idx, 'discount', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={0}
+                              />
+                            </td>
+                            <td style={{ padding: '4px' }}>
+                              <input 
+                                type="number" 
+                                value={item.gstPercentage} 
+                                onChange={e => updateLineItem(idx, 'gstPercentage', parseFloat(e.target.value) || 0)} 
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                                min={0}
+                                required
+                              />
+                            </td>
+                            <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                              {fmt(item.total)}
+                            </td>
+                            <td style={{ padding: '4px', textAlign: 'center' }}>
+                              <button 
+                                type="button" 
+                                onClick={() => removeLineItem(idx)} 
+                                className="text-danger" 
+                                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                              >
+                                <Trash size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   <button 
                     type="button" 
                     onClick={addLineItem} 
