@@ -496,144 +496,146 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
             <RefreshCw size={14} /> Process Reminders
           </button>
         }
-      />
-
-      {/* Add/Edit Modal */}
+      />      {/* Add/Edit Modal */}
       {showModal && (
         <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div className="modal-content premium-modal" onClick={e => e.stopPropagation()} style={{ width: '500px', padding: '1.5rem' }}>
-            <div className="premium-modal-header" style={{ marginBottom: '1.25rem' }}>
-              <h3 className="modal-title">{editingVisit ? 'Reschedule Site Visit' : 'Schedule Site Visit'}</h3>
-              <p className="modal-subtitle" style={{ fontSize: '0.8rem', color: '#666' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '500px' }}>
+            <div className="modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 className="modal-title" style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>
+                {editingVisit ? 'Reschedule Site Visit' : 'Schedule Site Visit'}
+              </h3>
+              <p className="modal-subtitle" style={{ margin: '4px 0 0', fontSize: '0.8rem', color: '#64748b' }}>
                 {editingVisit ? `Update details for scheduled visit SV${editingVisit.id.replace('sv','')}` : 'Fill in the customer appointment details below.'}
               </p>
             </div>
 
-            <form onSubmit={handleSaveVisit} className="premium-modal-form">
-              <div className="form-group-premium">
-                <label className="form-label-premium">Customer Name *</label>
-                <div className="input-with-icon">
-                  <User size={16} className="input-icon" />
-                  <input 
-                    type="text" 
-                    className="form-control-premium"
-                    value={formName}
-                    onChange={e => setFormName(e.target.value)}
-                    placeholder="Enter full name"
+            <form onSubmit={handleSaveVisit}>
+              <div className="modal-body" style={{ padding: '1.5rem' }}>
+                <div className="form-group-premium">
+                  <label className="form-label-premium">Customer Name *</label>
+                  <div className="input-with-icon">
+                    <User size={16} className="input-icon" />
+                    <input 
+                      type="text" 
+                      className="form-control-premium"
+                      value={formName}
+                      onChange={e => setFormName(e.target.value)}
+                      placeholder="Enter full name"
+                      required
+                    />
+                  </div>
+                  {formErrors.name && <div className="form-error">{formErrors.name}</div>}
+                </div>
+
+                <div className="grid grid-2 gap-1.5 mobile-stack" style={{ marginBottom: '1.15rem' }}>
+                  <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                    <label className="form-label-premium">Email Address *</label>
+                    <div className="input-with-icon">
+                      <Mail size={16} className="input-icon" />
+                      <input 
+                        type="email" 
+                        className="form-control-premium"
+                        value={formEmail}
+                        onChange={e => setFormEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        required
+                      />
+                    </div>
+                    {formErrors.email && <div className="form-error">{formErrors.email}</div>}
+                  </div>
+
+                  <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                    <label className="form-label-premium">Phone Number *</label>
+                    <div className="input-with-icon">
+                      <Phone size={16} className="input-icon" />
+                      <input 
+                        type="tel" 
+                        className="form-control-premium"
+                        value={formPhone}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          setFormPhone(val);
+                        }}
+                        placeholder="e.g. 9000553832"
+                        maxLength={10}
+                        inputMode="numeric"
+                        required
+                      />
+                    </div>
+                    {formErrors.phone && <div className="form-error">{formErrors.phone}</div>}
+                  </div>
+                </div>
+
+                <div className="form-group-premium">
+                  <label className="form-label-premium">Select Property/Site Listing *</label>
+                  <select 
+                    className="form-control"
+                    style={{ width: '100%', padding: '0.55rem', borderRadius: '4px', borderColor: '#cbd5e1', fontSize: '0.9rem' }}
+                    value={formProject}
+                    onChange={e => setFormProject(e.target.value)}
                     required
-                  />
-                </div>
-                {formErrors.name && <div className="form-error">{formErrors.name}</div>}
-              </div>
-
-              <div className="grid grid-2 gap-1.5 mobile-stack" style={{ marginBottom: '1rem' }}>
-                <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                  <label className="form-label-premium">Email Address *</label>
-                  <div className="input-with-icon">
-                    <Mail size={16} className="input-icon" />
-                    <input 
-                      type="email" 
-                      className="form-control-premium"
-                      value={formEmail}
-                      onChange={e => setFormEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      required
-                    />
-                  </div>
-                  {formErrors.email && <div className="form-error">{formErrors.email}</div>}
-                </div>
-
-                <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                  <label className="form-label-premium">Phone Number *</label>
-                  <div className="input-with-icon">
-                    <Phone size={16} className="input-icon" />
-                    <input 
-                      type="tel" 
-                      className="form-control-premium"
-                      value={formPhone}
-                      onChange={e => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setFormPhone(val);
-                      }}
-                      placeholder="e.g. 9000553832"
-                      maxLength={10}
-                      inputMode="numeric"
-                      required
-                    />
-                  </div>
-                  {formErrors.phone && <div className="form-error">{formErrors.phone}</div>}
-                </div>
-              </div>
-
-              <div className="form-group-premium">
-                <label className="form-label-premium">Select Property/Site Listing *</label>
-                <select 
-                  className="form-control"
-                  style={{ width: '100%', padding: '0.55rem', borderRadius: '4px', borderColor: '#cbd5e1', fontSize: '0.9rem' }}
-                  value={formProject}
-                  onChange={e => setFormProject(e.target.value)}
-                  required
-                >
-                  {allProperties.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.location})</option>
-                  ))}
-                </select>
-                {formErrors.project && <div className="form-error">{formErrors.project}</div>}
-              </div>
-
-              <div className="grid grid-2 gap-1.5 mobile-stack" style={{ marginBottom: '1rem' }}>
-                <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                  <label className="form-label-premium">Visit Date *</label>
-                  <div className="input-with-icon">
-                    <Calendar size={16} className="input-icon" />
-                    <input 
-                      type="date" 
-                      className="form-control-premium"
-                      value={formDate}
-                      onChange={e => setFormDate(e.target.value)}
-                      required
-                    />
-                  </div>
-                  {formErrors.date && <div className="form-error">{formErrors.date}</div>}
-                </div>
-
-                <div className="form-group-premium" style={{ marginBottom: 0 }}>
-                  <label className="form-label-premium">Visit Time *</label>
-                  <div className="input-with-icon">
-                    <Clock size={16} className="input-icon" />
-                    <input 
-                      type="time" 
-                      className="form-control-premium"
-                      value={formTime}
-                      onChange={e => setFormTime(e.target.value)}
-                      required
-                    />
-                  </div>
-                  {formErrors.time && <div className="form-error">{formErrors.time}</div>}
-                </div>
-              </div>
-
-              <div className="form-group-premium">
-                <label className="form-label-premium">Assigned Agent (Optional)</label>
-                <div className="input-with-icon">
-                  <User size={16} className="input-icon" />
-                  <input 
-                    type="text" 
-                    className="form-control-premium"
-                    value={formAgent}
-                    onChange={e => setFormAgent(e.target.value)}
-                    placeholder="Enter or select agent name"
-                    list="agent-suggestions"
-                  />
-                  <datalist id="agent-suggestions">
-                    {agents.map(a => (
-                      <option key={a.id} value={a.name} />
+                  >
+                    {allProperties.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.location})</option>
                     ))}
-                  </datalist>
+                  </select>
+                  {formErrors.project && <div className="form-error">{formErrors.project}</div>}
+                </div>
+
+                <div className="grid grid-2 gap-1.5 mobile-stack" style={{ marginBottom: '1.15rem' }}>
+                  <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                    <label className="form-label-premium">Visit Date *</label>
+                    <div className="input-with-icon">
+                      <Calendar size={16} className="input-icon" />
+                      <input 
+                        type="date" 
+                        className="form-control-premium"
+                        value={formDate}
+                        onChange={e => setFormDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {formErrors.date && <div className="form-error">{formErrors.date}</div>}
+                  </div>
+
+                  <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                    <label className="form-label-premium">Visit Time *</label>
+                    <div className="input-with-icon">
+                      <Clock size={16} className="input-icon" />
+                      <input 
+                        type="time" 
+                        className="form-control-premium"
+                        value={formTime}
+                        onChange={e => setFormTime(e.target.value)}
+                        required
+                      />
+                    </div>
+                    {formErrors.time && <div className="form-error">{formErrors.time}</div>}
+                  </div>
+                </div>
+
+                <div className="form-group-premium" style={{ marginBottom: 0 }}>
+                  <label className="form-label-premium">Assigned Agent (Optional)</label>
+                  <div className="input-with-icon">
+                    <User size={16} className="input-icon" />
+                    <input 
+                      type="text" 
+                      className="form-control-premium"
+                      value={formAgent}
+                      onChange={e => setFormAgent(e.target.value)}
+                      placeholder="Enter or select agent name"
+                      list="agent-suggestions"
+                    />
+                    <datalist id="agent-suggestions">
+                      {agents.map(a => (
+                        <option key={a.id} value={a.name} />
+                      ))}
+                    </datalist>
+                  </div>
                 </div>
               </div>
 
-              <div className="premium-modal-footer" style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
+              <div className="modal-footer" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                 <button 
                   type="button" 
                   onClick={() => setShowModal(false)} 

@@ -77,7 +77,13 @@ router.post("/", authenticateToken, async (req, res, next) => {
         await logAuditAction(req, `${screenLabel} Created`, `Created ${screenLabel.toLowerCase()} "${newProject.name}" (ID: ${newProject.id})`, "Success");
         
         if (autoPostSocial) {
-            const firstImg = newProject.images && newProject.images.length > 0 ? newProject.images[0] : undefined;
+            let firstImg: string | undefined = undefined;
+            if (newProject.isMarketing) {
+                firstImg = (newProject.images && newProject.images.length > 0) ? newProject.images[0] : newProject.specImage;
+            } else {
+                firstImg = newProject.specImage || ((newProject.images && newProject.images.length > 0) ? newProject.images[0] : undefined);
+            }
+
             let absoluteImgUrl: string | undefined = undefined;
             if (firstImg) {
                 if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
@@ -164,7 +170,13 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         await logAuditAction(req, `${screenLabel} Updated`, `Updated ${screenLabel.toLowerCase()} "${project.name}" (ID: ${project.id})`, "Success");
         
         if (autoPostSocial) {
-            const firstImg = project.images && project.images.length > 0 ? project.images[0] : undefined;
+            let firstImg: string | undefined = undefined;
+            if (project.isMarketing) {
+                firstImg = (project.images && project.images.length > 0) ? project.images[0] : project.specImage;
+            } else {
+                firstImg = project.specImage || ((project.images && project.images.length > 0) ? project.images[0] : undefined);
+            }
+
             let absoluteImgUrl: string | undefined = undefined;
             if (firstImg) {
                 if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
