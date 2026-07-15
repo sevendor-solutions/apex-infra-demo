@@ -13,3 +13,4 @@ dist/
 
 # User uploads (should be persisted via Dokploy volumes, not git)
 uploads/
+!uploads/logo.png

@@ -20,6 +20,7 @@ RUN npm ci --only=production
 
 # Copy built js files from builder stage
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/assets ./assets
 
 # Create an uploads folder container-side
 RUN mkdir -p uploads

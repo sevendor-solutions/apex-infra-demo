@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import logoImg from '../assets/logo.png';
 import { getMailConfig, updateMailConfig, sendTestEmail } from '../utils/db';
 import { 
   Save, 
@@ -712,7 +713,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 {/* Email Body */}
                 <div style={{ padding: '1.25rem', minHeight: '300px', backgroundColor: 'white', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }}>
                   <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
-                    <img src="/src/assets/logo.png" alt="JK Future Infra Logo" style={{ height: '35px' }} />
+                    <img src={logoImg} alt="JK Future Infra Logo" style={{ height: '35px' }} />
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>
                     {compiledBodyPreview || 'Enter content in the template editor to preview.'}

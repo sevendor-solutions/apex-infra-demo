@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import logoImg from '../assets/logo.png';
 import type { SiteVisit, Project, MailConfig, MarketingAgent } from '../types';
 import { 
   getSiteVisits, 
@@ -685,7 +686,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
               {/* Body block */}
               <div style={{ padding: '1.5rem', minHeight: '180px', backgroundColor: 'white', fontSize: '0.9rem', color: '#1e293b', lineHeight: '1.6' }}>
                 <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <img src="/src/assets/logo.png" alt="JK Future Infra Logo" style={{ height: '40px' }} />
+                  <img src={logoImg} alt="JK Future Infra Logo" style={{ height: '40px' }} />
                 </div>
                 <div style={{ whiteSpace: 'pre-wrap' }}>
                   {previewContent.body}

@@ -80,9 +80,13 @@ router.post("/", authenticateToken, async (req, res, next) => {
             const firstImg = newProject.images && newProject.images.length > 0 ? newProject.images[0] : undefined;
             let absoluteImgUrl: string | undefined = undefined;
             if (firstImg) {
-                const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                const host = req.get("host");
-                absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
+                    absoluteImgUrl = firstImg;
+                } else {
+                    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+                    const host = req.get("host");
+                    absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                }
             }
 
             const cityHash = newProject.city ? `#${newProject.city.replace(/\s+/g, '')}` : '';
@@ -163,9 +167,13 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
             const firstImg = project.images && project.images.length > 0 ? project.images[0] : undefined;
             let absoluteImgUrl: string | undefined = undefined;
             if (firstImg) {
-                const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                const host = req.get("host");
-                absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
+                    absoluteImgUrl = firstImg;
+                } else {
+                    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+                    const host = req.get("host");
+                    absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                }
             }
 
             const cityHash = project.city ? `#${project.city.replace(/\s+/g, '')}` : '';

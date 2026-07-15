@@ -273,7 +273,7 @@ const sendSummaryReport = async (targetDateStr: string, visits: SiteVisit[], con
                     },
                     {
                         filename: 'logo.png',
-                        path: path.join(__dirname, '../../uploads/logo.png'),
+                        path: path.join(__dirname, '../../assets/logo.png'),
                         cid: 'logo'
                     }
                 ]
@@ -409,7 +409,7 @@ router.post("/process-reminders", authenticateToken, async (req, res, next) => {
                             attachments: [
                                 {
                                     filename: 'logo.png',
-                                    path: path.join(__dirname, '../../uploads/logo.png'),
+                                    path: path.join(__dirname, '../../assets/logo.png'),
                                     cid: 'logo'
                                 }
                             ]
@@ -543,7 +543,7 @@ router.post("/:id/send-now", authenticateToken, async (req, res, next) => {
                 attachments: [
                     {
                         filename: 'logo.png',
-                        path: path.join(__dirname, '../../uploads/logo.png'),
+                        path: path.join(__dirname, '../../assets/logo.png'),
                         cid: 'logo'
                     }
                 ]
@@ -691,7 +691,7 @@ export const runAutomatedSiteVisitReminders = async () => {
                             attachments: [
                                 {
                                     filename: 'logo.png',
-                                    path: path.join(__dirname, '../../uploads/logo.png'),
+                                    path: path.join(__dirname, '../../assets/logo.png'),
                                     cid: 'logo'
                                 }
                             ]
