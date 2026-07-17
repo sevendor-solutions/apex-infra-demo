@@ -97,6 +97,15 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
     loadData();
   }, []);
 
+  const tomorrowStr = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const yyyy = tomorrow.getFullYear();
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
   // Form Validation
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -112,7 +121,11 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
       errors.phone = "Enter a valid 10-digit Indian mobile number (starts with 6–9)";
     }
     if (!formProject) errors.project = "Please select a property/site";
-    if (!formDate) errors.date = "Visit date is required";
+    if (!formDate) {
+      errors.date = "Visit date is required";
+    } else if (formDate < tomorrowStr) {
+      errors.date = "Please select a date from tomorrow onwards";
+    }
     if (!formTime) errors.time = "Visit time is required";
 
     setFormErrors(errors);
@@ -592,6 +605,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
                         className="form-control-premium"
                         value={formDate}
                         onChange={e => setFormDate(e.target.value)}
+                        min={tomorrowStr}
                         required
                       />
                     </div>

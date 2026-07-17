@@ -259,6 +259,9 @@ export interface Expense {
   roundOff: boolean;
   gstEnabled?: boolean;
   totalAmount: number;
+  paidAmount?: number;
+  pendingAmount?: number;
+  paymentStatus?: string;
   notes?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -338,6 +341,19 @@ export interface InventoryItem {
   minimumStockLevel: number;
   supplierName?: string;
   warehouseLocation?: string;
+  type?: string;
+  hsn?: string;
+  image?: string;
+  batchTracking?: boolean;
+  sellingPriceTaxType?: string;
+  purchasePriceTaxType?: string;
+  batches?: Array<{
+    facingFloor: string;
+    uds: string | number;
+    flatNo: string;
+    openingQty: number;
+    currentQty: number;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -433,6 +449,9 @@ export interface LoanPayment {
   paymentDate: string;
   amount: number;
   reference?: string;
+  walletId?: string;
+  accountName?: string;
+  isInterestOnly?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

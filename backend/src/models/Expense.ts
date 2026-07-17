@@ -112,6 +112,27 @@ export class Expense extends Model {
     totalAmount!: number;
 
     @Column({
+        type: DataType.FLOAT,
+        allowNull: false,
+        defaultValue: 0
+    })
+    paidAmount!: number;
+
+    @Column({
+        type: DataType.FLOAT,
+        allowNull: false,
+        defaultValue: 0
+    })
+    pendingAmount!: number;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        defaultValue: 'Paid' // 'Paid' | 'Unpaid' | 'Partially Paid'
+    })
+    paymentStatus!: string;
+
+    @Column({
         type: DataType.STRING,
         allowNull: true
     })

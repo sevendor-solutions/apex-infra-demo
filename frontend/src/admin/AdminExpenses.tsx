@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import type { Expense, ExpenseCategory, ExpenseLineItem, Project, LocationMaster, Wallet } from '../types';
+import type { Expense, ExpenseCategory, ExpenseLineItem, Project, LocationMaster, Wallet, Supplier } from '../types';
 import {
   Trash2, Edit2, PlusCircle, Trash, Check,
   Receipt, Search, X, IndianRupee, Calendar,
   FileDown, Filter, BarChart3
 } from 'lucide-react';
-import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities } from '../utils/db';
+import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities, addSupplier } from '../utils/db';
 
 interface AdminExpensesProps {
   expenses: Expense[];
@@ -13,6 +13,7 @@ interface AdminExpensesProps {
   projects: Project[];
   locations: LocationMaster[];
   wallets?: Wallet[];
+  suppliers?: Supplier[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -41,6 +42,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   projects = [],
   locations = [],
   wallets = [],
+  suppliers = [],
   onRefresh,
   onAddToast,
   onConfirm
@@ -49,7 +51,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSuggestRow, setActiveSuggestRow] = useState<number | null>(null);
-  const [activeFieldSuggest, setActiveFieldSuggest] = useState<'category' | 'state' | 'location' | 'project' | null>(null);
+  const [activeFieldSuggest, setActiveFieldSuggest] = useState<'category' | 'state' | 'location' | 'project' | 'vendor' | null>(null);
 
   const suggestedItems = useMemo(() => {
     const list: { name: string; price: number }[] = [];
@@ -68,6 +70,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   }, [expenses]);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Form Fields
@@ -86,6 +89,8 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   const [notes, setNotes] = useState('');
   const [gstEnabled, setGstEnabled] = useState(true);
   const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([emptyLine()]);
+  const [payStatusOption, setPayStatusOption] = useState<'Full' | 'Partial' | 'Credit'>('Full');
+  const [paidAmountInput, setPaidAmountInput] = useState<number>(0);
 
   // ── Computed Totals ──────────────────────────────────────────
   const computedLineItems = useMemo(() => {
@@ -126,9 +131,10 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       const matchQ = !q || e.party?.toLowerCase().includes(q) || e.expenseCategory?.toLowerCase().includes(q) || e.expenseNo?.toLowerCase().includes(q);
       const matchCat = !filterCategory || e.expenseCategory === filterCategory;
       const matchPay = !filterPayment || e.paymentType === filterPayment;
-      return matchQ && matchCat && matchPay;
+      const matchStatus = !filterStatus || (e.paymentStatus || 'Paid') === filterStatus;
+      return matchQ && matchCat && matchPay && matchStatus;
     }).sort((a, b) => new Date(b.billDate || '').getTime() - new Date(a.billDate || '').getTime());
-  }, [expenses, searchTerm, filterCategory, filterPayment]);
+  }, [expenses, searchTerm, filterCategory, filterPayment, filterStatus]);
 
   // ── Line item helpers ────────────────────────────────────────
   const updateLineItem = (idx: number, field: keyof ExpenseLineItem, value: string | number) => {
@@ -150,6 +156,8 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     setRoundOff(true); setNotes(''); setGstEnabled(true);
     setWalletId('');
     setLineItems([emptyLine()]);
+    setPayStatusOption('Full');
+    setPaidAmountInput(0);
     setEditingExpense(null);
   };
 
@@ -172,6 +180,18 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     setNotes(exp.notes || '');
     setGstEnabled(exp.gstEnabled !== false);
     setLineItems(exp.lineItems?.length ? exp.lineItems : [emptyLine()]);
+    
+    if (exp.paymentStatus === 'Unpaid') {
+      setPayStatusOption('Credit');
+      setPaidAmountInput(0);
+    } else if (exp.paymentStatus === 'Partially Paid') {
+      setPayStatusOption('Partial');
+      setPaidAmountInput(exp.paidAmount || 0);
+    } else {
+      setPayStatusOption('Full');
+      setPaidAmountInput(exp.paidAmount || exp.totalAmount || 0);
+    }
+    
     setIsFormOpen(true);
   };
 
@@ -182,6 +202,23 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       onRefresh();
     } catch (err: any) {
       onAddToast(err.message || 'Failed to add category.', 'error');
+    }
+  };
+
+  const handleCreateSupplier = async (supplierName: string) => {
+    try {
+      const dummyContact = '9' + Math.floor(100000000 + Math.random() * 900000000).toString();
+      const newSupplier = await addSupplier({
+        name: supplierName,
+        contactNumber: dummyContact,
+        openingBalance: 0,
+        outstandingAmount: 0
+      });
+      setParty(newSupplier.name);
+      onAddToast(`Supplier "${supplierName}" created and selected.`, 'success');
+      onRefresh();
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to create supplier.', 'error');
     }
   };
 
@@ -206,17 +243,24 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     if (!party.trim()) { onAddToast('Party / Vendor name is required.', 'error'); return; }
     if (!expenseCategory) { onAddToast('Please select an Expense Category.', 'error'); return; }
     if (lineItems.some(li => !li.item.trim())) { onAddToast('All line item descriptions must be filled.', 'error'); return; }
-    if (!walletId) { onAddToast('Please select a payment wallet account.', 'error'); return; }
+    if (payStatusOption !== 'Credit' && !walletId) { onAddToast('Please select a payment wallet account.', 'error'); return; }
 
     setSaving(true);
     try {
+      const paidAmt = payStatusOption === 'Full' 
+        ? grandTotal 
+        : (payStatusOption === 'Credit' ? 0 : paidAmountInput);
+
       const payload = {
         party, location, apartment, projectName, expenseCategory,
         expenseNo, billDate, stateOfSupply, paymentType, referenceNo,
         roundOff, notes, gstEnabled,
         lineItems: computedLineItems,
         totalAmount: grandTotal,
-        walletId
+        paidAmount: paidAmt,
+        pendingAmount: grandTotal - paidAmt,
+        paymentStatus: paidAmt === 0 ? 'Unpaid' : (paidAmt < grandTotal ? 'Partially Paid' : 'Paid'),
+        walletId: payStatusOption === 'Credit' ? '' : walletId
       };
       if (editingExpense) {
         await updateExpense({ ...payload, id: editingExpense.id });
@@ -331,8 +375,15 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
           <option value="">All Payment Modes</option>
           {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
-        {(filterCategory || filterPayment) && (
-          <button onClick={() => { setFilterCategory(''); setFilterPayment(''); }} style={{ background: '#fee2e2', border: 'none', color: '#dc2626', borderRadius: '4px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>Clear</button>
+        <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.8rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
+          <option value="">All Payment Statuses</option>
+          <option value="Paid">Paid</option>
+          <option value="Partially Paid">Partially Paid</option>
+          <option value="Unpaid">Unpaid</option>
+        </select>
+        {(filterCategory || filterPayment || filterStatus) && (
+          <button onClick={() => { setFilterCategory(''); setFilterPayment(''); setFilterStatus(''); }} style={{ background: '#fee2e2', border: 'none', color: '#dc2626', borderRadius: '4px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>Clear</button>
         )}
       </div>
 
@@ -340,7 +391,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       <div style={{ background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '10px', overflow: 'hidden', flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1.2rem', borderBottom: '1px solid var(--sap-border-color)', background: '#f8fafc' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>
-            {filtered.length} expense record{filtered.length !== 1 ? 's' : ''} {(searchTerm || filterCategory || filterPayment) ? '(filtered)' : ''}
+            {filtered.length} expense record{filtered.length !== 1 ? 's' : ''} {(searchTerm || filterCategory || filterPayment || filterStatus) ? '(filtered)' : ''}
           </span>
         </div>
 
@@ -356,62 +407,89 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
-                  {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Payment', 'Paid From', 'Amount', 'Actions'].map(h => (
+                  {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Payment Mode', 'Status', 'Paid From', 'Total (₹)', 'Paid (₹)', 'Remaining (₹)', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontWeight: 700, color: '#374151', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--sap-border-color)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((exp, idx) => (
-                  <tr key={exp.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#f0f6ff')}
-                    onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafafa')}
-                  >
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{exp.expenseNo || '—'}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', whiteSpace: 'nowrap' }}>
-                      {exp.billDate ? new Date(exp.billDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <div style={{ fontWeight: 600, color: '#1e293b' }}>{exp.party}</div>
-                      {exp.location && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>{exp.location}</div>}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
-                        {exp.paymentType || 'Cash'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', fontWeight: 500 }}>
-                      {exp.accountName || <span style={{ color: '#cbd5e1' }}>— None —</span>}
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <span style={{ fontWeight: 700, color: '#7c3aed', fontSize: '0.9rem' }}>{fmt(exp.totalAmount || 0)}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={() => openEdit(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '5px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}>
-                          <Edit2 size={12} /> Edit
-                        </button>
-                        <button onClick={() => handleDelete(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '5px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                          <Trash2 size={12} /> Del
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((exp, idx) => {
+                  const status = exp.paymentStatus || 'Paid';
+                  const statusColors: Record<string, { bg: string; text: string }> = {
+                    'Paid': { bg: '#e8f5e9', text: '#2e7d32' },
+                    'Partially Paid': { bg: '#fff3e0', text: '#ef6c00' },
+                    'Unpaid': { bg: '#ffebee', text: '#c62828' }
+                  };
+                  const statusStyle = statusColors[status] || { bg: '#f1f5f9', text: '#475569' };
+                  
+                  return (
+                    <tr key={exp.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#f0f6ff')}
+                      onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafafa')}
+                    >
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{exp.expenseNo || '—'}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', whiteSpace: 'nowrap' }}>
+                        {exp.billDate ? new Date(exp.billDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{exp.party}</div>
+                        {exp.location && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>{exp.location}</div>}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
+                          {exp.paymentType || 'Cash'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.text, borderRadius: '12px', padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                          {status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', fontWeight: 500 }}>
+                        {exp.accountName || <span style={{ color: '#cbd5e1' }}>— None —</span>}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: '#374151', fontSize: '0.85rem' }}>{fmt(exp.totalAmount || 0)}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>{fmt(exp.paidAmount !== undefined ? exp.paidAmount : exp.totalAmount)}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: (exp.pendingAmount || 0) > 0 ? '#ef4444' : '#16a34a', fontSize: '0.85rem' }}>{fmt(exp.pendingAmount || 0)}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => openEdit(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '5px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}>
+                            <Edit2 size={12} /> Edit
+                          </button>
+                          <button onClick={() => handleDelete(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '5px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
+                            <Trash2 size={12} /> Del
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr style={{ background: '#f1f5f9', borderTop: '2px solid var(--sap-border-color)' }}>
-                  <td colSpan={6} style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#374151', fontSize: '0.78rem' }}>
+                  <td colSpan={8} style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#374151', fontSize: '0.78rem' }}>
                     TOTAL ({filtered.length} records)
                   </td>
-                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#7c3aed', fontSize: '1rem' }}>
+                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#374151', fontSize: '0.85rem' }}>
                     {fmt(filtered.reduce((s, e) => s + (e.totalAmount || 0), 0))}
+                  </td>
+                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#16a34a', fontSize: '0.85rem' }}>
+                    {fmt(filtered.reduce((s, e) => s + (e.paidAmount !== undefined ? e.paidAmount : e.totalAmount), 0))}
+                  </td>
+                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#ef4444', fontSize: '0.85rem' }}>
+                    {fmt(filtered.reduce((s, e) => s + (e.pendingAmount || 0), 0))}
                   </td>
                   <td />
                 </tr>
@@ -448,9 +526,91 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
               <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem', margin: 0 }}>
                 <legend style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--sap-fiori-blue)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 6px' }}>Bill Information</legend>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                  <div>
+                  <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Vendor / Party <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input value={party} onChange={e => setParty(e.target.value)} placeholder="Vendor or supplier name" style={inputStyle} />
+                    <input
+                      value={party}
+                      onChange={e => {
+                        setParty(e.target.value);
+                        setActiveFieldSuggest('vendor');
+                      }}
+                      onFocus={() => setActiveFieldSuggest('vendor')}
+                      onBlur={() => setTimeout(() => setActiveFieldSuggest(null), 250)}
+                      placeholder="Search or type vendor name..."
+                      style={inputStyle}
+                    />
+                    {activeFieldSuggest === 'vendor' && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {/* Create new supplier option */}
+                        {!suppliers.some(s => s.name.toLowerCase() === party.toLowerCase()) && party.trim() !== '' && (
+                          <div
+                            onMouseDown={() => {
+                              handleCreateSupplier(party.trim());
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f1f5f9',
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: '#0891b2',
+                              backgroundColor: '#f0fdfa',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#ccfbf1'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#f0fdfa'; }}
+                          >
+                            <span style={{ fontSize: '1rem', lineHeight: 1 }}>＋</span>
+                            Create Supplier: "{party.trim()}"
+                          </div>
+                        )}
+                        {/* Existing suppliers filtered by search */}
+                        {suppliers.filter(s => s.name.toLowerCase().includes(party.toLowerCase())).map((s, idx) => (
+                          <div
+                            key={s.id || idx}
+                            onMouseDown={() => {
+                              setParty(s.name);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f1f5f9',
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            <div style={{ fontWeight: 600 }}>{s.name}</div>
+                            {s.contactNumber && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>{s.contactNumber}</div>}
+                          </div>
+                        ))}
+                        {/* Empty state */}
+                        {suppliers.length === 0 && party.trim() === '' && (
+                          <div style={{ padding: '10px 12px', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center' }}>
+                            No suppliers yet. Type a name to create one.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Expense Category <span style={{ color: '#ef4444' }}>*</span></label>
@@ -594,18 +754,59 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label style={labelStyle}>Paid From Account *</label>
-                    <select value={walletId} onChange={e => setWalletId(e.target.value)} style={inputStyle} required>
-                      <option value="">-- Select Cash/Bank Wallet --</option>
-                      {wallets.map(w => (
-                        <option key={w.id} value={w.id}>{w.name} ({fmt(w.currentBalance)})</option>
-                      ))}
+                    <label style={labelStyle}>Payment Status / Option *</label>
+                    <select 
+                      value={payStatusOption} 
+                      onChange={e => {
+                        const opt = e.target.value as 'Full' | 'Partial' | 'Credit';
+                        setPayStatusOption(opt);
+                        if (opt === 'Full') {
+                          setPaidAmountInput(grandTotal);
+                        } else if (opt === 'Credit') {
+                          setPaidAmountInput(0);
+                        }
+                      }} 
+                      style={inputStyle}
+                    >
+                      <option value="Full">Full Payment (Paid)</option>
+                      <option value="Partial">Partial Payment</option>
+                      <option value="Credit">No Payment (Unpaid / Credit)</option>
                     </select>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Reference No.</label>
-                    <input value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="Cheque / UTR / Txn ID" style={inputStyle} />
-                  </div>
+                  {payStatusOption === 'Partial' && (
+                    <div>
+                      <label style={labelStyle}>Amount Paid (INR) *</label>
+                      <input 
+                        type="number" 
+                        value={paidAmountInput} 
+                        onChange={e => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setPaidAmountInput(val > grandTotal ? grandTotal : val);
+                        }} 
+                        max={grandTotal}
+                        min={0}
+                        style={inputStyle} 
+                        required 
+                      />
+                    </div>
+                  )}
+                  {payStatusOption !== 'Credit' && (
+                    <div>
+                      <label style={labelStyle}>Paid From Account *</label>
+                      <select value={walletId} onChange={e => setWalletId(e.target.value)} style={inputStyle} required>
+                        <option value="">-- Select Cash/Bank Wallet --</option>
+                        {wallets.map(w => (
+                          <option key={w.id} value={w.id}>{w.name} ({fmt(w.currentBalance)})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {payStatusOption !== 'Credit' && (
+                    <div>
+                      <label style={labelStyle}>Reference No.</label>
+                      <input value={referenceNo} onChange={e => setReferenceNo(e.target.value)} placeholder="Cheque / UTR / Txn ID" style={inputStyle} />
+                    </div>
+                  )}
                   <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Project Association</label>
                     <input 
@@ -904,8 +1105,17 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                     </>
                   )}
                   <div style={{ gridColumn: '1 / -1', borderTop: '2px solid #e2e8f0', margin: '0.3rem 0' }} />
-                  <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '1rem' }}>Grand Total:</span>
-                  <span style={{ textAlign: 'right', fontWeight: 800, color: '#7c3aed', fontSize: '1.15rem' }}>{fmt(grandTotal)}</span>
+                  <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '1.05rem' }}>Grand Total:</span>
+                  <span style={{ textAlign: 'right', fontWeight: 800, color: '#7c3aed', fontSize: '1.1rem' }}>{fmt(grandTotal)}</span>
+                  
+                  <span style={{ color: '#64748b', fontSize: '0.82rem' }}>Amount Paid:</span>
+                  <span style={{ textAlign: 'right', fontWeight: 600, color: '#16a34a', fontSize: '0.82rem' }}>
+                    {fmt(payStatusOption === 'Full' ? grandTotal : (payStatusOption === 'Credit' ? 0 : paidAmountInput))}
+                  </span>
+                  <span style={{ color: '#64748b', fontSize: '0.82rem' }}>Remaining Balance:</span>
+                  <span style={{ textAlign: 'right', fontWeight: 700, color: (grandTotal - (payStatusOption === 'Full' ? grandTotal : (payStatusOption === 'Credit' ? 0 : paidAmountInput))) > 0 ? '#ef4444' : '#16a34a', fontSize: '0.85rem' }}>
+                    {fmt(grandTotal - (payStatusOption === 'Full' ? grandTotal : (payStatusOption === 'Credit' ? 0 : paidAmountInput)))}
+                  </span>
                 </div>
               </div>
             </div>

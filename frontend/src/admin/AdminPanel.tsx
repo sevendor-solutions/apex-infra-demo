@@ -66,7 +66,6 @@ import { AdminLoans } from './AdminLoans';
 import { AdminCustomers } from './AdminCustomers';
 import { AdminSuppliers } from './AdminSuppliers';
 import { AdminInvoices } from './AdminInvoices';
-import { AdminPayments } from './AdminPayments';
 import { AdminAuditorReports } from './AdminAuditorReports';
 
 // Icons
@@ -98,8 +97,6 @@ import {
   
   // Accounting icons
   Landmark,
-  ArrowUpRight,
-  ArrowDownLeft,
   Coins
 } from 'lucide-react';
 
@@ -566,6 +563,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'payments_pending':
       case 'auditor_reports':
       case 'loans':
+      case 'borrowings':
         return currentUser.role === 'Accountant';
       case 'quotations':
       case 'invoices':
@@ -585,7 +583,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const savedTabs = localStorage.getItem(`admin_open_tabs_${currentUser.username}`);
       const savedActive = localStorage.getItem(`admin_active_tab_${currentUser.username}`);
       
-      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'auditor_reports', 'invoices', 'payments_in', 'payments_out', 'payments_pending', 'customers', 'suppliers'];
+      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'borrowings', 'auditor_reports', 'invoices', 'customers', 'suppliers'];
       const allowed = allTabs.filter(tab => hasScreenAccess(tab));
 
       let loadedTabs = savedTabs ? JSON.parse(savedTabs) : ['dashboard'];
@@ -757,7 +755,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'wallets': return 'Digital Wallets';
       case 'quotations': return 'Quotations Ledger';
       case 'inventory': return 'Stock & Inventory';
-      case 'loans': return 'Loans Tracker';
+      case 'loans': return 'Loans & Borrowings';
+      case 'borrowings': return 'Borrowings Tracker';
       case 'auditor_reports': return 'Auditor Reports';
       case 'invoices': return 'Sales Invoices';
       case 'payments_in': return 'Payments Received (In)';
@@ -1858,47 +1857,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </button>
                     </li>
                   )}
-                  {hasScreenAccess('payments_in') && (
-                    <li className="admin-sidebar-item">
-                      <button 
-                        onClick={() => handleOpenTab('payments_in')} 
-                        className={`admin-sidebar-link ${activeTab === 'payments_in' ? 'active' : ''}`}
-                        data-tooltip="Payments In"
-                      >
-                        <ArrowUpRight size={16} /> <span className="admin-sidebar-link-text">Payments In</span>
-                      </button>
-                    </li>
-                  )}
-                  {hasScreenAccess('payments_out') && (
-                    <li className="admin-sidebar-item">
-                      <button 
-                        onClick={() => handleOpenTab('payments_out')} 
-                        className={`admin-sidebar-link ${activeTab === 'payments_out' ? 'active' : ''}`}
-                        data-tooltip="Payments Out"
-                      >
-                        <ArrowDownLeft size={16} /> <span className="admin-sidebar-link-text">Payments Out</span>
-                      </button>
-                    </li>
-                  )}
-                  {hasScreenAccess('payments_pending') && (
-                    <li className="admin-sidebar-item">
-                      <button 
-                        onClick={() => handleOpenTab('payments_pending')} 
-                        className={`admin-sidebar-link ${activeTab === 'payments_pending' ? 'active' : ''}`}
-                        data-tooltip="Pending Collections"
-                      >
-                        <AlertTriangle size={16} /> <span className="admin-sidebar-link-text">Pending Collections</span>
-                      </button>
-                    </li>
-                  )}
                   {hasScreenAccess('loans') && (
                     <li className="admin-sidebar-item">
                       <button 
                         onClick={() => handleOpenTab('loans')} 
                         className={`admin-sidebar-link ${activeTab === 'loans' ? 'active' : ''}`}
-                        data-tooltip="Loans Tracker"
+                        data-tooltip="Loans & Borrowings"
                       >
-                        <Coins size={16} /> <span className="admin-sidebar-link-text">Loans Tracker</span>
+                        <Coins size={16} /> <span className="admin-sidebar-link-text">Loans & Borrowings</span>
                       </button>
                     </li>
                   )}
@@ -2417,6 +2383,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               projects={projects}
               locations={locations}
               wallets={wallets}
+              suppliers={suppliers}
               onRefresh={() => { syncDBData(); logAction('Expenses Sync', 'Synced Expenses records ledger', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);
@@ -2449,6 +2416,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'loans' && hasScreenAccess('loans') && (
             <AdminLoans 
+              wallets={wallets}
               onAddToast={onAddToast}
               onConfirm={handleConfirmAction}
             />
@@ -2475,11 +2443,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
-          {(activeTab === 'payments_in' || activeTab === 'payments_out' || activeTab === 'payments_pending') && (hasScreenAccess('payments_in') || hasScreenAccess('payments_out') || hasScreenAccess('payments_pending')) && (
-            <AdminPayments 
-              onAddToast={onAddToast}
-            />
-          )}
+
 
           {activeTab === 'auditor_reports' && hasScreenAccess('auditor_reports') && (
             <AdminAuditorReports />

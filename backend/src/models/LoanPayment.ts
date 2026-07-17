@@ -33,7 +33,26 @@ export class LoanPayment extends Model {
     })
     reference?: string;
 
-        @Column({
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    walletId?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    accountName?: string;
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    })
+    isInterestOnly!: boolean;
+
+    @Column({
         type: DataType.STRING,
         allowNull: true
     })

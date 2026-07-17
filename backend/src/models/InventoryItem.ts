@@ -47,6 +47,57 @@ export class InventoryItem extends Model {
         defaultValue: 0
     })
     openingStock!: number;
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        defaultValue: "Product"
+    })
+    type!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    hsn?: string;
+
+    @Column({
+        type: DataType.TEXT,
+        allowNull: true
+    })
+    image?: string;
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    })
+    batchTracking!: boolean;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        defaultValue: "Without Tax"
+    })
+    sellingPriceTaxType!: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        defaultValue: "Without Tax"
+    })
+    purchasePriceTaxType!: string;
+
+    @Column({
+        type: DataType.JSON,
+        allowNull: true
+    })
+    batches?: Array<{
+        facingFloor: string;
+        uds: string | number;
+        flatNo: string;
+        openingQty: number;
+        currentQty: number;
+    }>;
 
     @Column({
         type: DataType.DOUBLE,
@@ -95,7 +146,7 @@ export class InventoryItem extends Model {
     })
     warehouseLocation?: string;
 
-        @Column({
+    @Column({
         type: DataType.STRING,
         allowNull: true
     })

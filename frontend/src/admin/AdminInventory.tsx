@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { InventoryItem, StockMovement } from '../types';
+import type { InventoryItem, StockMovement, Invoice } from '../types';
 import { 
-  X, AlertTriangle, 
-  ArrowUpRight, ArrowDownLeft, BarChart2, Package 
+  X, Search, Share2, Plus, Trash2, Edit2, Settings,
+  Package, FileSpreadsheet, ToggleLeft, ToggleRight, MoreVertical
 } from 'lucide-react';
 import { 
   getInventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem,
-  getStockMovements, stockIn, stockOut, adjustStock 
+  getStockMovements, stockIn, stockOut, adjustStock, getInvoices
 } from '../utils/db';
-import { ALVGrid } from './ALVGrid';
-import type { ALVColumn } from './ALVGrid';
 
 interface AdminInventoryProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -24,45 +22,115 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 }) => {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Active Tab: 'products' | 'services'
+  const [activeTab, setActiveTab] = useState<'products' | 'services'>('products');
+
+  // Selected item for detail view
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
+  // Search & Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [txSearchTerm, setTxSearchTerm] = useState('');
+
+  // Modals
   const [showItemModal, setShowItemModal] = useState(false);
-  const [showMoveModal, setShowMoveModal] = useState(false);
-  const [moveType, setMoveType] = useState<'In' | 'Out' | 'Adjust'>('In');
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [showBatchesModal, setShowBatchesModal] = useState(false);
+
+  // Editing state
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  
-  // Local sub-tab selection to prevent side-by-side grid cut-off on standard screen sizes
-  const [activeSubTab, setActiveSubTab] = useState<'inventory' | 'movements'>('inventory');
 
   // Form Fields - Item
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [category, setCategory] = useState('');
-  const [brand, setBrand] = useState('');
-  const [unit, setUnit] = useState('Pcs');
-  const [openingStock, setOpeningStock] = useState(0);
-  const [purchasePrice, setPurchasePrice] = useState(0);
-  const [sellingPrice, setSellingPrice] = useState(0);
-  const [gstPercentage, setGstPercentage] = useState(18);
-  const [minimumStock, setMinimumStock] = useState(10);
-  const [supplierName, setSupplierName] = useState('');
-  const [warehouse, setWarehouse] = useState('Main Warehouse');
+  const [hsn, setHsn] = useState('');
+  const [unit, setUnit] = useState('SFT');
+  const [type, setType] = useState<'Product' | 'Service'>('Product');
+  const [batchTracking, setBatchTracking] = useState(false);
+  const [batches, setBatches] = useState<any[]>([]);
 
-  // Form Fields - Movement
-  const [mProductCode, setMProductCode] = useState('');
-  const [mQuantity, setMQuantity] = useState(0);
-  const [mDate, setMDate] = useState(new Date().toISOString().split('T')[0]);
-  const [mWarehouse, setMWarehouse] = useState('Main Warehouse');
-  const [mNotes, setMNotes] = useState('');
+  // Pricing Tab Fields
+  const [sellingPrice, setSellingPrice] = useState<number>(0);
+  const [sellingPriceTaxType, setSellingPriceTaxType] = useState<string>('Without Tax');
+  const [purchasePrice, setPurchasePrice] = useState<number>(0);
+  const [purchasePriceTaxType, setPurchasePriceTaxType] = useState<string>('Without Tax');
+  const [gstPercentage, setGstPercentage] = useState<number>(5);
+
+  // Stock Tab Fields
+  const [openingStock, setOpeningStock] = useState<number>(0);
+  const [minimumStockLevel, setMinimumStockLevel] = useState<number>(10);
+  const [warehouseLocation, setWarehouseLocation] = useState('Main Warehouse');
+
+  // Active Tab inside Add/Edit Item Modal: 'pricing' | 'stock'
+  const [modalTab, setModalTab] = useState<'pricing' | 'stock'>('pricing');
+
+  // Form Fields - Adjust Stock
+  const [adjType, setAdjType] = useState<'In' | 'Out' | 'Adjust'>('Adjust');
+  const [adjQty, setAdjQty] = useState<number>(0);
+  const [adjDate, setAdjDate] = useState(new Date().toISOString().split('T')[0]);
+  const [adjNotes, setAdjNotes] = useState('');
+
+  // Local Batches config state
+  const [modalBatches, setModalBatches] = useState<any[]>([]);
+
+  // Action Menu Dropdowns
+  const [activeItemMenuId, setActiveItemMenuId] = useState<string | null>(null);
+
+  const [localCustomUnits, setLocalCustomUnits] = useState<string[]>([]);
+  const [localCustomCategories, setLocalCustomCategories] = useState<string[]>([]);
+
+  const handleUnitChange = (val: string) => {
+    if (val === 'ADD_CUSTOM') {
+      const custom = window.prompt("Enter new custom unit (e.g., Hrs, Days, Drum):");
+      if (custom && custom.trim()) {
+        const cleaned = custom.trim();
+        setUnit(cleaned);
+        setLocalCustomUnits(prev => Array.from(new Set([...prev, cleaned])));
+      }
+    } else {
+      setUnit(val);
+    }
+  };
+
+  const handleCategoryChange = (val: string) => {
+    if (val === 'ADD_CUSTOM') {
+      const custom = window.prompt("Enter new custom category (e.g., Cement, Paint, Electrical):");
+      if (custom && custom.trim()) {
+        const cleaned = custom.trim();
+        setCategory(cleaned);
+        setLocalCustomCategories(prev => Array.from(new Set([...prev, cleaned])));
+      }
+    } else {
+      setCategory(val);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [itemList, moveList] = await Promise.all([
+      const [itemList, moveList, invList] = await Promise.all([
         getInventoryItems(),
-        getStockMovements()
+        getStockMovements(),
+        getInvoices()
       ]);
       setItems(itemList);
       setMovements(moveList);
+      setInvoices(invList);
+      
+      // Keep selected item sync or default to first
+      if (itemList.length > 0) {
+        setSelectedItem(prev => {
+          if (!prev) return itemList[0];
+          const fresh = itemList.find(it => it.id === prev.id);
+          return fresh || itemList[0];
+        });
+      } else {
+        setSelectedItem(null);
+      }
     } catch (err) {
       onAddToast('Failed to load inventory data.', 'error');
     } finally {
@@ -74,548 +142,1242 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     loadData();
   }, []);
 
-  const handleSaveItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !code.trim()) {
-      onAddToast('Product name and code are required.', 'error');
-      return;
-    }
-    try {
-      const payload = {
-        name, code, category, brand, unit,
-        openingStock, purchasePrice, sellingPrice, gstPercentage,
-        minimumStockLevel: minimumStock, supplierName, warehouseLocation: warehouse
-      };
+  // Filter products / services
+  const filteredItems = useMemo(() => {
+    const isService = activeTab === 'services';
+    return items.filter(item => {
+      const matchType = isService ? item.type === 'Service' : item.type !== 'Service';
+      const q = searchTerm.toLowerCase();
+      const matchQuery = !q || item.name?.toLowerCase().includes(q) || item.code?.toLowerCase().includes(q) || item.category?.toLowerCase().includes(q);
+      return matchType && matchQuery;
+    });
+  }, [items, activeTab, searchTerm]);
 
-      if (editingItem) {
-        await updateInventoryItem({ ...payload, id: editingItem.id });
-        onAddToast('Product updated successfully.', 'success');
-      } else {
-        await addInventoryItem(payload);
-        onAddToast('Product created successfully.', 'success');
+  // Unique categories collect
+  const categoriesList = useMemo(() => {
+    const list = new Set<string>([...localCustomCategories]);
+    items.forEach(it => { if (it.category) list.add(it.category); });
+    return Array.from(list);
+  }, [items, localCustomCategories]);
+
+  // Unique units collect
+  const unitsList = useMemo(() => {
+    const list = new Set<string>(['SFT', 'Pcs', 'Bags', 'Tons', 'Sq.Mt', 'Nos', 'Service', 'Box', ...localCustomUnits]);
+    items.forEach(it => { if (it.unit) list.add(it.unit); });
+    return Array.from(list);
+  }, [items, localCustomUnits]);
+
+  // Selected item transactions construct
+  const selectedTransactions = useMemo(() => {
+    if (!selectedItem) return [];
+    const list: any[] = [];
+
+    // 1. Opening Stock row
+    if (selectedItem.openingStock > 0) {
+      list.push({
+        id: `opening-${selectedItem.id}`,
+        type: 'Opening Stock',
+        refNo: '—',
+        name: 'Opening Stock',
+        date: selectedItem.createdAt ? new Date(selectedItem.createdAt).toLocaleDateString('en-GB') : '06/04/2026',
+        quantity: selectedItem.openingStock,
+        priceUnit: selectedItem.purchasePrice,
+        status: '—',
+        timestamp: selectedItem.createdAt ? new Date(selectedItem.createdAt).getTime() : 0
+      });
+    }
+
+    // 2. Invoices (Sales)
+    invoices.forEach(inv => {
+      const matchItem = inv.items?.find(it => it.productCode === selectedItem.code);
+      if (matchItem) {
+        list.push({
+          id: `sale-${inv.id}`,
+          type: 'Sale',
+          refNo: inv.invoiceNumber,
+          name: inv.customerName,
+          date: new Date(inv.date).toLocaleDateString('en-GB'),
+          quantity: matchItem.quantity,
+          priceUnit: matchItem.price,
+          status: inv.paymentStatus === 'Partial' ? 'Partial' : (inv.paymentStatus === 'Paid' ? 'Paid' : 'Unpaid'),
+          timestamp: new Date(inv.date).getTime()
+        });
       }
-      setShowItemModal(false);
-      resetForm();
-      loadData();
-    } catch (err: any) {
-      onAddToast(err.message || 'Failed to save product.', 'error');
-    }
-  };
+    });
 
-  const handleMovement = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mProductCode) {
-      onAddToast('Please select a product.', 'error');
-      return;
-    }
-    if (mQuantity <= 0 && moveType !== 'Adjust') {
-      onAddToast('Quantity must be greater than zero.', 'error');
-      return;
-    }
+    // 3. Stock Movements (Adjustments, Stock In, Stock Out)
+    movements.filter(m => m.productCode === selectedItem.code).forEach(m => {
+      if (m.notes === 'Opening Stock Initial Seeding') return;
+      list.push({
+        id: `move-${m.id}`,
+        type: m.type === 'Adjustment' ? 'Add Adjustment' : m.type,
+        refNo: '—',
+        name: m.notes || 'Stock Adjustment',
+        date: new Date(m.date).toLocaleDateString('en-GB'),
+        quantity: m.quantity,
+        priceUnit: selectedItem.purchasePrice || 0,
+        status: '—',
+        timestamp: new Date(m.date).getTime()
+      });
+    });
 
-    try {
-      const payload = {
-        productCode: mProductCode,
-        quantity: mQuantity,
-        date: mDate,
-        warehouse: mWarehouse,
-        notes: mNotes
-      };
+    // Sort by date descending
+    const sorted = list.sort((a, b) => b.timestamp - a.timestamp);
 
-      if (moveType === 'In') {
-        await stockIn(payload);
-        onAddToast('Stock In recorded successfully.', 'success');
-      } else if (moveType === 'Out') {
-        await stockOut(payload);
-        onAddToast('Stock Out recorded successfully.', 'success');
-      } else {
-        await adjustStock(payload);
-        onAddToast('Stock adjustment completed.', 'success');
-      }
-      setShowMoveModal(false);
-      setMProductCode('');
-      setMQuantity(0);
-      setMNotes('');
-      loadData();
-    } catch (err: any) {
-      onAddToast(err.message || 'Failed to post movement.', 'error');
+    // Apply transaction filter search
+    if (txSearchTerm.trim()) {
+      const q = txSearchTerm.toLowerCase();
+      return sorted.filter(t => 
+        t.type.toLowerCase().includes(q) || 
+        t.refNo.toLowerCase().includes(q) || 
+        t.name.toLowerCase().includes(q) ||
+        t.status.toLowerCase().includes(q)
+      );
     }
-  };
-
-  const handleDeleteItem = async (id: string, code: string) => {
-    const ok = await onConfirm(`Delete product "${code}"? This will clear all its stock records.`);
-    if (!ok) return;
-    try {
-      await deleteInventoryItem(id);
-      onAddToast('Product deleted.', 'success');
-      loadData();
-    } catch (err) {
-      onAddToast('Failed to delete product.', 'error');
-    }
-  };
+    return sorted;
+  }, [selectedItem, invoices, movements, txSearchTerm]);
 
   const resetForm = () => {
-    setName(''); setCode(''); setCategory(''); setBrand(''); setUnit('Pcs');
-    setOpeningStock(0); setPurchasePrice(0); setSellingPrice(0); setGstPercentage(18);
-    setMinimumStock(10); setSupplierName(''); setWarehouse('Main Warehouse');
+    setName('');
+    setCode('');
+    setCategory('');
+    setHsn('');
+    setUnit('SFT');
+    setType('Product');
+    setBatchTracking(false);
+    setBatches([]);
+    setSellingPrice(0);
+    setSellingPriceTaxType('Without Tax');
+    setPurchasePrice(0);
+    setPurchasePriceTaxType('Without Tax');
+    setGstPercentage(5);
+    setOpeningStock(0);
+    setMinimumStockLevel(10);
+    setWarehouseLocation('Main Warehouse');
     setEditingItem(null);
+    setModalTab('pricing');
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowItemModal(true);
   };
 
   const openEdit = (item: InventoryItem) => {
+    resetForm();
     setEditingItem(item);
     setName(item.name);
     setCode(item.code);
     setCategory(item.category || '');
-    setBrand(item.brand || '');
-    setUnit(item.unit);
-    setOpeningStock(item.openingStock);
-    setPurchasePrice(item.purchasePrice);
-    setSellingPrice(item.sellingPrice);
-    setGstPercentage(item.gstPercentage);
-    setMinimumStock(item.minimumStockLevel);
-    setSupplierName(item.supplierName || '');
-    setWarehouse(item.warehouseLocation || 'Main Warehouse');
+    setHsn(item.hsn || '');
+    setUnit(item.unit || 'SFT');
+    setType(item.type as any || 'Product');
+    setBatchTracking(item.batchTracking || false);
+    setBatches(item.batches || []);
+    setSellingPrice(item.sellingPrice || 0);
+    setSellingPriceTaxType(item.sellingPriceTaxType || 'Without Tax');
+    setPurchasePrice(item.purchasePrice || 0);
+    setPurchasePriceTaxType(item.purchasePriceTaxType || 'Without Tax');
+    setGstPercentage(item.gstPercentage || 5);
+    setOpeningStock(item.openingStock || 0);
+    setMinimumStockLevel(item.minimumStockLevel || 10);
+    setWarehouseLocation(item.warehouseLocation || 'Main Warehouse');
+    setModalTab('pricing');
     setShowItemModal(true);
   };
 
-  // KPI Calculations
-  const stats = useMemo(() => {
-    const totalCount = items.length;
-    const valuation = items.reduce((sum, item) => sum + (item.currentStock * item.purchasePrice), 0);
-    const lowStockList = items.filter(item => item.currentStock <= item.minimumStockLevel);
-    return {
-      totalCount,
-      valuation,
-      lowStockCount: lowStockList.length
-    };
-  }, [items]);
-
-  const itemCols: ALVColumn[] = [
-    { key: 'code', label: 'Item Code', sortable: true },
-    { key: 'name', label: 'Product Name', sortable: true },
-    { key: 'category', label: 'Category', sortable: true },
-    { 
-      key: 'currentStock', 
-      label: 'Stock Level', 
-      align: 'right', 
-      render: (_, row) => {
-        const item = row as unknown as InventoryItem;
-        const isLow = item.currentStock <= item.minimumStockLevel;
-        return (
-          <span style={{ color: isLow ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>
-            {item.currentStock} {item.unit} {isLow && '⚠️'}
-          </span>
-        );
-      }
-    },
-    { key: 'purchasePrice', label: 'Purchase Price', align: 'right', render: (v) => fmt(Number(v)) },
-    { key: 'sellingPrice', label: 'Selling Price', align: 'right', render: (v) => fmt(Number(v)) },
-    { key: 'warehouseLocation', label: 'Warehouse' },
-    {
-      key: 'actions',
-      label: 'Actions',
-      align: 'center',
-      render: (_, row) => (
-        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-          <button 
-            onClick={() => openEdit(row as any)} 
-            className="btn btn-sm btn-outline text-primary"
-            style={{ padding: '2px 8px' }}
-          >
-            Edit
-          </button>
-          <button 
-            onClick={() => handleDeleteItem(String(row.id), String(row.code))} 
-            className="btn btn-sm btn-outline text-danger"
-            style={{ padding: '2px 8px', color: '#ef4444', borderColor: '#ef4444' }}
-          >
-            Delete
-          </button>
-        </div>
-      )
+  const handleDeleteItem = async (item: InventoryItem) => {
+    const ok = await onConfirm(`Delete item "${item.name}"? This will clear all its stock records.`);
+    if (!ok) return;
+    try {
+      await deleteInventoryItem(item.id);
+      onAddToast('Item deleted successfully.', 'success');
+      loadData();
+    } catch (err) {
+      onAddToast('Failed to delete item.', 'error');
     }
-  ];
+  };
 
-  const moveCols: ALVColumn[] = [
-    { key: 'date', label: 'Date', sortable: true },
-    { key: 'productCode', label: 'Code', sortable: true },
-    { key: 'type', label: 'Type', sortable: true, render: (v) => {
-      const t = String(v);
-      const color = t === 'Stock In' ? 'var(--success)' : t === 'Stock Out' ? 'var(--danger)' : 'var(--info)';
-      return <strong style={{ color }}>{t}</strong>;
-    }},
-    { key: 'quantity', label: 'Qty', align: 'right' },
-    { key: 'warehouse', label: 'Warehouse' },
-    { key: 'notes', label: 'Notes' }
-  ];
+  const handleSaveItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !code.trim()) {
+      onAddToast('Item Name and Unique Code are required.', 'error');
+      return;
+    }
+    try {
+      const payload: any = {
+        name: name.trim(),
+        code: code.trim().toUpperCase(),
+        category,
+        hsn,
+        unit,
+        type,
+        batchTracking,
+        batches,
+        sellingPrice,
+        sellingPriceTaxType,
+        purchasePrice,
+        purchasePriceTaxType,
+        gstPercentage,
+        openingStock,
+        minimumStockLevel,
+        warehouseLocation
+      };
+
+      if (editingItem) {
+        await updateInventoryItem({ ...payload, id: editingItem.id });
+        onAddToast('Item updated successfully.', 'success');
+      } else {
+        await addInventoryItem(payload);
+        onAddToast('Item created successfully.', 'success');
+      }
+      setShowItemModal(false);
+      loadData();
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to save item.', 'error');
+    }
+  };
+
+  // Adjust stock movement submission
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItem) return;
+    try {
+      const payload = {
+        productCode: selectedItem.code,
+        quantity: adjQty,
+        date: adjDate,
+        notes: adjNotes
+      };
+
+      if (adjType === 'In') {
+        await stockIn(payload);
+        onAddToast('Stock In recorded successfully.', 'success');
+      } else if (adjType === 'Out') {
+        // Double check stock levels
+        if (selectedItem.currentStock < adjQty) {
+          const proceed = await onConfirm(`Current stock (${selectedItem.currentStock}) is less than adjustment quantity (${adjQty}). Proceed anyway?`);
+          if (!proceed) return;
+        }
+        await stockOut(payload);
+        onAddToast('Stock Out recorded successfully.', 'success');
+      } else {
+        await adjustStock(payload);
+        onAddToast('Stock level adjusted successfully.', 'success');
+      }
+      setShowAdjustModal(false);
+      loadData();
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to adjust stock.', 'error');
+    }
+  };
+
+  // Batches management helpers
+  const openBatchesModal = () => {
+    // Clone existing batches or load defaults
+    const currentBatches = batches && batches.length > 0 ? [...batches] : [];
+    setModalBatches(currentBatches);
+    setShowBatchesModal(true);
+  };
+
+  const addBatchRow = () => {
+    setModalBatches(prev => [
+      ...prev,
+      { facingFloor: '', uds: 0, flatNo: '', openingQty: 0, currentQty: 0 }
+    ]);
+  };
+
+  const updateBatchRow = (idx: number, field: string, value: any) => {
+    setModalBatches(prev => prev.map((b, i) => {
+      if (i !== idx) return b;
+      const updated = { ...b, [field]: value };
+      if (field === 'openingQty') {
+        // Set currentQty to openingQty as well initially
+        updated.currentQty = Number(value) || 0;
+      }
+      return updated;
+    }));
+  };
+
+  const deleteBatchRow = (idx: number) => {
+    setModalBatches(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const saveBatchesConfig = () => {
+    const totalQty = modalBatches.reduce((s, b) => s + (Number(b.openingQty) || 0), 0);
+    setBatches(modalBatches);
+    setOpeningStock(totalQty);
+    setShowBatchesModal(false);
+    onAddToast(`Configured ${modalBatches.length} batches. Total Opening Stock set to ${totalQty} ${unit}.`, 'info');
+  };
+
+  // Export transactions helper
+  const exportToExcel = () => {
+    if (!selectedItem) return;
+    let csv = `Transactions for ${selectedItem.name} (${selectedItem.code})\n`;
+    csv += `Type,Invoice/Ref No.,Party Name,Date,Quantity (${selectedItem.unit}),Price/Unit,Status\n`;
+    selectedTransactions.forEach(t => {
+      csv += `"${t.type}","${t.refNo}","${t.name}","${t.date}",${t.quantity},${t.priceUnit},"${t.status}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `${selectedItem.name.replace(/\s+/g, '_')}_ledger.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onAddToast('Ledger exported successfully as CSV.', 'success');
+  };
 
   return (
-    <div className="admin-page-container">
-      {/* KPI Stats cards */}
-      <div className="grid grid-3 gap-2 mb-3">
-        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--secondary)' }}>
-          <div className="stat-icon-wrapper secondary-soft">
-            <Package size={24} className="text-secondary" />
-          </div>
-          <div>
-            <span className="stat-title">Total Inventory Items</span>
-            <h3>{stats.totalCount}</h3>
-          </div>
-        </div>
-
-        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--success)' }}>
-          <div className="stat-icon-wrapper success-soft">
-            <BarChart2 size={24} className="text-success" />
-          </div>
-          <div>
-            <span className="stat-title">Stock Valuation</span>
-            <h3>{fmt(stats.valuation)}</h3>
-          </div>
-        </div>
-
-        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--danger)' }}>
-          <div className="stat-icon-wrapper danger-soft">
-            <AlertTriangle size={24} className="text-danger" />
-          </div>
-          <div>
-            <span className="stat-title">Low Stock Alerts</span>
-            <h3 className="text-danger">{stats.lowStockCount}</h3>
-          </div>
-        </div>
+    <div className="admin-page-container" style={{ padding: '1rem', background: '#f8fafc', minHeight: 'calc(100vh - 80px)' }}>
+      
+      {/* ── Tabs Bar ────────────────────────────────────────── */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '1.2rem', background: '#fff', borderRadius: '8px 8px 0 0', padding: '0.5rem 1rem 0', gap: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        {(['products', 'services'] as const).map(tab => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => { setActiveTab(tab); setSearchTerm(''); }}
+            style={{
+              padding: '10px 6px',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              color: activeTab === tab ? '#3b82f6' : '#64748b',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === tab ? '3px solid #3b82f6' : '3px solid transparent',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              transition: 'all 0.15s'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      {/* Control Action Buttons */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem' }}>
-        <button 
-          onClick={() => { setMoveType('In'); setShowMoveModal(true); }}
-          className="btn btn-secondary flex align-center gap-0.5"
-        >
-          <ArrowUpRight size={16} /> Record Stock In
-        </button>
-        <button 
-          onClick={() => { setMoveType('Out'); setShowMoveModal(true); }}
-          className="btn btn-outline flex align-center gap-0.5"
-          style={{ borderColor: 'var(--primary)', color: 'var(--primary)' }}
-        >
-          <ArrowDownLeft size={16} /> Record Stock Out
-        </button>
-      </div>
+      {/* ── Main Workspace ──────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 180px)' }}>
+          
+          {/* ── Left Pane: Items List ───────────────────────── */}
+          <div style={{ width: '330px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0' }}>
+            
+            {/* Search and Add */}
+            <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
+                  <input
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    placeholder="Search items..."
+                    style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: '0.85rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: '#f8fafc' }}
+                  />
+                  {searchTerm && (
+                    <button onClick={() => setSearchTerm('')} style={{ position: 'absolute', right: '10px', top: '10px', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
 
-      {/* Tab Switcher: Solves the "screen grid half cut not showing in screen" layout issue */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '1rem', gap: '1.5rem' }}>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('inventory')}
-          style={{
-            padding: '8px 4px',
-            fontSize: '0.875rem',
-            fontWeight: 700,
-            color: activeSubTab === 'inventory' ? 'var(--primary)' : '#64748b',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeSubTab === 'inventory' ? '3px solid var(--primary)' : '3px solid transparent',
-            cursor: 'pointer',
-            transition: 'all 0.15s'
-          }}
-        >
-          Warehouse Inventory Registry
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('movements')}
-          style={{
-            padding: '8px 4px',
-            fontSize: '0.875rem',
-            fontWeight: 700,
-            color: activeSubTab === 'movements' ? 'var(--primary)' : '#64748b',
-            border: 'none',
-            background: 'none',
-            borderBottom: activeSubTab === 'movements' ? '3px solid var(--primary)' : '3px solid transparent',
-            cursor: 'pointer',
-            transition: 'all 0.15s'
-          }}
-        >
-          Stock Movement Logs
-        </button>
-      </div>
-
-      {/* Main Grid Tables */}
-      <div style={{ width: '100%' }}>
-        {activeSubTab === 'inventory' ? (
-          <ALVGrid 
-            title="Warehouse Inventory List"
-            subtitle="Current stock levels and warehouse valuation ledger"
-            columns={itemCols}
-            data={items as any}
-            rowKey="id"
-            onAdd={() => { resetForm(); setShowItemModal(true); }}
-            addLabel="Add Product"
-            onRefresh={loadData}
-            pageSize={10}
-            selectable={false}
-            loading={loading}
-          />
-        ) : (
-          <ALVGrid 
-            title="Stock Movement Log"
-            subtitle="Postings for stock in, stock out, and manual overrides"
-            columns={moveCols}
-            data={movements as any}
-            rowKey="id"
-            onRefresh={loadData}
-            pageSize={10}
-            selectable={false}
-            loading={loading}
-          />
-        )}
-      </div>
-
-      {/* Item Modal */}
-      {showItemModal && (
-        <div className="modal-overlay" onClick={() => setShowItemModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '600px' }}>
-            <div className="modal-header">
-              <h3>{editingItem ? `Edit Product: ${editingItem.code}` : 'Add New Inventory Item'}</h3>
-              <button onClick={() => setShowItemModal(false)} className="close-btn"><X size={20} /></button>
+                {/* Add Item Button */}
+                <button
+                  onClick={openAddModal}
+                  style={{
+                    background: '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 4px rgba(245, 158, 11, 0.2)'
+                  }}
+                >
+                  <Plus size={15} />
+                  Add Item
+                </button>
+              </div>
             </div>
-            <form onSubmit={handleSaveItem}>
-              <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Product Name</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={name} 
-                      onChange={e => setName(e.target.value)} 
-                      placeholder="e.g. 53-Grade Cement"
-                      required 
-                    />
+
+            {/* List Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0' }}>
+              {loading ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>Loading items...</div>
+              ) : filteredItems.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                  No {activeTab} found.
+                </div>
+              ) : (
+                filteredItems.map(item => {
+                  const isSelected = selectedItem?.id === item.id;
+                  const isLowStock = item.currentStock <= item.minimumStockLevel;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => { setSelectedItem(item); setActiveItemMenuId(null); }}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        cursor: 'pointer',
+                        background: isSelected ? '#eff6ff' : 'transparent',
+                        borderLeft: isSelected ? '4px solid #3b82f6' : '4px solid transparent',
+                        borderBottom: '1px solid #f1f5f9',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        position: 'relative',
+                        transition: 'all 0.1s'
+                      }}
+                    >
+                      <div style={{ flex: 1, paddingRight: '8px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: isSelected ? '#1d4ed8' : '#1e293b', textTransform: 'uppercase', wordBreak: 'break-word' }}>
+                          {item.name}
+                        </div>
+                        {item.category && (
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>
+                            {item.category}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={e => e.stopPropagation()}>
+                        <span style={{ 
+                          fontSize: '0.82rem', 
+                          fontWeight: 800, 
+                          color: item.currentStock === 0 ? '#ef4444' : (isLowStock ? '#f59e0b' : '#10b981')
+                        }}>
+                          {item.currentStock}
+                        </span>
+
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            onClick={() => setActiveItemMenuId(prev => prev === item.id ? null : item.id)}
+                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {activeItemMenuId === item.id && (
+                            <div style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: '25px',
+                              background: '#fff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                              zIndex: 100,
+                              width: '100px',
+                              overflow: 'hidden'
+                            }}>
+                              <button
+                                onClick={() => { openEdit(item); setActiveItemMenuId(null); }}
+                                style={{ width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', fontSize: '0.78rem', cursor: 'pointer', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <Edit2 size={12} /> Edit
+                              </button>
+                              <button
+                                onClick={() => { handleDeleteItem(item); setActiveItemMenuId(null); }}
+                                style={{ width: '100%', textAlign: 'left', padding: '8px 12px', background: 'none', border: 'none', fontSize: '0.78rem', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', borderTop: '1px solid #f1f5f9' }}
+                              >
+                                <Trash2 size={12} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* ── Right Pane: Details & Transactions ───────────── */}
+          <div style={{ flex: 1, background: '#fff', borderRadius: '10px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {selectedItem ? (
+              <>
+                {/* Right Header */}
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase' }}>
+                      {selectedItem.name}
+                    </h2>
+                    <button style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }} title="Share Ledger">
+                      <Share2 size={16} />
+                    </button>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Unique Item Code</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={code} 
-                      onChange={e => setCode(e.target.value.toUpperCase())} 
-                      placeholder="e.g. CEMENT-53"
-                      disabled={!!editingItem}
-                      required 
-                    />
-                  </div>
+
+                  <button
+                    onClick={() => {
+                      setAdjType('Adjust');
+                      setAdjQty(selectedItem.currentStock);
+                      setAdjNotes('');
+                      setShowAdjustModal(true);
+                    }}
+                    style={{
+                      background: '#3b82f6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)'
+                    }}
+                  >
+                    <Settings size={14} />
+                    ADJUST ITEM
+                  </button>
                 </div>
 
-                <div className="grid grid-3 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Category</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={category} 
-                      onChange={e => setCategory(e.target.value)} 
-                      placeholder="e.g. Cement" 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Brand</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={brand} 
-                      onChange={e => setBrand(e.target.value)} 
-                      placeholder="e.g. UltraTech" 
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Stock Unit</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={unit} 
-                      onChange={e => setUnit(e.target.value)} 
-                      placeholder="e.g. Bags, Tons, Pcs" 
-                      required
-                    />
-                  </div>
-                </div>
+                {/* Details Scroll Area */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+                  
+                  {/* Valuation & Pricing Cards Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '2rem' }}>
+                    
+                    <div style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fcfcfd' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Sale Price</span>
+                      <h4 style={{ margin: '4px 0 0', fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                        {fmt(selectedItem.sellingPrice || 0)}
+                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#94a3b8', marginLeft: '4px' }}>
+                          ({selectedItem.sellingPriceTaxType === 'With Tax' ? 'incl' : 'excl'})
+                        </span>
+                      </h4>
+                    </div>
 
-                <div className="grid grid-3 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Purchase Price (INR)</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={purchasePrice} 
-                      onChange={e => setPurchasePrice(parseFloat(e.target.value) || 0)} 
-                      min={0}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Selling Price (INR)</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={sellingPrice} 
-                      onChange={e => setSellingPrice(parseFloat(e.target.value) || 0)} 
-                      min={0}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">GST Percentage</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={gstPercentage} 
-                      onChange={e => setGstPercentage(parseFloat(e.target.value) || 0)} 
-                      min={0}
-                      required
-                    />
-                  </div>
-                </div>
+                    <div style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fcfcfd' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Purchase Price</span>
+                      <h4 style={{ margin: '4px 0 0', fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                        {fmt(selectedItem.purchasePrice || 0)}
+                        <span style={{ fontSize: '0.65rem', fontWeight: 600, color: '#94a3b8', marginLeft: '4px' }}>
+                          ({selectedItem.purchasePriceTaxType === 'With Tax' ? 'incl' : 'excl'})
+                        </span>
+                      </h4>
+                    </div>
 
-                <div className="grid grid-3 gap-2">
-                  {!editingItem && (
-                    <div className="form-group">
-                      <label className="form-label">Opening Stock Qty</label>
-                      <input 
-                        type="number" 
-                        className="form-control" 
-                        value={openingStock} 
-                        onChange={e => setOpeningStock(parseFloat(e.target.value) || 0)} 
-                        min={0}
-                      />
+                    <div style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fcfcfd' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stock Quantity</span>
+                      <h4 style={{ margin: '4px 0 0', fontSize: '1.1rem', fontWeight: 800, color: selectedItem.currentStock === 0 ? '#ef4444' : '#10b981' }}>
+                        {selectedItem.currentStock} {selectedItem.unit}
+                      </h4>
+                    </div>
+
+                    <div style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fcfcfd' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stock Value</span>
+                      <h4 style={{ margin: '4px 0 0', fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                        {fmt((selectedItem.currentStock || 0) * (selectedItem.purchasePrice || 0))}
+                      </h4>
+                    </div>
+
+                  </div>
+
+                  {/* Batches Sub-section (if batchTracking is enabled) */}
+                  {selectedItem.batchTracking && selectedItem.batches && selectedItem.batches.length > 0 && (
+                    <div style={{ marginBottom: '2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden' }}>
+                      <div style={{ background: '#f1f5f9', padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}>
+                        Configured Batches / Floor Units ({selectedItem.batches.length})
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                            <th style={{ textAlign: 'left', padding: '6px 12px', color: '#64748b' }}>FACING/FLOOR</th>
+                            <th style={{ textAlign: 'center', padding: '6px 12px', color: '#64748b' }}>UDS</th>
+                            <th style={{ textAlign: 'center', padding: '6px 12px', color: '#64748b' }}>Flat No.</th>
+                            <th style={{ textAlign: 'right', padding: '6px 12px', color: '#64748b' }}>QTY ({selectedItem.unit})</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedItem.batches.map((b: any, i: number) => (
+                            <tr key={i} style={{ borderBottom: i === selectedItem.batches!.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '8px 12px', fontWeight: 600, color: '#334155' }}>{b.facingFloor}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', color: '#475569' }}>{b.uds}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{b.flatNo}</td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>{b.openingQty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
-                  <div className="form-group">
-                    <label className="form-label">Minimum Alert Level</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={minimumStock} 
-                      onChange={e => setMinimumStock(parseFloat(e.target.value) || 0)} 
-                      min={0}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Warehouse Shelf</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={warehouse} 
-                      onChange={e => setWarehouse(e.target.value)} 
-                      placeholder="e.g. Yard A" 
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="form-group">
-                  <label className="form-label">Preferred Supplier</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    value={supplierName} 
-                    onChange={e => setSupplierName(e.target.value)} 
-                    placeholder="Supplier contact name" 
-                  />
+                  {/* Transactions Section */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b', textTransform: 'uppercase' }}>
+                        TRANSACTIONS
+                      </span>
+                      
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <div style={{ position: 'relative' }}>
+                          <Search size={13} style={{ position: 'absolute', left: '8px', top: '8px', color: '#94a3b8' }} />
+                          <input
+                            value={txSearchTerm}
+                            onChange={e => setTxSearchTerm(e.target.value)}
+                            placeholder="Filter transactions..."
+                            style={{ padding: '4px 8px 4px 26px', fontSize: '0.78rem', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', width: '160px' }}
+                          />
+                        </div>
+
+                        <button
+                          onClick={exportToExcel}
+                          style={{
+                            background: 'none',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            color: '#16a34a',
+                            fontSize: '0.78rem',
+                            fontWeight: 600
+                          }}
+                          title="Export Ledger to CSV"
+                        >
+                          <FileSpreadsheet size={14} />
+                          Excel
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                            <th style={{ textAlign: 'left', padding: '10px 12px', color: '#475569' }}>TYPE</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px', color: '#475569' }}>INVOICE/REF NO.</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px', color: '#475569' }}>NAME</th>
+                            <th style={{ textAlign: 'left', padding: '10px 12px', color: '#475569' }}>DATE</th>
+                            <th style={{ textAlign: 'right', padding: '10px 12px', color: '#475569' }}>QUANTITY</th>
+                            <th style={{ textAlign: 'right', padding: '10px 12px', color: '#475569' }}>PRICE/UNIT</th>
+                            <th style={{ textAlign: 'center', padding: '10px 12px', color: '#475569' }}>STATUS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedTransactions.length === 0 ? (
+                            <tr>
+                              <td colSpan={7} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                                No transactions matching search filters.
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedTransactions.map((tx, idx) => {
+                              const isSale = tx.type === 'Sale';
+                              const qtyColor = isSale || tx.type === 'Stock Out' ? '#ef4444' : '#10b981';
+                              const statusColor = tx.status === 'Paid' ? '#10b981' : (tx.status === 'Partial' ? '#f59e0b' : '#ef4444');
+                              return (
+                                <tr key={tx.id || idx} style={{ borderBottom: idx === selectedTransactions.length - 1 ? 'none' : '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fcfcfd' }}>
+                                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#334155' }}>{tx.type}</td>
+                                  <td style={{ padding: '10px 12px', color: '#64748b' }}>{tx.refNo}</td>
+                                  <td style={{ padding: '10px 12px', color: '#1e293b', fontWeight: 500 }}>{tx.name}</td>
+                                  <td style={{ padding: '10px 12px', color: '#64748b' }}>{tx.date}</td>
+                                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: qtyColor }}>
+                                    {isSale || tx.type === 'Stock Out' ? '-' : '+'}{tx.quantity} {selectedItem.unit}
+                                  </td>
+                                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#334155' }}>
+                                    {tx.priceUnit > 0 ? fmt(tx.priceUnit) : '—'}
+                                  </td>
+                                  <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                                    {tx.status !== '—' ? (
+                                      <span style={{ 
+                                        color: statusColor, 
+                                        background: tx.status === 'Paid' ? '#dcfce7' : (tx.status === 'Partial' ? '#fef3c7' : '#fee2e2'),
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700
+                                      }}>
+                                        {tx.status}
+                                      </span>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
                 </div>
+              </>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+                <Package size={50} style={{ marginBottom: '1rem', color: '#cbd5e1' }} />
+                <span>Select an item from the list to view its stock ledger and details.</span>
               </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowItemModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-secondary">Save Product</button>
-              </div>
-            </form>
+            )}
           </div>
         </div>
-      )}
 
-      {/* Movement Modal */}
-      {showMoveModal && (
-        <div className="modal-overlay" onClick={() => setShowMoveModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '450px' }}>
-            <div className="modal-header">
-              <h3>
-                {moveType === 'In' ? 'Record Stock In' : moveType === 'Out' ? 'Record Stock Out' : 'Adjust Stock Level Override'}
-              </h3>
-              <button onClick={() => setShowMoveModal(false)} className="close-btn"><X size={20} /></button>
-            </div>
-            <form onSubmit={handleMovement}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Select Product</label>
-                  <select 
-                    value={mProductCode} 
-                    onChange={e => setMProductCode(e.target.value)} 
-                    className="form-control"
-                    required
+      {/* ── Add / Edit Item Modal ────────────────────────────── */}
+      {showItemModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="modal-content" style={{
+            background: '#fff', borderRadius: '12px', width: '700px', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #cbd5e1'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                  {editingItem ? 'Edit Item' : 'Add Item'}
+                </h3>
+                
+                {/* Product / Service Switch */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f1f5f9', padding: '3px 8px', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: type === 'Product' ? '#3b82f6' : '#64748b' }}>Product</span>
+                  <button
+                    type="button"
+                    onClick={() => setType(prev => prev === 'Product' ? 'Service' : 'Product')}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: '#3b82f6', padding: 0 }}
                   >
-                    <option value="">Select product code...</option>
-                    {items.map(item => (
-                      <option key={item.id} value={item.code}>{item.name} ({item.code}) [Current: {item.currentStock}]</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">
-                    {moveType === 'Adjust' ? 'New absolute stock count' : 'Quantity'}
-                  </label>
-                  <input 
-                    type="number" 
-                    className="form-control" 
-                    value={mQuantity} 
-                    onChange={e => setMQuantity(parseFloat(e.target.value) || 0)} 
-                    min={0}
-                    step="any"
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Post Date</label>
-                  <input 
-                    type="date" 
-                    className="form-control" 
-                    value={mDate} 
-                    onChange={e => setMDate(e.target.value)} 
-                    required 
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Warehouse Yard</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    value={mWarehouse} 
-                    onChange={e => setMWarehouse(e.target.value)} 
-                    placeholder="e.g. Block A" 
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Movement Notes / Reason</label>
-                  <textarea 
-                    className="form-control" 
-                    value={mNotes} 
-                    onChange={e => setMNotes(e.target.value)} 
-                    placeholder="Explain the stock adjustment reason..."
-                  />
+                    {type === 'Product' ? <ToggleRight size={22} /> : <ToggleLeft size={22} style={{ color: '#64748b' }} />}
+                  </button>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: type === 'Service' ? '#3b82f6' : '#64748b' }}>Service</span>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" onClick={() => setShowMoveModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-secondary">Submit Stock Entry</button>
+
+              <button onClick={() => setShowItemModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body form */}
+            <form onSubmit={handleSaveItem}>
+              <div style={{ padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* Basic Fields row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Item Name *</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="e.g. ICONIC HEIGHTS"
+                      required
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Item HSN / SAC</label>
+                    <input
+                      type="text"
+                      value={hsn}
+                      onChange={e => setHsn(e.target.value)}
+                      placeholder="Enter HSN number..."
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Category, code, unit */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Category</label>
+                    <select
+                      value={category}
+                      onChange={e => handleCategoryChange(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: '#fff' }}
+                    >
+                      <option value="">Select Category...</option>
+                      {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                      <option value="ADD_CUSTOM" style={{ fontStyle: 'italic', color: '#2563eb', fontWeight: 700 }}>+ Add Custom Category...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Item Code</label>
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={e => setCode(e.target.value)}
+                      placeholder="e.g. ICONIC-H"
+                      disabled={!!editingItem}
+                      required
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: editingItem ? '#f1f5f9' : '#fff' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Unit</label>
+                    <select
+                      value={unit}
+                      onChange={e => handleUnitChange(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: '#fff' }}
+                    >
+                      {unitsList.map(u => <option key={u} value={u}>{u}</option>)}
+                      <option value="ADD_CUSTOM" style={{ fontStyle: 'italic', color: '#2563eb', fontWeight: 700 }}>+ Add Custom Unit...</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Batch Tracking checkbox */}
+                {type === 'Product' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
+                    <input
+                      type="checkbox"
+                      id="batchTracking"
+                      checked={batchTracking}
+                      onChange={e => {
+                        setBatchTracking(e.target.checked);
+                        if (e.target.checked && batches.length === 0) {
+                          // Trigger batches modal
+                          openBatchesModal();
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <label htmlFor="batchTracking" style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', cursor: 'pointer', flex: 1 }}>
+                      Enable Batch / Floor Unit Tracking
+                    </label>
+
+                    {batchTracking && (
+                      <button
+                        type="button"
+                        onClick={openBatchesModal}
+                        style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        Configure Batches ({batches.length})
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Sub Tabs Inside Modal: Pricing vs Stock */}
+                <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginTop: '0.5rem', gap: '1.2rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setModalTab('pricing')}
+                    style={{
+                      padding: '8px 4px', fontSize: '0.8rem', fontWeight: 700,
+                      color: modalTab === 'pricing' ? '#ef4444' : '#64748b',
+                      border: 'none', background: 'none',
+                      borderBottom: modalTab === 'pricing' ? '2px solid #ef4444' : '2px solid transparent',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Pricing Details
+                  </button>
+                  {type === 'Product' && (
+                    <button
+                      type="button"
+                      onClick={() => setModalTab('stock')}
+                      style={{
+                        padding: '8px 4px', fontSize: '0.8rem', fontWeight: 700,
+                        color: modalTab === 'stock' ? '#ef4444' : '#64748b',
+                        border: 'none', background: 'none',
+                        borderBottom: modalTab === 'stock' ? '2px solid #ef4444' : '2px solid transparent',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Stock Levels
+                    </button>
+                  )}
+                </div>
+
+                {/* Pricing Fields */}
+                {modalTab === 'pricing' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    
+                    {/* Sale price & Purchase price */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Sale Price (₹)</label>
+                        <div style={{ display: 'flex' }}>
+                          <input
+                            type="number"
+                            value={sellingPrice}
+                            onChange={e => setSellingPrice(parseFloat(e.target.value) || 0)}
+                            min={0}
+                            style={{ flex: 1, padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px 0 0 6px', outline: 'none' }}
+                          />
+                          <select
+                            value={sellingPriceTaxType}
+                            onChange={e => setSellingPriceTaxType(e.target.value)}
+                            style={{ padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderLeft: 'none', borderRadius: '0 6px 6px 0', outline: 'none', background: '#fff' }}
+                          >
+                            <option value="Without Tax">Without Tax</option>
+                            <option value="With Tax">With Tax</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Purchase Price (₹)</label>
+                        <div style={{ display: 'flex' }}>
+                          <input
+                            type="number"
+                            value={purchasePrice}
+                            onChange={e => setPurchasePrice(parseFloat(e.target.value) || 0)}
+                            min={0}
+                            style={{ flex: 1, padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px 0 0 6px', outline: 'none' }}
+                          />
+                          <select
+                            value={purchasePriceTaxType}
+                            onChange={e => setPurchasePriceTaxType(e.target.value)}
+                            style={{ padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderLeft: 'none', borderRadius: '0 6px 6px 0', outline: 'none', background: '#fff' }}
+                          >
+                            <option value="Without Tax">Without Tax</option>
+                            <option value="With Tax">With Tax</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tax configuration */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Tax Rate</label>
+                      <select
+                        value={gstPercentage}
+                        onChange={e => setGstPercentage(Number(e.target.value))}
+                        style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: '#fff' }}
+                      >
+                        <option value={0}>Exempted (0%)</option>
+                        <option value={5}>GST @ 5%</option>
+                        <option value={12}>GST @ 12%</option>
+                        <option value={18}>GST @ 18%</option>
+                        <option value={28}>GST @ 28%</option>
+                      </select>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* Stock Fields */}
+                {modalTab === 'stock' && type === 'Product' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Opening Stock Qty</label>
+                        <input
+                          type="number"
+                          value={openingStock}
+                          onChange={e => setOpeningStock(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          disabled={!!editingItem || batchTracking}
+                          style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', background: (editingItem || batchTracking) ? '#f1f5f9' : '#fff' }}
+                        />
+                        {batchTracking && (
+                          <span style={{ fontSize: '0.62rem', color: '#64748b' }}>Computed from batches.</span>
+                        )}
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Min Stock Alert Level</label>
+                        <input
+                          type="number"
+                          value={minimumStockLevel}
+                          onChange={e => setMinimumStockLevel(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Storage Location</label>
+                        <input
+                          type="text"
+                          value={warehouseLocation}
+                          onChange={e => setWarehouseLocation(e.target.value)}
+                          placeholder="e.g. Block A Shelf 4"
+                          style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                        />
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowItemModal(false)}
+                  style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 20px', fontSize: '0.82rem', fontWeight: 700, color: '#fff', border: 'none', borderRadius: '6px', background: '#3b82f6', cursor: 'pointer', boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)' }}
+                >
+                  {editingItem ? 'Update' : 'Save Item'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ── Adjust Stock Modal ────────────────────────────────── */}
+      {showAdjustModal && selectedItem && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="modal-content" style={{
+            background: '#fff', borderRadius: '12px', width: '450px', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #cbd5e1'
+          }}>
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#1e293b' }}>
+                Adjust Stock: {selectedItem.name}
+              </h3>
+              <button onClick={() => setShowAdjustModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAdjustment}>
+              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                
+                {/* Adjust Type */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Adjustment Type</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {(['In', 'Out', 'Adjust'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setAdjType(t)}
+                        style={{
+                          padding: '6px', fontSize: '0.75rem', fontWeight: 700, borderRadius: '4px', cursor: 'pointer', border: '1px solid #cbd5e1',
+                          background: adjType === t ? '#3b82f6' : '#fff',
+                          color: adjType === t ? '#fff' : '#475569'
+                        }}
+                      >
+                        {t === 'In' ? 'Stock In (+)' : (t === 'Out' ? 'Stock Out (-)' : 'Override (=)')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Adjust Qty */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                    {adjType === 'Adjust' ? 'New Target Stock Qty' : 'Quantity'} ({selectedItem.unit})
+                  </label>
+                  <input
+                    type="number"
+                    value={adjQty}
+                    onChange={e => setAdjQty(parseFloat(e.target.value) || 0)}
+                    min={0}
+                    required
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                  />
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Post Date</label>
+                  <input
+                    type="date"
+                    value={adjDate}
+                    onChange={e => setAdjDate(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Adjustment Reason / Description</label>
+                  <textarea
+                    value={adjNotes}
+                    onChange={e => setAdjNotes(e.target.value)}
+                    placeholder="Enter stock adjustment reasons..."
+                    style={{ width: '100%', padding: '8px 10px', fontSize: '0.82rem', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none', height: '60px', resize: 'none' }}
+                  />
+                </div>
+
+              </div>
+
+              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '10px', background: '#f8fafc' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustModal(false)}
+                  style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{ padding: '8px 20px', fontSize: '0.82rem', fontWeight: 700, color: '#fff', border: 'none', borderRadius: '6px', background: '#3b82f6', cursor: 'pointer' }}
+                >
+                  Save Adjustment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Stock - Batches Modal ────────────────────────── */}
+      {showBatchesModal && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)',
+          backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+        }}>
+          <div className="modal-content" style={{
+            background: '#fff', borderRadius: '12px', width: '800px', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #cbd5e1'
+          }}>
+            {/* Modal Header */}
+            <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                  Add Stock - Batches
+                </h3>
+                <div style={{ display: 'flex', gap: '16px', marginTop: '6px', fontSize: '0.78rem' }}>
+                  <span>Item Name: <strong style={{ color: '#0f172a' }}>{name || 'New Item'}</strong></span>
+                  <span>Category: <strong style={{ color: '#0f172a' }}>{category || 'project1'}</strong></span>
+                </div>
+              </div>
+              <button onClick={() => setShowBatchesModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body Table */}
+            <div style={{ padding: '1.5rem', maxHeight: '60vh', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                    <th style={{ textAlign: 'left', padding: '10px', color: '#475569' }}>FACING/FLOOR</th>
+                    <th style={{ textAlign: 'center', padding: '10px', color: '#475569' }}>UDS</th>
+                    <th style={{ textAlign: 'center', padding: '10px', color: '#475569' }}>Flat No.</th>
+                    <th style={{ textAlign: 'right', padding: '10px', color: '#475569' }}>OPENING QTY</th>
+                    <th style={{ width: '50px' }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modalBatches.map((row, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '8px' }}>
+                        <input
+                          value={row.facingFloor}
+                          onChange={e => updateBatchRow(idx, 'facingFloor', e.target.value)}
+                          placeholder="e.g. EAST / 1st"
+                          style={{ width: '100%', padding: '6px', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none' }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <input
+                          type="number"
+                          value={row.uds}
+                          onChange={e => updateBatchRow(idx, 'uds', parseFloat(e.target.value) || 0)}
+                          placeholder="35"
+                          style={{ width: '100%', padding: '6px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none' }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <input
+                          value={row.flatNo}
+                          onChange={e => updateBatchRow(idx, 'flatNo', e.target.value)}
+                          placeholder="101"
+                          style={{ width: '100%', padding: '6px', textAlign: 'center', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none' }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px' }}>
+                        <input
+                          type="number"
+                          value={row.openingQty}
+                          onChange={e => updateBatchRow(idx, 'openingQty', parseFloat(e.target.value) || 0)}
+                          placeholder="1389"
+                          style={{ width: '100%', padding: '6px', textAlign: 'right', border: '1px solid #cbd5e1', borderRadius: '4px', outline: 'none', fontWeight: 700 }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => deleteBatchRow(idx)}
+                          style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {/* Empty state check */}
+                  {modalBatches.length === 0 && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
+                        No batches configured. Click "Add Batch Row" to begin.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              {/* Add row trigger */}
+              <button
+                type="button"
+                onClick={addBatchRow}
+                style={{
+                  marginTop: '12px', background: 'none', border: '1px dashed #cbd5e1', borderRadius: '6px',
+                  width: '100%', padding: '8px', cursor: 'pointer', color: '#64748b', fontSize: '0.8rem',
+                  fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                }}
+              >
+                <Plus size={14} /> Add Batch Row
+              </button>
+
+            </div>
+
+            {/* Modal Footer with total */}
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#334155' }}>
+                Total: <span style={{ color: '#2563eb', fontSize: '1.05rem', marginLeft: '6px' }}>
+                  {modalBatches.reduce((s, b) => s + (Number(b.openingQty) || 0), 0)} {unit}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowBatchesModal(false)}
+                  style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 700, color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', background: '#fff', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveBatchesConfig}
+                  style={{ padding: '8px 20px', fontSize: '0.82rem', fontWeight: 700, color: '#fff', border: 'none', borderRadius: '6px', background: '#3b82f6', cursor: 'pointer' }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

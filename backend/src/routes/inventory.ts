@@ -20,7 +20,10 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST create new inventory item
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const { name, code, category, brand, unit, openingStock, purchasePrice, sellingPrice, gstPercentage, minimumStockLevel, supplierName, warehouseLocation } = req.body;
+        const { 
+            name, code, category, brand, unit, openingStock, purchasePrice, sellingPrice, gstPercentage, minimumStockLevel, supplierName, warehouseLocation,
+            type, hsn, image, batchTracking, sellingPriceTaxType, purchasePriceTaxType, batches
+        } = req.body;
 
         if (!name || !code) {
             return res.status(400).json({ success: false, message: "Name and Unique Code are required" });
@@ -50,6 +53,13 @@ router.post("/", authenticateToken, async (req, res, next) => {
             minimumStockLevel: minimumStockLevel || 0,
             supplierName,
             warehouseLocation,
+            type: type || "Product",
+            hsn,
+            image,
+            batchTracking: !!batchTracking,
+            sellingPriceTaxType: sellingPriceTaxType || "Without Tax",
+            purchasePriceTaxType: purchasePriceTaxType || "Without Tax",
+            batches: batches || [],
             userId: req.user?.id
         });
 
@@ -79,7 +89,10 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         const item = await InventoryItem.findByPk(req.params.id);
         if (!item) return res.status(404).json({ success: false, message: "Product not found" });
 
-        const { name, category, brand, unit, purchasePrice, sellingPrice, gstPercentage, minimumStockLevel, supplierName, warehouseLocation } = req.body;
+        const { 
+            name, category, brand, unit, purchasePrice, sellingPrice, gstPercentage, minimumStockLevel, supplierName, warehouseLocation,
+            type, hsn, image, batchTracking, sellingPriceTaxType, purchasePriceTaxType, batches, currentStock
+        } = req.body;
 
         // Duplicate check on name (exclude current)
         if (name && name.trim().toLowerCase() !== item.name.toLowerCase()) {
@@ -104,6 +117,14 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (minimumStockLevel !== undefined) item.minimumStockLevel = minimumStockLevel;
         if (supplierName !== undefined) item.supplierName = supplierName;
         if (warehouseLocation !== undefined) item.warehouseLocation = warehouseLocation;
+        if (type !== undefined) item.type = type;
+        if (hsn !== undefined) item.hsn = hsn;
+        if (image !== undefined) item.image = image;
+        if (batchTracking !== undefined) item.batchTracking = !!batchTracking;
+        if (sellingPriceTaxType !== undefined) item.sellingPriceTaxType = sellingPriceTaxType;
+        if (purchasePriceTaxType !== undefined) item.purchasePriceTaxType = purchasePriceTaxType;
+        if (batches !== undefined) item.batches = batches;
+        if (currentStock !== undefined) item.currentStock = currentStock;
 
         await item.save();
         await logAuditAction(req, "Update Product", `Updated details for: ${item.name} (${item.code})`, "Success", { itemId: item.id });

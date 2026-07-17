@@ -19,10 +19,29 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST create loan
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const { providerName, accountNumber, type, amount, interestRate, startDate, endDate, emiAmount, frequency, nextDueDate, documentUrl } = req.body;
+        let { providerName, accountNumber, type, amount, interestRate, startDate, endDate, emiAmount, frequency, nextDueDate, documentUrl } = req.body;
 
-        if (!providerName || !accountNumber || !type || !amount || !interestRate || !startDate || !endDate || !emiAmount) {
+        if (!providerName || !type || amount === undefined || interestRate === undefined || !startDate) {
             return res.status(400).json({ success: false, message: "Required fields missing" });
+        }
+
+        const isBorrowing = type.toLowerCase().includes("borrowing");
+
+        if (!isBorrowing && (!accountNumber || !endDate || emiAmount === undefined)) {
+            return res.status(400).json({ success: false, message: "Required fields for bank loan missing" });
+        }
+
+        // Apply defaults for borrowings
+        if (isBorrowing) {
+            if (!accountNumber) {
+                accountNumber = `BORR-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+            }
+            if (!endDate) {
+                endDate = startDate;
+            }
+            if (emiAmount === undefined || emiAmount === null) {
+                emiAmount = 0;
+            }
         }
 
         // Check unique accountNumber
@@ -112,7 +131,7 @@ router.get("/payments", authenticateToken, async (req, res, next) => {
 // POST record EMI payment
 router.post("/:id/pay-emi", authenticateToken, async (req, res, next) => {
     try {
-        const { paymentDate, amount, reference } = req.body;
+        const { paymentDate, amount, reference, walletId, isInterestOnly } = req.body;
         if (!paymentDate || !amount) {
             return res.status(400).json({ success: false, message: "Required fields missing" });
         }
@@ -121,19 +140,56 @@ router.post("/:id/pay-emi", authenticateToken, async (req, res, next) => {
         if (!loan) return res.status(404).json({ success: false, message: "Loan account not found" });
 
         const payAmt = parseFloat(amount);
-        loan.paidAmount += payAmt;
-        loan.pendingAmount -= payAmt;
-        await loan.save();
+        const isIntOnly = !!isInterestOnly;
+
+        if (!isIntOnly) {
+            loan.paidAmount += payAmt;
+            loan.pendingAmount -= payAmt;
+            await loan.save();
+        }
+
+        let accountName = undefined;
+        if (walletId) {
+            const { Wallet } = require("../models/Wallet");
+            const { WalletTransaction } = require("../models/WalletTransaction");
+            const wallet = await Wallet.findByPk(walletId);
+            if (wallet) {
+                wallet.currentBalance -= payAmt;
+                await wallet.save();
+                accountName = wallet.name;
+
+                const isB = loan.type.toLowerCase().includes("borrowing");
+                const desc = isIntOnly 
+                    ? `Interest Only Repayment for Borrowing: ${loan.providerName}`
+                    : (isB 
+                        ? `Principal Repayment for Borrowing: ${loan.providerName}`
+                        : `EMI Payment for Loan A/c ${loan.accountNumber} (${loan.providerName})`);
+
+                await WalletTransaction.create({
+                    walletId,
+                    type: "Debit",
+                    amount: payAmt,
+                    date: paymentDate,
+                    paymentMode: "Bank Transfer",
+                    referenceNumber: reference || "",
+                    description: desc,
+                    userId: req.user?.id
+                });
+            }
+        }
 
         const payment = await LoanPayment.create({
             loanId: loan.id,
             paymentDate,
             amount: payAmt,
             reference,
+            walletId,
+            accountName,
+            isInterestOnly: isIntOnly,
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Pay Loan EMI", `Paid EMI of ${amount} for loan: ${loan.accountNumber}`, "Success", { paymentId: payment.id });
+        await logAuditAction(req, "Pay Loan EMI", `Recorded payment of ${amount} (Interest Only: ${isIntOnly}) for loan/borrowing: ${loan.providerName}`, "Success", { paymentId: payment.id });
         return res.status(201).json({ success: true, data: payment, loan });
     } catch (error) {
         next(error);

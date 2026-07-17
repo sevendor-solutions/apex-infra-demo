@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { MapPin, Download, CheckSquare, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert } from 'lucide-react';
+import { MapPin, Download, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert, Compass, Layers, Home, Sparkles, SlidersHorizontal, Tag, Landmark, CheckCircle2 } from 'lucide-react';
 import type { Project, Enquiry } from '../types';
 import { getProjectGalleryImages } from '../utils/image';
 import { addEnquiry } from '../utils/db';
@@ -42,6 +42,12 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [floorPlanIdx, setFloorPlanIdx] = useState(0);
+
+  // Filter floor plans to only those with a valid image (or fallback to project specImage if it exists)
+  const validFloorPlans = (project.floorPlans || []).filter(
+    plan => plan.image?.trim() || project.specImage?.trim()
+  );
+  const activePlan = validFloorPlans[floorPlanIdx] || validFloorPlans[0];
 
   // Form state
   const [name, setName] = useState('');
@@ -217,7 +223,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         drawSpecLine('Facing Directions:', project.facing);
       }
       if (project.category !== 'Sites' && project.floors !== undefined && project.floors > 0) {
-        drawSpecLine('Total Floors:', `${project.floors}`);
+        drawSpecLine('Total Floors:', `G+${project.floors}`);
       }
       if (project.unitsCount) {
         drawSpecLine('Total Units:', `${project.unitsCount}`);
@@ -424,102 +430,147 @@ Email: jkfutureinfra@gmail.com
           {/* Specifications Card */}
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Specifications & Configurations</h3>
-            <div className="grid grid-2 gap-2 mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-              
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
               {project.city && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>City:</span>
-                  <strong className="text-sm text-primary">{project.city}</strong>
-                </div>
-              )}
-
-              {project.classification && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Classification:</span>
-                  <strong className="text-sm text-primary">{project.classification}</strong>
-                </div>
-              )}
-
-              {project.microLocation && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Micro Location:</span>
-                  <strong className="text-sm text-primary">{project.microLocation}</strong>
-                </div>
-              )}
-
-              {project.facing && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Facing Directions:</span>
-                  <strong className="text-sm text-primary">{project.facing}</strong>
-                </div>
-              )}
-
-              {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Floors:</span>
-                  <strong className="text-sm text-primary">{project.floors}</strong>
-                </div>
-              )}
-
-              {project.unitsCount !== undefined && project.unitsCount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Units:</span>
-                  <strong className="text-sm text-primary">{project.unitsCount}</strong>
-                </div>
-              )}
-
-              {project.category === 'Sites' && project.uds && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Total Area:</span>
-                  <strong className="text-sm text-primary">{project.uds} Sq. Yds</strong>
-                </div>
-              )}
-
-              {project.width && project.length && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Plot Dimensions:</span>
-                  <strong className="text-sm text-primary">{project.width} x {project.length} ft</strong>
-                </div>
-              )}
-
-              {project.priceRange && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Target Price Range:</span>
-                  <strong className="text-sm text-secondary">{project.priceRange}</strong>
-                </div>
-              )}
-
-              {project.availabilityDetails && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', gridColumn: '1 / -1' }}>
-                  <span className="text-muted text-sm" style={{ fontWeight: 500 }}>Availability & Quantities:</span>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-                    {project.availabilityDetails.split(',').map((part, idx) => {
-                      const parts = part.split(':').map(s => s.trim());
-                      const type = parts[0];
-                      const qty = parts[1];
-                      const udsVal = parts[2];
-                      return (
-                        <span key={idx} style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.25rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '6px', border: '1px solid #d0e1f5', display: 'inline-flex', alignItems: 'center' }}>
-                          {type} : <span style={{ color: 'var(--secondary)', marginLeft: '4px', fontWeight: 700 }}>{qty || '0'} Units</span>{udsVal ? <span style={{ color: '#0b2c5c', marginLeft: '6px', fontSize: '0.7rem', fontWeight: 500 }}>({udsVal} Sq.Yds UDS)</span> : ''}
-                        </span>
-                      );
-                    })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><MapPin size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>City</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.city}</div>
                   </div>
                 </div>
               )}
 
+              {project.classification && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Tag size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Classification</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.classification}</div>
+                  </div>
+                </div>
+              )}
+
+              {project.microLocation && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Compass size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Micro Location</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.microLocation}</div>
+                  </div>
+                </div>
+              )}
+
+              {project.facing && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Compass size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Facing Direction</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.facing}</div>
+                  </div>
+                </div>
+              )}
+
+              {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Layers size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Floors</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>G+{project.floors}</div>
+                  </div>
+                </div>
+              )}
+
+              {project.unitsCount !== undefined && project.unitsCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Home size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Units</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.unitsCount}</div>
+                  </div>
+                </div>
+              )}
+
+              {project.category === 'Sites' && project.uds && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Sparkles size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Area</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.uds} Sq. Yds</div>
+                  </div>
+                </div>
+              )}
+
+              {project.width && project.length && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><SlidersHorizontal size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dimensions</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.width} x {project.length} ft</div>
+                  </div>
+                </div>
+              )}
+
+              {project.priceRange && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Landmark size={18} /></div>
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Price Range</div>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: 800 }}>{project.priceRange}</div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {project.availabilityDetails && (
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Home size={16} className="text-secondary" /> Configurations & Availability
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                  {project.availabilityDetails.split(',').map((part, idx) => {
+                    const parts = part.split(':').map(s => s.trim());
+                    const type = parts[0];
+                    const qty = parts[1];
+                    const udsVal = parts[2];
+                    return (
+                      <div key={idx} style={{
+                        padding: '0.75rem 1rem',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        backgroundColor: '#f0f7ff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.25rem',
+                        boxShadow: 'var(--shadow-sm)',
+                      }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                          Available: <span style={{ color: 'var(--secondary)', fontWeight: 800 }}>{qty || '0'} Units</span>
+                        </div>
+                        {udsVal && (
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
+                            UDS: {udsVal} Sq.Yds
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
 
           {/* Highlights */}
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Key Highlights</h3>
-            <ul className="highlights-list grid grid-2 gap-2">
+            <ul className="highlights-list grid grid-2 gap-2" style={{ listStyle: 'none', padding: 0 }}>
               {project.highlights.map((hl, i) => (
-                <li key={i} className="flex gap-2">
-                  <CheckSquare size={20} className="text-secondary shrink-0" />
-                  <span className="text-sm font-semibold">{hl}</span>
+                <li key={i} className="flex gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.50rem' }}>
+                  <CheckCircle2 size={18} className="text-secondary shrink-0" style={{ color: 'var(--secondary)' }} />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{hl}</span>
                 </li>
               ))}
             </ul>
@@ -528,7 +579,7 @@ Email: jkfutureinfra@gmail.com
           {/* Amenities */}
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Modern Amenities</h3>
-            <div className="amenities-grid grid grid-4 gap-2">
+            <div className="amenities-grid">
               {project.amenities.map((am, i) => (
                 <div key={i} className="amenity-item text-center">
                   <div className="amenity-icon">✓</div>
@@ -539,24 +590,26 @@ Email: jkfutureinfra@gmail.com
           </div>
 
           {/* Floor Plans */}
-          {project.floorPlans && project.floorPlans.length > 0 && (
+          {validFloorPlans.length > 0 && (
             <div className="detail-card admin-card mb-3">
               <h3 className="border-bottom-title mb-2">Floor Plans & Master Layouts</h3>
-              <div className="floorplan-tabs flex gap-1 mb-2">
-                {project.floorPlans.map((plan, idx) => (
-                  <button 
-                    key={plan.id}
-                    className={`plan-tab-btn ${idx === floorPlanIdx ? 'active' : ''}`}
-                    onClick={() => setFloorPlanIdx(idx)}
-                  >
-                    {plan.title}
-                  </button>
-                ))}
-              </div>
+              {validFloorPlans.length > 1 && (
+                <div className="floorplan-tabs flex gap-1 mb-2">
+                  {validFloorPlans.map((plan, idx) => (
+                    <button 
+                      key={plan.id}
+                      className={`plan-tab-btn ${idx === floorPlanIdx ? 'active' : ''}`}
+                      onClick={() => setFloorPlanIdx(idx)}
+                    >
+                      {plan.title}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="floorplan-image-box text-center py-2 bg-light-soft" style={{ borderRadius: '8px' }}>
                  <img 
-                  src={project.floorPlans[floorPlanIdx].image || project.specImage} 
-                  alt={project.floorPlans[floorPlanIdx].title} 
+                  src={activePlan.image || project.specImage} 
+                  alt={activePlan.title} 
                   style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', margin: '0 auto' }}
                 />
               </div>

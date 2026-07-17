@@ -336,6 +336,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [marketingResult, setMarketingResult] = useState('');
   const [agentId, setAgentId] = useState('');
 
+  // (single-page form — no tab state needed)
+
+
+
   const handleOpenAdd = () => {
     setEditingProperty(null);
     setName('');
@@ -869,7 +873,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       {/* Modal Form */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content premium-admin-modal" onClick={e => e.stopPropagation()}>
+          <div className="modal-content premium-admin-modal" style={{ maxWidth: '1020px', width: '98%', maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header-premium">
               <div>
                 <h3 className="modal-title">
@@ -888,8 +892,13 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
             </div>
 
             <form onSubmit={handleSubmit} className="modal-form-premium">
-              <div className="modal-body-premium">
-                {/* Section 1: Basic Specifications */}
+
+              <div className="modal-body-premium" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '1.25rem 1.5rem', overflowY: 'auto' }}>
+                {/* Two-column layout to reduce scrolling */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+                  {/* LEFT COLUMN: Basic Specs + Location + Config/Pricing */}
+                  <div>
+                    {/* Section 1: Basic Specifications */}
                 <div className="modal-section-title">Basic Specifications</div>
                 <div className="form-group">
                   <label className="form-label">Property Title *</label>
@@ -913,6 +922,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         const newCat = e.target.value as ProjectCategory;
                         setCategory(newCat);
                         setSubCategory('');
+                        setSelectedPropertyTypes([]);
+                        setConfigValues({});
+                        setConfigUdsValues({});
                       }}
                     >
                       <option value="Flats">Flats</option>
@@ -1037,8 +1049,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </>
                 )}
 
-                {/* Section 2: Location & Address */}
-                <div className="modal-section-title">Location &amp; Address</div>
+
+                    {/* Section 2: Location & Address */}
+                    <div className="modal-section-title">Location &amp; Address</div>
                 <div className="grid grid-3 gap-2">
                   <div className="form-group">
                     <label className="form-label">City Location *</label>
@@ -1149,8 +1162,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
-                {/* Section 3: Configurations & Pricing */}
-                <div className="modal-section-title">Configurations &amp; Pricing</div>
+                    {/* Section 3: Configurations & Pricing */}
+                    <div className="modal-section-title">Configurations &amp; Pricing</div>
                 {category !== 'Sites' && (
                   <div className="form-group">
                     <label className="form-label">Total Floors</label>
@@ -1199,7 +1212,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       { id: 'dpt4', name: '4 BHK' },
                       { id: 'dpt5', name: 'Plots' },
                       { id: 'dpt6', name: 'Villa' }
-                    ]).map(pt => {
+                    ]).filter(pt => category === 'Sites' ? pt.name === 'Plots' : pt.name !== 'Plots').map(pt => {
                       const isChecked = selectedPropertyTypes.includes(pt.name);
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
@@ -1263,9 +1276,12 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     })}
                   </div>
                 </div>
+                  </div>{/* end LEFT COLUMN */}
 
-                {/* Section 4: Media & Details */}
-                <div className="modal-section-title">Media &amp; Details</div>
+                  {/* RIGHT COLUMN: Media + Status/Remarks */}
+                  <div>
+                    {/* Section 4: Media & Details */}
+                    <div className="modal-section-title">Media &amp; Details</div>
 
                 {/* Elevation Render Image */}
                 <div className="form-group">
@@ -1412,7 +1428,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
-                <div className="modal-section-title">Marketing Status &amp; Remarks</div>
+                    <div className="modal-section-title">Marketing Status &amp; Remarks</div>
                 <div className={!isActive ? "grid grid-3 gap-2" : "grid grid-2 gap-2"}>
                   <div className="form-group">
                     <label className="form-label">Marketing Status</label>
@@ -1494,12 +1510,18 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   <label htmlFor="chkMktAutoPost" style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', cursor: 'pointer', userSelect: 'none' }}>
                     Auto-publish to Facebook & Instagram Page (Trending Hashtags Included)
                   </label>
-                </div>
+                 </div>
+                  </div>{/* end RIGHT COLUMN */}
+                </div>{/* end 2-col grid */}
               </div>
 
-              <div className="modal-footer-premium">
-                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm">Save Property</button>
+              <div className="modal-footer-premium" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
+                </div>
+                <div>
+                  <button type="submit" className="btn btn-secondary btn-sm">Save Property</button>
+                </div>
               </div>
             </form>
           </div>

@@ -3533,3 +3533,156 @@ body.admin-body .page-body-container {
   min-width: 650px !important;
   width: 100% !important;
 }
+
+/* ==========================================================================
+   Project Details View Redesign & Cards
+   ========================================================================== */
+.detail-card {
+  background: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.border-bottom-title {
+  font-size: 1.25rem;
+  color: var(--primary);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+/* Accent line on active headers */
+.border-bottom-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background-color: var(--secondary);
+}
+
+/* Amenities Styling */
+.amenities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.amenity-item {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  transition: var(--transition-normal);
+}
+
+.amenity-item:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--secondary);
+}
+
+.amenity-icon {
+  width: 40px;
+  height: 40px;
+  background-color: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.amenity-item:hover .amenity-icon {
+  background-color: var(--secondary);
+  color: var(--primary);
+}
+
+/* Timeline progress trail */
+.timeline-trail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  position: relative;
+  padding-left: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.timeline-node {
+  display: flex;
+  gap: 1.5rem;
+  position: relative;
+}
+
+.timeline-marker-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.timeline-dot {
+  width: 14px;
+  height: 14px;
+  background-color: var(--secondary);
+  border: 3px solid var(--white);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 3px var(--secondary);
+  z-index: 2;
+}
+
+.timeline-line {
+  width: 2px;
+  background-color: var(--border-color);
+  position: absolute;
+  top: 14px;
+  bottom: -22px; /* connects to next node */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+.timeline-node-content {
+  flex: 1;
+  padding-bottom: 0.5rem;
+}
+
+.timeline-node-date {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.timeline-node-content h4 {
+  font-size: 1.05rem;
+  color: var(--primary);
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.timeline-node-content p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+

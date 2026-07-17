@@ -43,12 +43,25 @@ router.post("/", authenticateToken, async (req, res, next) => {
         });
         const { id: _id, ...body } = req.body; // strip any incoming id
         
+        const totalAmt = parseFloat(body.totalAmount || 0);
+        let paidAmt = parseFloat(body.paidAmount !== undefined ? body.paidAmount : totalAmt);
+        if (body.paymentType === "Credit" && body.paidAmount === undefined) {
+            paidAmt = 0;
+        }
+        const pendingAmt = totalAmt - paidAmt;
+        let payStatus = "Paid";
+        if (paidAmt === 0) {
+            payStatus = "Unpaid";
+        } else if (pendingAmt > 0) {
+            payStatus = "Partially Paid";
+        }
+
         let accountName = body.accountName;
-        // Deduct money from wallet if walletId provided
-        if (body.walletId) {
+        // Deduct money from wallet if walletId provided and paidAmt > 0
+        if (body.walletId && paidAmt > 0) {
             const wallet = await Wallet.findByPk(body.walletId);
             if (wallet) {
-                wallet.currentBalance -= parseFloat(body.totalAmount || 0);
+                wallet.currentBalance -= paidAmt;
                 await wallet.save();
                 accountName = wallet.name;
 
@@ -56,7 +69,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
                 await WalletTransaction.create({
                     walletId: body.walletId,
                     type: "Debit",
-                    amount: parseFloat(body.totalAmount || 0),
+                    amount: paidAmt,
                     date: body.billDate,
                     paymentMode: body.paymentType || "Cash",
                     referenceNumber: body.referenceNo,
@@ -69,11 +82,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
         const newExpense = await Expense.create({ 
             ...body, 
             id: `exp${nextNum}`,
+            paidAmount: paidAmt,
+            pendingAmount: pendingAmt,
+            paymentStatus: payStatus,
             accountName,
             userId: req.user?.id
         });
         
-        await logAuditAction(req, "Expense Created", `Created expense bill: "${newExpense.expenseNo || newExpense.id}" for party: "${newExpense.party}" (Total: ₹${newExpense.totalAmount})`, "Success", { expenseId: newExpense.id });
+        await logAuditAction(req, "Expense Created", `Created expense bill: "${newExpense.expenseNo || newExpense.id}" for party: "${newExpense.party}" (Total: ₹${newExpense.totalAmount}, Paid: ₹${newExpense.paidAmount})`, "Success", { expenseId: newExpense.id });
         
         return res.status(201).json({ success: true, data: newExpense });
     } catch (error) {
@@ -88,21 +104,34 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
         const { id: _id, ...body } = req.body;
         
+        const totalAmt = parseFloat(body.totalAmount || 0);
+        let paidAmt = parseFloat(body.paidAmount !== undefined ? body.paidAmount : totalAmt);
+        if (body.paymentType === "Credit" && body.paidAmount === undefined) {
+            paidAmt = 0;
+        }
+        const pendingAmt = totalAmt - paidAmt;
+        let payStatus = "Paid";
+        if (paidAmt === 0) {
+            payStatus = "Unpaid";
+        } else if (pendingAmt > 0) {
+            payStatus = "Partially Paid";
+        }
+
         // Revert old wallet balance
-        if (expense.walletId) {
+        if (expense.walletId && expense.paidAmount > 0) {
             const oldWallet = await Wallet.findByPk(expense.walletId);
             if (oldWallet) {
-                oldWallet.currentBalance += expense.totalAmount;
+                oldWallet.currentBalance += expense.paidAmount;
                 await oldWallet.save();
             }
         }
 
         let accountName = body.accountName;
         // Apply new wallet balance
-        if (body.walletId) {
+        if (body.walletId && paidAmt > 0) {
             const newWallet = await Wallet.findByPk(body.walletId);
             if (newWallet) {
-                newWallet.currentBalance -= parseFloat(body.totalAmount || 0);
+                newWallet.currentBalance -= paidAmt;
                 await newWallet.save();
                 accountName = newWallet.name;
 
@@ -110,7 +139,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
                 await WalletTransaction.create({
                     walletId: body.walletId,
                     type: "Debit",
-                    amount: parseFloat(body.totalAmount || 0),
+                    amount: paidAmt,
                     date: body.billDate,
                     paymentMode: body.paymentType || "Cash",
                     referenceNumber: body.referenceNo,
@@ -122,10 +151,13 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
 
         await expense.update({
             ...body,
+            paidAmount: paidAmt,
+            pendingAmount: pendingAmt,
+            paymentStatus: payStatus,
             accountName
         });
         
-        await logAuditAction(req, "Expense Updated", `Updated expense bill: "${expense.expenseNo || expense.id}" for party: "${expense.party}" (Total: ₹${expense.totalAmount})`, "Success", { expenseId: expense.id });
+        await logAuditAction(req, "Expense Updated", `Updated expense bill: "${expense.expenseNo || expense.id}" for party: "${expense.party}" (Total: ₹${expense.totalAmount}, Paid: ₹${expense.paidAmount})`, "Success", { expenseId: expense.id });
         
         return res.json({ success: true, data: expense });
     } catch (error) {
@@ -143,17 +175,17 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         const total = expense.totalAmount;
 
         // Revert wallet balance if walletId existed
-        if (expense.walletId) {
+        if (expense.walletId && expense.paidAmount > 0) {
             const wallet = await Wallet.findByPk(expense.walletId);
             if (wallet) {
-                wallet.currentBalance += expense.totalAmount;
+                wallet.currentBalance += expense.paidAmount;
                 await wallet.save();
 
                 // Log wallet transaction
                 await WalletTransaction.create({
                     walletId: expense.walletId,
                     type: "Credit",
-                    amount: expense.totalAmount,
+                    amount: expense.paidAmount,
                     date: new Date().toISOString().split('T')[0],
                     paymentMode: expense.paymentType || "Cash",
                     description: `Deleted expense: ${expense.party} (${expense.expenseCategory})`,

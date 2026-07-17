@@ -7,7 +7,7 @@ import {
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
   getInventoryItems, getCustomers, addInvoice, getProjects,
-  addInventoryItem
+  addInventoryItem, addCustomer
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -35,6 +35,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
 
   // Form Fields
   const [customerName, setCustomerName] = useState('');
+  const [customerSearchText, setCustomerSearchText] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -78,12 +80,26 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     loadData();
   }, []);
 
-  const handleCustomerSelect = (name: string) => {
-    setCustomerName(name);
-    const cust = customersList.find(c => c.name === name);
-    if (cust) {
-      setCustomerMobile(cust.mobile);
-      setCustomerAddress(cust.address || '');
+
+  const handleCreateCustomer = async (typedName: string) => {
+    if (!typedName.trim()) return;
+    try {
+      const uniqueMobile = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const newCust = await addCustomer({
+        name: typedName.trim(),
+        mobile: uniqueMobile,
+        openingBalance: 0
+      });
+      onAddToast(`Created customer account for "${newCust.name}"`, 'success');
+      const customers = await getCustomers();
+      setCustomersList(customers);
+      setCustomerName(newCust.name);
+      setCustomerSearchText(newCust.name);
+      setCustomerMobile(newCust.mobile);
+      setCustomerAddress(newCust.address || '');
+      setShowCustomerDropdown(false);
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to create customer.', 'error');
     }
   };
 
@@ -145,16 +161,18 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const totalAmount = useMemo(() => {
     return lineItems.reduce((sum, item) => sum + item.total, 0);
   }, [lineItems]);
-
   const resetForm = () => {
     setCustomerName('');
+    setCustomerSearchText('');
     setCustomerMobile('');
     setCustomerAddress('');
     setProjectName('');
     setDate(new Date().toISOString().split('T')[0]);
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setValidTillDate(d.toISOString().split('T')[0]);
+    setValidTillDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30); // 30 days validity default
+      return d.toISOString().split('T')[0];
+    });
     setNotes('');
     setTerms('1. Quotation valid for 30 days from date of issue.\n2. Goods once sold will not be taken back.\n3. All disputes subject to local jurisdiction.');
     setStatus('Draft');
@@ -206,6 +224,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const openEdit = (q: Quotation) => {
     setEditingQuotation(q);
     setCustomerName(q.customerName);
+    setCustomerSearchText(q.customerName);
     setCustomerMobile(q.customerMobile);
     setCustomerAddress(q.customerAddress || '');
     setProjectName(q.projectName || '');
@@ -687,20 +706,127 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="grid grid-3 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Customer Name</label>
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <label className="form-label">Customer Name *</label>
                     <input 
                       type="text" 
                       className="form-control" 
-                      value={customerName} 
-                      onChange={e => handleCustomerSelect(e.target.value)} 
-                      placeholder="Type name or select below..."
-                      list="customers-datalist"
+                      value={customerSearchText} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setCustomerSearchText(val);
+                        setCustomerName(val);
+                        setShowCustomerDropdown(true);
+                      }} 
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setShowCustomerDropdown(false);
+                          if (customerSearchText.trim()) {
+                            const matched = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                            if (matched) {
+                              setCustomerName(matched.name);
+                              setCustomerSearchText(matched.name);
+                              setCustomerMobile(matched.mobile);
+                              setCustomerAddress(matched.address || '');
+                            }
+                          }
+                        }, 250);
+                      }}
+                      placeholder="Search or type customer name..."
                       required
                     />
-                    <datalist id="customers-datalist">
-                      {customersList.map(c => <option key={c.id} value={c.name} />)}
-                    </datalist>
+                    {showCustomerDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {customerSearchText.trim() === '' ? (
+                          <div 
+                            onMouseDown={async () => {
+                              const cName = prompt("Enter new customer name:");
+                              if (!cName || !cName.trim()) return;
+                              if (customersList.some(c => c.name.toLowerCase() === cName.trim().toLowerCase())) {
+                                onAddToast('Customer already exists.', 'error');
+                                return;
+                              }
+                              await handleCreateCustomer(cName);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #e2e8f0', 
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: '#2563eb',
+                              backgroundColor: '#fff',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            + Create New Customer
+                          </div>
+                        ) : (
+                          !customersList.some(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase()) && (
+                            <div 
+                              onMouseDown={() => handleCreateCustomer(customerSearchText)}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                fontWeight: 'bold',
+                                color: '#2563eb',
+                                backgroundColor: '#fff',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              + Create Customer: "{customerSearchText}"
+                            </div>
+                          )
+                        )}
+                        {customersList
+                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()))
+                          .map(c => (
+                            <div 
+                              key={c.id}
+                              onMouseDown={() => {
+                                setCustomerName(c.name);
+                                setCustomerSearchText(c.name);
+                                setCustomerMobile(c.mobile);
+                                setCustomerAddress(c.address || '');
+                                setShowCustomerDropdown(false);
+                              }}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                color: '#1e293b',
+                                backgroundColor: '#fff',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              {c.name} ({c.mobile})
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Customer Mobile</label>
@@ -774,11 +900,11 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                     <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
                       <thead>
                         <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                          <th style={{ padding: '6px' }}>Product Select</th>
+                          <th style={{ padding: '6px' }}>Product</th>
                           <th style={{ padding: '6px', width: '90px' }}>Qty</th>
-                          <th style={{ padding: '6px', width: '120px' }}>Unit Price</th>
+                          <th style={{ padding: '6px', width: '120px' }}>Selling Price</th>
                           <th style={{ padding: '6px', width: '100px' }}>Discount</th>
-                          <th style={{ padding: '6px', width: '100px' }}>GST%</th>
+                          <th style={{ padding: '6px', width: '100px', textAlign: 'center' }}>GST %</th>
                           <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
                           <th style={{ padding: '6px', width: '40px' }}></th>
                         </tr>
@@ -792,11 +918,64 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                                 value={item.productName}
                                 onChange={e => {
                                   const val = e.target.value;
-                                  setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, productName: val, productCode: '' } : li));
+                                  const matched = itemsList.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
+                                  setLineItems(prev => prev.map((li, i) => {
+                                    if (i !== idx) return li;
+                                    if (matched) {
+                                      const qty = li.quantity || 1;
+                                      const discount = li.discount || 0;
+                                      const price = matched.sellingPrice;
+                                      const gstPct = matched.gstPercentage;
+                                      const base = qty * price;
+                                      const afterDisc = base - discount;
+                                      const gst = afterDisc * (gstPct / 100);
+                                      const total = afterDisc + gst;
+                                      return {
+                                        ...li,
+                                        productName: matched.name,
+                                        productCode: matched.code,
+                                        unitPrice: price,
+                                        gstPercentage: gstPct,
+                                        gst,
+                                        total
+                                      };
+                                    }
+                                    return { ...li, productName: val, productCode: '' };
+                                  }));
                                   setActiveProductSearchIdx(idx);
                                 }}
                                 onFocus={() => setActiveProductSearchIdx(idx)}
-                                onBlur={() => setTimeout(() => setActiveProductSearchIdx(null), 250)}
+                                onBlur={() => {
+                                  setTimeout(() => {
+                                    setLineItems(prev => prev.map((li, i) => {
+                                      if (i !== idx) return li;
+                                      if (!li.productCode && li.productName.trim()) {
+                                        const matched = itemsList.find(p => p.name.toLowerCase() === li.productName.trim().toLowerCase());
+                                        if (matched) {
+                                          const qty = li.quantity || 1;
+                                          const discount = li.discount || 0;
+                                          const price = matched.sellingPrice;
+                                          const gstPct = matched.gstPercentage;
+                                          const base = qty * price;
+                                          const afterDisc = base - discount;
+                                          const gst = afterDisc * (gstPct / 100);
+                                          const total = afterDisc + gst;
+                                          return {
+                                            ...li,
+                                            productName: matched.name,
+                                            productCode: matched.code,
+                                            unitPrice: price,
+                                            gstPercentage: gstPct,
+                                            gst,
+                                            total
+                                          };
+                                        }
+                                      }
+                                      return li;
+                                    }));
+                                    setActiveProductSearchIdx(null);
+                                  }, 250);
+                                }}
                                 placeholder="Search or type product/service..."
                                 className="form-control"
                                 style={{ marginBottom: 0, padding: '4px' }}
@@ -816,13 +995,19 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                                   overflowY: 'auto',
                                   marginTop: '2px'
                                 }}>
-                                  {item.productName.trim() !== '' && !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
+                                  {item.productName.trim() === '' ? (
                                     <div 
                                       onMouseDown={async () => {
+                                        const pName = prompt("Enter new product/service name:");
+                                        if (!pName || !pName.trim()) return;
+                                        if (itemsList.some(p => p.name.toLowerCase() === pName.trim().toLowerCase())) {
+                                          onAddToast('Product already exists.', 'error');
+                                          return;
+                                        }
                                         try {
                                           const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
                                           const newItem = await addInventoryItem({
-                                            name: item.productName,
+                                            name: pName.trim(),
                                             code,
                                             unit: 'Pcs',
                                             openingStock: 0,
@@ -841,17 +1026,57 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                                       style={{ 
                                         padding: '8px 12px', 
                                         cursor: 'pointer', 
-                                        borderBottom: '1px solid #f1f5f9', 
+                                        borderBottom: '1px solid #e2e8f0', 
                                         fontSize: '0.78rem',
                                         fontWeight: 'bold',
-                                        color: '#0854a0',
-                                        backgroundColor: '#fff'
+                                        color: '#2563eb',
+                                        backgroundColor: '#fff',
+                                        textAlign: 'left'
                                       }}
                                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
                                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
                                     >
-                                      + Add New Product/Service: "{item.productName}"
+                                      + Create New Product/Service
                                     </div>
+                                  ) : (
+                                    !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
+                                      <div 
+                                        onMouseDown={async () => {
+                                          try {
+                                            const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
+                                            const newItem = await addInventoryItem({
+                                              name: item.productName,
+                                              code,
+                                              unit: 'Pcs',
+                                              openingStock: 0,
+                                              purchasePrice: 0,
+                                              sellingPrice: item.unitPrice || 0,
+                                              gstPercentage: item.gstPercentage || 18
+                                            });
+                                            onAddToast(`Added "${newItem.name}" to database.`, 'success');
+                                            await loadData();
+                                            handleProductSelect(idx, newItem.code);
+                                          } catch (err: any) {
+                                            onAddToast(err.message || 'Failed to add item.', 'error');
+                                          }
+                                          setActiveProductSearchIdx(null);
+                                        }}
+                                        style={{ 
+                                          padding: '8px 12px', 
+                                          cursor: 'pointer', 
+                                          borderBottom: '1px solid #f1f5f9', 
+                                          fontSize: '0.78rem',
+                                          fontWeight: 'bold',
+                                          color: '#0854a0',
+                                          backgroundColor: '#fff',
+                                          textAlign: 'left'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                      >
+                                        + Add New Product/Service: "{item.productName}"
+                                      </div>
+                                    )
                                   )}
                                   {itemsList
                                     .filter(prod => 
@@ -916,16 +1141,25 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                                 min={0}
                               />
                             </td>
-                            <td style={{ padding: '4px' }}>
-                              <input 
-                                type="number" 
-                                value={item.gstPercentage} 
-                                onChange={e => updateLineItem(idx, 'gstPercentage', parseFloat(e.target.value) || 0)} 
+                            <td style={{ padding: '4px', textAlign: 'center' }}>
+                              <select
+                                value={item.gstPercentage !== undefined ? item.gstPercentage : (() => {
+                                  const prod = itemsList.find(p => p.code === item.productCode);
+                                  return prod ? prod.gstPercentage : 18;
+                                })()}
+                                onChange={e => {
+                                  const pct = parseFloat(e.target.value) || 0;
+                                  updateLineItem(idx, 'gstPercentage', pct);
+                                }}
                                 className="form-control"
-                                style={{ marginBottom: 0, padding: '4px' }}
-                                min={0}
-                                required
-                              />
+                                style={{ marginBottom: 0, padding: '4px', fontSize: '0.78rem', textAlign: 'center' }}
+                              >
+                                <option value={0}>0%</option>
+                                <option value={5}>5%</option>
+                                <option value={12}>12%</option>
+                                <option value={18}>18%</option>
+                                <option value={28}>28%</option>
+                              </select>
                             </td>
                             <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                               {fmt(item.total)}

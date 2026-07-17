@@ -21,27 +21,31 @@ router.post("/", authenticateToken, async (req, res, next) => {
     try {
         const { name, contactNumber, address, gstNumber, openingBalance } = req.body;
 
-        if (!name || !contactNumber) {
-            return res.status(400).json({ success: false, message: "Supplier name and Contact number are required" });
+        if (!name) {
+            return res.status(400).json({ success: false, message: "Supplier name is required" });
         }
 
+        const trimmedContact = contactNumber ? String(contactNumber).trim() : "";
+
         // Duplicate check on name or contactNumber
+        const orConditions: any[] = [{ name: { [Op.iLike]: name.trim() } }];
+        if (trimmedContact && trimmedContact !== "" && trimmedContact !== "N/A") {
+            orConditions.push({ contactNumber: trimmedContact });
+        }
+
         const existing = await Supplier.findOne({
             where: {
-                [Op.or]: [
-                    { name: { [Op.iLike]: name.trim() } },
-                    { contactNumber: contactNumber.trim() }
-                ]
+                [Op.or]: orConditions
             }
         });
         if (existing) {
-            const matchesField = existing.contactNumber === contactNumber.trim() ? "contact number" : "name";
+            const matchesField = (trimmedContact && existing.contactNumber === trimmedContact) ? "contact number" : "name";
             return res.status(400).json({ success: false, message: `A supplier with this ${matchesField} already exists` });
         }
 
         const supplier = await Supplier.create({
             name,
-            contactNumber,
+            contactNumber: trimmedContact || "N/A",
             address,
             gstNumber,
             openingBalance: parseFloat(openingBalance || 0),

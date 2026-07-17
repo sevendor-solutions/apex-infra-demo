@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Invoice, InvoiceItem, Customer, InventoryItem, Wallet } from '../types';
+import type { Invoice, Customer, InventoryItem, Wallet } from '../types';
 import { 
   X, Trash, 
   DollarSign, FileText, Landmark 
@@ -7,7 +7,7 @@ import {
 import { 
   getInvoices, addInvoice, deleteInvoice,
   getInventoryItems, getCustomers, getWallets,
-  addInventoryItem
+  addInventoryItem, addCustomer
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -32,13 +32,35 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
   // Form Fields
   const [customerName, setCustomerName] = useState('');
+  const [customerSearchText, setCustomerSearchText] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paidAmount, setPaidAmount] = useState(0);
   const [walletId, setWalletId] = useState('');
 
   // Invoice Line Items
-  const [lineItems, setLineItems] = useState<InvoiceItem[]>([]);
+  const [lineItems, setLineItems] = useState<any[]>([]);
   const [activeProductSearchIdx, setActiveProductSearchIdx] = useState<number | null>(null);
+
+  const handleCreateCustomer = async (typedName: string) => {
+    if (!typedName.trim()) return;
+    try {
+      const uniqueMobile = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const newCust = await addCustomer({
+        name: typedName.trim(),
+        mobile: uniqueMobile,
+        openingBalance: 0
+      });
+      onAddToast(`Created customer account for "${newCust.name}"`, 'success');
+      const customers = await getCustomers();
+      setCustomersList(customers);
+      setCustomerName(newCust.name);
+      setCustomerSearchText(newCust.name);
+      setShowCustomerDropdown(false);
+    } catch (err: any) {
+      onAddToast(err.message || 'Failed to create customer.', 'error');
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -86,6 +108,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
           productName: prod.name,
           productCode: code,
           price,
+          gstPercentage: gstPct,
           gst,
           total
         };
@@ -93,7 +116,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     }
   };
 
-  const updateLineItem = (idx: number, field: keyof InvoiceItem, value: any) => {
+  const updateLineItem = (idx: number, field: string, value: any) => {
     setLineItems(prev => prev.map((li, i) => {
       if (i !== idx) return li;
       const updated = { ...li, [field]: value };
@@ -101,14 +124,16 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       const qty = field === 'quantity' ? parseFloat(value) || 0 : li.quantity;
       const price = field === 'price' ? parseFloat(value) || 0 : li.price;
       const discount = field === 'discount' ? parseFloat(value) || 0 : li.discount;
-      
-      const prod = itemsList.find(p => p.code === li.productCode);
-      const gstPct = prod ? prod.gstPercentage : 18;
+      const gstPct = field === 'gstPercentage' ? parseFloat(value) || 0 : (li.gstPercentage !== undefined ? li.gstPercentage : (() => {
+        const prod = itemsList.find(p => p.code === li.productCode);
+        return prod ? prod.gstPercentage : 18;
+      })());
       
       const base = qty * price;
       const afterDisc = base - discount;
       updated.gst = afterDisc * (gstPct / 100);
       updated.total = afterDisc + updated.gst;
+      updated.gstPercentage = gstPct;
 
       return updated;
     }));
@@ -139,6 +164,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
   const resetForm = () => {
     setCustomerName('');
+    setCustomerSearchText('');
     setDate(new Date().toISOString().split('T')[0]);
     setPaidAmount(0);
     setLineItems([{ productName: '', productCode: '', quantity: 1, price: 0, discount: 0, gst: 0, total: 0 }]);
@@ -304,17 +330,120 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">Customer Select</label>
-                    <select 
-                      value={customerName} 
-                      onChange={e => setCustomerName(e.target.value)} 
+                  <div className="form-group" style={{ position: 'relative' }}>
+                    <label className="form-label">Customer Select *</label>
+                    <input 
+                      type="text"
                       className="form-control"
+                      value={customerSearchText}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setCustomerSearchText(val);
+                        setCustomerName(val);
+                        setShowCustomerDropdown(true);
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      onBlur={() => {
+                        setTimeout(() => {
+                          setShowCustomerDropdown(false);
+                          if (customerSearchText.trim()) {
+                            const matched = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                            if (matched) {
+                              setCustomerName(matched.name);
+                              setCustomerSearchText(matched.name);
+                            }
+                          }
+                        }, 250);
+                      }}
+                      placeholder="Search or type customer name..."
                       required
-                    >
-                      <option value="">-- Select Customer Account --</option>
-                      {customersList.map(c => <option key={c.id} value={c.name}>{c.name} (Outstanding: {fmt(c.outstandingAmount)})</option>)}
-                    </select>
+                    />
+                    {showCustomerDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        <div 
+                          onMouseDown={async () => {
+                            const cName = prompt("Enter new customer name:");
+                            if (!cName || !cName.trim()) return;
+                            if (customersList.some(c => c.name.toLowerCase() === cName.trim().toLowerCase())) {
+                              onAddToast('Customer already exists.', 'error');
+                              return;
+                            }
+                            await handleCreateCustomer(cName);
+                          }}
+                          style={{ 
+                            padding: '8px 12px', 
+                            cursor: 'pointer', 
+                            borderBottom: '1px solid #e2e8f0', 
+                            fontSize: '0.78rem',
+                            fontWeight: 'bold',
+                            color: '#2563eb',
+                            backgroundColor: '#fff',
+                            textAlign: 'left'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                        >
+                          + Create New Customer
+                        </div>
+                        {customerSearchText.trim() !== '' && !customersList.some(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase()) && (
+                          <div 
+                            onMouseDown={() => handleCreateCustomer(customerSearchText)}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #f1f5f9', 
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: '#2563eb',
+                              backgroundColor: '#fff',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            + Create Customer: "{customerSearchText}"
+                          </div>
+                        )}
+                        {customersList
+                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()))
+                          .map(c => (
+                            <div 
+                              key={c.id}
+                              onMouseDown={() => {
+                                setCustomerName(c.name);
+                                setCustomerSearchText(c.name);
+                                setShowCustomerDropdown(false);
+                              }}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                color: '#1e293b',
+                                backgroundColor: '#fff',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              {c.name} (Outstanding: {fmt(c.outstandingAmount)})
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Billing Date</label>
@@ -335,9 +464,10 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                       <thead>
                         <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
                           <th style={{ padding: '6px' }}>Product</th>
-                          <th style={{ padding: '6px', width: '90px' }}>Qty</th>
-                          <th style={{ padding: '6px', width: '120px' }}>Selling Price</th>
-                          <th style={{ padding: '6px', width: '100px' }}>Discount</th>
+                          <th style={{ padding: '6px', width: '80px' }}>Qty</th>
+                          <th style={{ padding: '6px', width: '110px' }}>Selling Price</th>
+                          <th style={{ padding: '6px', width: '90px' }}>Discount</th>
+                          <th style={{ padding: '6px', width: '100px', textAlign: 'center' }}>GST %</th>
                           <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
                           <th style={{ padding: '6px', width: '40px' }}></th>
                         </tr>
@@ -351,11 +481,64 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                                 value={item.productName}
                                 onChange={e => {
                                   const val = e.target.value;
-                                  setLineItems(prev => prev.map((li, i) => i === idx ? { ...li, productName: val, productCode: '' } : li));
+                                  const matched = itemsList.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
+                                  setLineItems(prev => prev.map((li, i) => {
+                                    if (i !== idx) return li;
+                                    if (matched) {
+                                      const qty = li.quantity || 1;
+                                      const discount = li.discount || 0;
+                                      const price = matched.sellingPrice;
+                                      const gstPct = matched.gstPercentage;
+                                      const base = qty * price;
+                                      const afterDisc = base - discount;
+                                      const gst = afterDisc * (gstPct / 100);
+                                      const total = afterDisc + gst;
+                                      return {
+                                        ...li,
+                                        productName: matched.name,
+                                        productCode: matched.code,
+                                        price,
+                                        gstPercentage: gstPct,
+                                        gst,
+                                        total
+                                      };
+                                    }
+                                    return { ...li, productName: val, productCode: '' };
+                                  }));
                                   setActiveProductSearchIdx(idx);
                                 }}
                                 onFocus={() => setActiveProductSearchIdx(idx)}
-                                onBlur={() => setTimeout(() => setActiveProductSearchIdx(null), 250)}
+                                onBlur={() => {
+                                  setTimeout(() => {
+                                    setLineItems(prev => prev.map((li, i) => {
+                                      if (i !== idx) return li;
+                                      if (!li.productCode && li.productName.trim()) {
+                                        const matched = itemsList.find(p => p.name.toLowerCase() === li.productName.trim().toLowerCase());
+                                        if (matched) {
+                                          const qty = li.quantity || 1;
+                                          const discount = li.discount || 0;
+                                          const price = matched.sellingPrice;
+                                          const gstPct = matched.gstPercentage;
+                                          const base = qty * price;
+                                          const afterDisc = base - discount;
+                                          const gst = afterDisc * (gstPct / 100);
+                                          const total = afterDisc + gst;
+                                          return {
+                                            ...li,
+                                            productName: matched.name,
+                                            productCode: matched.code,
+                                            price,
+                                            gstPercentage: gstPct,
+                                            gst,
+                                            total
+                                          };
+                                        }
+                                      }
+                                      return li;
+                                    }));
+                                    setActiveProductSearchIdx(null);
+                                  }, 250);
+                                }}
                                 placeholder="Search or type product..."
                                 className="form-control"
                                 style={{ marginBottom: 0, padding: '4px' }}
@@ -375,6 +558,48 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                                   overflowY: 'auto',
                                   marginTop: '2px'
                                 }}>
+                                  <div 
+                                    onMouseDown={async () => {
+                                      const pName = prompt("Enter new product/service name:");
+                                      if (!pName || !pName.trim()) return;
+                                      if (itemsList.some(p => p.name.toLowerCase() === pName.trim().toLowerCase())) {
+                                        onAddToast('Product already exists.', 'error');
+                                        return;
+                                      }
+                                      try {
+                                        const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
+                                        const newItem = await addInventoryItem({
+                                          name: pName.trim(),
+                                          code,
+                                          unit: 'Pcs',
+                                          openingStock: 0,
+                                          purchasePrice: 0,
+                                          sellingPrice: item.price || 0,
+                                          gstPercentage: 18
+                                        });
+                                        onAddToast(`Added "${newItem.name}" to database.`, 'success');
+                                        await loadData();
+                                        handleProductSelect(idx, newItem.code);
+                                      } catch (err: any) {
+                                        onAddToast(err.message || 'Failed to add item.', 'error');
+                                      }
+                                      setActiveProductSearchIdx(null);
+                                    }}
+                                    style={{ 
+                                      padding: '8px 12px', 
+                                      cursor: 'pointer', 
+                                      borderBottom: '1px solid #e2e8f0', 
+                                      fontSize: '0.78rem',
+                                      fontWeight: 'bold',
+                                      color: '#2563eb',
+                                      backgroundColor: '#fff',
+                                      textAlign: 'left'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                  >
+                                    + Create New Product/Service
+                                  </div>
                                   {item.productName.trim() !== '' && !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
                                     <div 
                                       onMouseDown={async () => {
@@ -474,6 +699,26 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                                 style={{ marginBottom: 0, padding: '4px' }}
                                 min={0}
                               />
+                            </td>
+                            <td style={{ padding: '4px', textAlign: 'center' }}>
+                              <select
+                                value={item.gstPercentage !== undefined ? item.gstPercentage : (() => {
+                                  const prod = itemsList.find(p => p.code === item.productCode);
+                                  return prod ? prod.gstPercentage : 18;
+                                })()}
+                                onChange={e => {
+                                  const pct = parseFloat(e.target.value) || 0;
+                                  updateLineItem(idx, 'gstPercentage', pct);
+                                }}
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px', fontSize: '0.78rem', textAlign: 'center' }}
+                              >
+                                <option value={0}>0%</option>
+                                <option value={5}>5%</option>
+                                <option value={12}>12%</option>
+                                <option value={18}>18%</option>
+                                <option value={28}>28%</option>
+                              </select>
                             </td>
                             <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
                               {fmt(item.total)}

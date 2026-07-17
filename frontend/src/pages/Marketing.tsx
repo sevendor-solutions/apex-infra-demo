@@ -585,7 +585,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                           )}
                           {project.category !== 'Sites' && project.floors !== undefined && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `${project.floors} Floors`}
+                              <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors}`}
                             </span>
                           )}
                           {!!project.unitsCount && (
@@ -666,7 +666,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                         
                         <div className="mkt-list-specs-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.35rem 0', margin: '0.2rem 0' }}>
                           {project.facing && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Compass size={11} className="text-secondary" /> {project.facing}</span>}
-                          {project.category !== 'Sites' && project.floors !== undefined && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Building2 size={11} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `${project.floors}`}</span>}
+                          {project.category !== 'Sites' && project.floors !== undefined && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Building2 size={11} className="text-secondary" /> {project.floors === 0 ? 'Plots' : `G+${project.floors}`}</span>}
                           {!!project.unitsCount && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Home size={11} className="text-secondary" /> {project.unitsCount} Units</span>}
                         </div>
                         

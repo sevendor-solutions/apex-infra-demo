@@ -168,6 +168,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [length, setLength] = useState('');
   const [uds, setUds] = useState('');
 
+
+
   const handleOpenAdd = () => {
     setEditingProject(null);
     setName('');
@@ -199,7 +201,6 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setWidth('');
     setLength('');
     setUds('');
-    
     setModalOpen(true);
   };
 
@@ -242,7 +243,6 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setWidth(proj.width || '');
     setLength(proj.length || '');
     setUds(proj.uds || '');
-    
     setModalOpen(true);
   };
 
@@ -444,7 +444,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       {/* Modal Form */}
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content premium-admin-modal" style={{ maxWidth: '800px', width: '95%', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+          <div className="modal-content premium-admin-modal" style={{ maxWidth: '1020px', width: '98%', maxHeight: '92vh' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header-premium">
               <div>
                 <h3 className="modal-title">
@@ -463,8 +463,12 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
             </div>
             
             <form onSubmit={handleSubmit} className="modal-form-premium" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-              <div className="modal-body-premium" style={{ padding: '1.5rem 2rem', overflowY: 'auto', flexGrow: 1 }}>
-                
+
+              <div className="modal-body-premium" style={{ padding: '1.25rem 1.5rem', overflowY: 'auto', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                {/* Two-column layout: left = core fields, right = media/details */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'start' }}>
+                  {/* LEFT COLUMN */}
+                  <div>
                 {/* Section 1: Basic Specifications */}
                 <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem' }}>Basic Specifications</div>
                 
@@ -514,6 +518,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         const newCat = e.target.value as ProjectCategory;
                         setCategory(newCat);
                         setSubCategory('');
+                        setSelectedPropertyTypes([]);
+                        setConfigValues({});
+                        setConfigUdsValues({});
                       }}
                     >
                       <option value="Flats">Flats</option>
@@ -644,8 +651,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
 
                 {/* Overall UDS field removed for Flats as requested */}
 
-                {/* Section 2: Location & Address */}
-                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Location & Address</div>
+                    {/* Section 2: Location & Address */}
+                    <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1rem', marginTop: '1rem' }}>Location & Address</div>
                 
                 <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -772,8 +779,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                   </div>
                 </div>
 
-                {/* Section 3: Configurations & Pricing */}
-                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Configurations & Pricing</div>
+                    {/* Section 3: Configurations & Pricing */}
+                    <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1rem', marginTop: '1rem' }}>Configurations & Pricing</div>
                 
                 <div className="grid grid-2 gap-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -817,7 +824,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       { id: 'dpt4', name: '4 BHK' },
                       { id: 'dpt5', name: 'Plots' },
                       { id: 'dpt6', name: 'Villa' }
-                    ]).map(pt => {
+                    ]).filter(pt => category === 'Sites' ? pt.name === 'Plots' : pt.name !== 'Plots').map(pt => {
                       const isChecked = selectedPropertyTypes.includes(pt.name);
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
@@ -915,9 +922,12 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     </div>
                   </div>
                 </div>
+                  </div>{/* end LEFT COLUMN */}
 
-                {/* Section 4: Media & Details */}
-                <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1.25rem', marginTop: '1.5rem' }}>Media & Details</div>
+                  {/* RIGHT COLUMN */}
+                  <div>
+                    {/* Section 4: Media & Details */}
+                    <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1rem', marginTop: '0' }}>Media & Details</div>
                 
                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                   <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Blueprint/Specifications Image</label>
@@ -1101,11 +1111,17 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     Auto-publish to Facebook & Instagram Page (Trending Hashtags Included)
                   </label>
                 </div>
+                  </div>{/* end RIGHT COLUMN */}
+                </div>{/* end 2-col grid */}
               </div>
 
-              <div className="modal-footer-premium" style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border-color)', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, border: '1.5px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#374151', cursor: 'pointer' }}>Cancel</button>
-                <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700, border: 'none', borderRadius: '6px', background: 'var(--secondary)', color: 'var(--primary)', cursor: 'pointer' }}>Save Property</button>
+              <div className="modal-footer-premium" style={{ padding: '1rem 1.5rem', borderTop: '1px solid var(--border-color)', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
+                <div>
+                  <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm" style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem', fontWeight: 600, border: '1.5px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#374151', cursor: 'pointer' }}>Cancel</button>
+                </div>
+                <div>
+                  <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0.5rem 1.5rem', fontSize: '0.85rem', fontWeight: 700, border: 'none', borderRadius: '6px', background: 'var(--secondary)', color: 'var(--primary)', cursor: 'pointer' }}>Save Property</button>
+                </div>
               </div>
             </form>
           </div>

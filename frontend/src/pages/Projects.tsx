@@ -681,7 +681,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                               )}
                               {project.category !== 'Sites' && project.floors !== undefined && (
                                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                  <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots Layout' : `${project.floors} Floors`}
+                                  <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Plots Layout' : `G+${project.floors}`}
                                 </span>
                               )}
                               {project.unitsCount !== undefined && (
@@ -766,7 +766,7 @@ export const Projects: React.FC<ProjectsProps> = ({
                               <div className="highlights-row flex gap-2 my-1 text-sm font-semibold text-primary" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', margin: '0.75rem 0' }}>
                                 {project.category !== 'Sites' && project.floors !== undefined && (
                                   <span className="flex align-center gap-0.5 bg-light-soft px-1 py-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem' }}>
-                                    <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Open Plots Layout' : `Floors: ${project.floors}`}
+                                    <Building2 size={13} className="text-secondary" /> {project.floors === 0 ? 'Open Plots Layout' : `Floors: G+${project.floors}`}
                                   </span>
                                 )}
                                 {project.unitsCount !== undefined && (
