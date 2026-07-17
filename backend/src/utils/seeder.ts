@@ -271,10 +271,6 @@ export async function seedDatabase() {
       ]);
     }
 
-
-
-    // No mock wallets, customers, suppliers, or inventory items seeded as requested
-
     console.log("✅ Database Seeding completed successfully!");
   } catch (error) {
     console.error("❌ Error during database seeding:", error);

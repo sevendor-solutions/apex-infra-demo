@@ -7,7 +7,7 @@ import {
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
   getInventoryItems, getCustomers, addInvoice, getProjects,
-  addInventoryItem, addCustomer
+  addCustomer
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -28,7 +28,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
-  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [_projectsList, setProjectsList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -54,7 +54,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [lineItems, setLineItems] = useState<QuotationItem[]>([
     { productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
   ]);
-  const [activeProductSearchIdx, setActiveProductSearchIdx] = useState<number | null>(null);
+
 
   const loadData = async () => {
     setLoading(true);
@@ -103,30 +103,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     }
   };
 
-  const handleProductSelect = (idx: number, code: string) => {
-    const prod = itemsList.find(p => p.code === code);
-    if (prod) {
-      setLineItems(prev => prev.map((li, i) => {
-        if (i !== idx) return li;
-        const qty = li.quantity || 1;
-        const discount = li.discount || 0;
-        const price = prod.sellingPrice;
-        const gst = prod.gstPercentage;
-        const base = qty * price;
-        const afterDisc = base - discount;
-        const total = afterDisc + (afterDisc * (gst / 100));
 
-        return {
-          ...li,
-          productName: prod.name,
-          productCode: code,
-          unitPrice: price,
-          gstPercentage: gst,
-          total
-        };
-      }));
-    }
-  };
 
   const updateLineItem = (idx: number, field: keyof QuotationItem, value: any) => {
     setLineItems(prev => prev.map((li, i) => {
@@ -878,18 +855,24 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       type="text" 
                       className="form-control" 
                       value={projectName} 
-                      onChange={e => setProjectName(e.target.value)} 
+                      onChange={e => {
+                        const val = e.target.value;
+                        setProjectName(val);
+                        // Reset line items to prevent mismatch when switching products
+                        setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
+                      }} 
                       onBlur={() => {
-                        // Auto-clear if typed value doesn't match any existing project
-                        if (projectName.trim() !== '' && !projectsList.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
+                        // Auto-clear if typed value doesn't match any existing product
+                        if (projectName.trim() !== '' && !itemsList.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
                           setProjectName('');
+                          setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
                         }
                       }}
-                      placeholder="Search existing project..." 
+                      placeholder="Search existing product..." 
                       list="quotations-projects-datalist"
                     />
                     <datalist id="quotations-projects-datalist">
-                      {projectsList.map(p => <option key={p.id} value={p.name} />)}
+                      {itemsList.map(p => <option key={p.id} value={p.name} />)}
                     </datalist>
                   </div>
                 </div>
@@ -912,202 +895,73 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       <tbody>
                         {lineItems.map((item, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                            <td style={{ padding: '4px', position: 'relative' }}>
-                              <input 
-                                type="text"
-                                value={item.productName}
-                                onChange={e => {
-                                  const val = e.target.value;
-                                  const matched = itemsList.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
-                                  setLineItems(prev => prev.map((li, i) => {
-                                    if (i !== idx) return li;
-                                    if (matched) {
-                                      const qty = li.quantity || 1;
-                                      const discount = li.discount || 0;
-                                      const price = matched.sellingPrice;
-                                      const gstPct = matched.gstPercentage;
-                                      const base = qty * price;
-                                      const afterDisc = base - discount;
-                                      const gst = afterDisc * (gstPct / 100);
-                                      const total = afterDisc + gst;
-                                      return {
-                                        ...li,
-                                        productName: matched.name,
-                                        productCode: matched.code,
-                                        unitPrice: price,
-                                        gstPercentage: gstPct,
-                                        gst,
-                                        total
-                                      };
-                                    }
-                                    return { ...li, productName: val, productCode: '' };
-                                  }));
-                                  setActiveProductSearchIdx(idx);
-                                }}
-                                onFocus={() => setActiveProductSearchIdx(idx)}
-                                onBlur={() => {
-                                  setTimeout(() => {
-                                    setLineItems(prev => prev.map((li, i) => {
-                                      if (i !== idx) return li;
-                                      if (!li.productCode && li.productName.trim()) {
-                                        const matched = itemsList.find(p => p.name.toLowerCase() === li.productName.trim().toLowerCase());
-                                        if (matched) {
-                                          const qty = li.quantity || 1;
-                                          const discount = li.discount || 0;
-                                          const price = matched.sellingPrice;
-                                          const gstPct = matched.gstPercentage;
-                                          const base = qty * price;
-                                          const afterDisc = base - discount;
-                                          const gst = afterDisc * (gstPct / 100);
-                                          const total = afterDisc + gst;
-                                          return {
-                                            ...li,
-                                            productName: matched.name,
-                                            productCode: matched.code,
-                                            unitPrice: price,
-                                            gstPercentage: gstPct,
-                                            gst,
-                                            total
-                                          };
-                                        }
-                                      }
-                                      return li;
-                                    }));
-                                    setActiveProductSearchIdx(null);
-                                  }, 250);
-                                }}
-                                placeholder="Search or type product/service..."
-                                className="form-control"
-                                style={{ marginBottom: 0, padding: '4px' }}
-                                required
-                              />
-                              {activeProductSearchIdx === idx && (
-                                <div style={{
-                                  position: 'absolute',
-                                  left: 4,
-                                  right: 4,
-                                  backgroundColor: '#fff',
-                                  border: '1px solid #cbd5e1',
-                                  borderRadius: '6px',
-                                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                  zIndex: 9999,
-                                  maxHeight: '180px',
-                                  overflowY: 'auto',
-                                  marginTop: '2px'
-                                }}>
-                                  {item.productName.trim() === '' ? (
-                                    <div 
-                                      onMouseDown={async () => {
-                                        const pName = prompt("Enter new product/service name:");
-                                        if (!pName || !pName.trim()) return;
-                                        if (itemsList.some(p => p.name.toLowerCase() === pName.trim().toLowerCase())) {
-                                          onAddToast('Product already exists.', 'error');
-                                          return;
-                                        }
-                                        try {
-                                          const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
-                                          const newItem = await addInventoryItem({
-                                            name: pName.trim(),
-                                            code,
-                                            unit: 'Pcs',
-                                            openingStock: 0,
-                                            purchasePrice: 0,
-                                            sellingPrice: item.unitPrice || 0,
-                                            gstPercentage: item.gstPercentage || 18
-                                          });
-                                          onAddToast(`Added "${newItem.name}" to database.`, 'success');
-                                          await loadData();
-                                          handleProductSelect(idx, newItem.code);
-                                        } catch (err: any) {
-                                          onAddToast(err.message || 'Failed to add item.', 'error');
-                                        }
-                                        setActiveProductSearchIdx(null);
-                                      }}
-                                      style={{ 
-                                        padding: '8px 12px', 
-                                        cursor: 'pointer', 
-                                        borderBottom: '1px solid #e2e8f0', 
-                                        fontSize: '0.78rem',
-                                        fontWeight: 'bold',
-                                        color: '#2563eb',
-                                        backgroundColor: '#fff',
-                                        textAlign: 'left'
-                                      }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
-                                    >
-                                      + Create New Product/Service
-                                    </div>
-                                  ) : (
-                                    !itemsList.some(prod => prod.name.toLowerCase() === item.productName.toLowerCase()) && (
-                                      <div 
-                                        onMouseDown={async () => {
-                                          try {
-                                            const code = 'SRV-' + Math.floor(1000 + Math.random() * 9000);
-                                            const newItem = await addInventoryItem({
-                                              name: item.productName,
-                                              code,
-                                              unit: 'Pcs',
-                                              openingStock: 0,
-                                              purchasePrice: 0,
-                                              sellingPrice: item.unitPrice || 0,
-                                              gstPercentage: item.gstPercentage || 18
-                                            });
-                                            onAddToast(`Added "${newItem.name}" to database.`, 'success');
-                                            await loadData();
-                                            handleProductSelect(idx, newItem.code);
-                                          } catch (err: any) {
-                                            onAddToast(err.message || 'Failed to add item.', 'error');
+                            <td style={{ padding: '4px' }}>
+                              {(() => {
+                                const selectedProduct = itemsList.find(p => p.name.toLowerCase() === projectName.trim().toLowerCase());
+                                if (selectedProduct) {
+                                  if (selectedProduct.batches && selectedProduct.batches.length > 0) {
+                                    const getSelectedFlatNo = (pName: string) => {
+                                      const match = pName.match(/Flat\s+(\w+)/i);
+                                      return match ? match[1] : '';
+                                    };
+                                    return (
+                                      <select
+                                        value={getSelectedFlatNo(item.productName)}
+                                        onChange={e => {
+                                          const flatNo = e.target.value;
+                                          const batch = selectedProduct.batches?.find(b => b.flatNo === flatNo);
+                                          if (batch) {
+                                            const qty = batch.openingQty || 0;
+                                            const price = selectedProduct.sellingPrice || 0;
+                                            const gstPct = selectedProduct.gstPercentage || 18;
+                                            const discount = item.discount || 0;
+                                            const base = qty * price;
+                                            const afterDisc = base - discount;
+                                            const gst = afterDisc * (gstPct / 100);
+                                            const total = afterDisc + gst;
+
+                                            setLineItems(prev => prev.map((li, i) => {
+                                              if (i !== idx) return li;
+                                              return {
+                                                ...li,
+                                                productName: `${selectedProduct.name} - Flat ${batch.flatNo} (${batch.facingFloor})`,
+                                                productCode: selectedProduct.code,
+                                                quantity: qty,
+                                                unitPrice: price,
+                                                gstPercentage: gstPct,
+                                                gst,
+                                                total
+                                              };
+                                            }));
                                           }
-                                          setActiveProductSearchIdx(null);
                                         }}
-                                        style={{ 
-                                          padding: '8px 12px', 
-                                          cursor: 'pointer', 
-                                          borderBottom: '1px solid #f1f5f9', 
-                                          fontSize: '0.78rem',
-                                          fontWeight: 'bold',
-                                          color: '#0854a0',
-                                          backgroundColor: '#fff',
-                                          textAlign: 'left'
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                                        className="form-control"
+                                        style={{ marginBottom: 0, padding: '4px' }}
+                                        required
                                       >
-                                        + Add New Product/Service: "{item.productName}"
-                                      </div>
-                                    )
-                                  )}
-                                  {itemsList
-                                    .filter(prod => 
-                                      prod.name.toLowerCase().includes(item.productName.toLowerCase()) || 
-                                      prod.code.toLowerCase().includes(item.productName.toLowerCase())
-                                    )
-                                    .map((prod, pIdx) => (
-                                      <div 
-                                        key={prod.id || pIdx}
-                                        onMouseDown={() => {
-                                          handleProductSelect(idx, prod.code);
-                                          setActiveProductSearchIdx(null);
-                                        }}
-                                        style={{ 
-                                          padding: '8px 12px', 
-                                          cursor: 'pointer', 
-                                          borderBottom: '1px solid #f1f5f9', 
-                                          fontSize: '0.78rem',
-                                          color: '#1e293b',
-                                          backgroundColor: '#fff',
-                                          textAlign: 'left'
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
-                                      >
-                                        {prod.name} ({prod.code})
-                                      </div>
-                                    ))
+                                        <option value="">-- Select Flat/Unit --</option>
+                                        {selectedProduct.batches.map(b => (
+                                          <option key={b.flatNo} value={b.flatNo}>
+                                            Flat {b.flatNo} ({b.facingFloor} - {b.openingQty} SFT)
+                                          </option>
+                                        ))}
+                                      </select>
+                                    );
+                                  } else {
+                                    return (
+                                      <select className="form-control" style={{ marginBottom: 0, padding: '4px' }} disabled>
+                                        <option value="">-- No Floor Units Configured --</option>
+                                      </select>
+                                    );
                                   }
-                                </div>
-                              )}
+                                } else {
+                                  return (
+                                    <select className="form-control" style={{ marginBottom: 0, padding: '4px' }} disabled>
+                                      <option value="">-- Select Product under Project Association first --</option>
+                                    </select>
+                                  );
+                                }
+                              })()}
                             </td>
                             <td style={{ padding: '4px' }}>
                               <input 

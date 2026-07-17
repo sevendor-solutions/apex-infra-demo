@@ -677,7 +677,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                     <div style={{ padding: '1rem', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fcfcfd' }}>
                       <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stock Value</span>
                       <h4 style={{ margin: '4px 0 0', fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
-                        {fmt((selectedItem.currentStock || 0) * (selectedItem.purchasePrice || 0))}
+                        {fmt((selectedItem.currentStock || 0) * (selectedItem.purchasePrice || selectedItem.sellingPrice || 0))}
                       </h4>
                     </div>
 
