@@ -497,6 +497,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setCustomers(custs);
       setSuppliers(sups);
       setInvoices(invs);
+
+      // Automatically sync/update current session if user details changed in database
+      const cached = sessionStorage.getItem('jk_infra_logged_user');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const latestUser = usrs.find(u => u.username === parsed.username);
+        if (latestUser) {
+          if (latestUser.name !== parsed.name || latestUser.email !== parsed.email || JSON.stringify(latestUser.allowedScreens) !== JSON.stringify(parsed.allowedScreens)) {
+            const updated = { ...parsed, ...latestUser };
+            setSessionUser(updated);
+            setCurrentUser(updated);
+          }
+        }
+      }
     } catch (err) {
       console.error("Error syncing data from backend:", err);
       onAddToast("Failed to fetch records from backend server.", "error");
