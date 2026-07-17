@@ -150,7 +150,12 @@ router.put("/:id", async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        await user.update(req.body);
+        const updateData = { ...req.body };
+        if (!updateData.password || !updateData.password.trim()) {
+            delete updateData.password;
+        }
+
+        await user.update(updateData);
         const userJson = user.toJSON();
         delete userJson.password;
 

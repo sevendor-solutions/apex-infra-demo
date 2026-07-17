@@ -48,10 +48,16 @@ const INITIAL_USERS = [
     id: 'u1',
     username: 'admin',
     role: 'Admin' as const,
-    name: 'J. K. Rama Rao',
-    email: 'ramarao@jkfutureinfra.com',
+    name: 'JK Future Infra',
+    email: 'jkfutureinfra@gmail.com',
     password: 'admin123',
-    allowedScreens: ['dashboard', 'projects', 'marketing', 'sites', 'gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters']
+    allowedScreens: [
+      'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
+      'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
+      'documents', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 
+      'loans', 'invoices', 'payments_in', 'payments_out', 'payments_pending', 'customers', 
+      'suppliers', 'auditor_reports'
+    ]
   }
 ];
 
@@ -138,6 +144,20 @@ export async function seedDatabase() {
       const allUsers = await User.findAll();
       for (const u of allUsers) {
         try {
+          if (u.username === 'admin' && (u.name !== 'JK Future Infra' || u.email !== 'jkfutureinfra@gmail.com' || u.allowedScreens.includes('transporters'))) {
+            console.log(`🌱 Correcting admin user to JK Future Infra...`);
+            u.name = 'JK Future Infra';
+            u.email = 'jkfutureinfra@gmail.com';
+            u.allowedScreens = [
+              'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
+              'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
+              'documents', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 
+              'loans', 'invoices', 'payments_in', 'payments_out', 'payments_pending', 'customers', 
+              'suppliers', 'auditor_reports'
+            ];
+            await u.save();
+          }
+
           const firstDecode = Buffer.from(u.password, 'base64').toString('utf8');
           if (isBase64(u.password) && isBase64(firstDecode)) {
             // Double-encoded: decode it once and save (triggers setter to encode exactly once)
@@ -223,6 +243,7 @@ export async function seedDatabase() {
         smtpUser: "info@jkfutureinfra.com",
         smtpPass: "JKFUTUREINFRA@999",
         senderEmail: "info@jkfutureinfra.com",
+        summaryEmail: "jkfutureinfra@gmail.com",
         deliveryMode: "smtp",
         facebookPageId: "1234774963046460",
         facebookPageAccessToken: "EAGKi3t8SWnQBRxgbgOB9k8pZBuTZBZCUqUWOU4zzMvfZCnloGDEeiO10o6OvRkfusjteyMIr1WkPRlwsY8xGKY5KY69QWW9GPwUI38FR7mlSTEt1yZB24c6jEc91JnCszDif5w3ZBLIhqINbD6kyAWAVZBehHZBb3v4fLRpZAemwHgZBqASMjRIuBOvcoZBlnEB9IrNZBuFSNqfF",

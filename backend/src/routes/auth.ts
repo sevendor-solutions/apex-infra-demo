@@ -24,6 +24,9 @@ router.get("/user-email/:username", async (req, res, next) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "Username not found in system." });
         }
+        if (!user.isActive) {
+            return res.status(403).json({ success: false, message: "Your account is currently inactive. Please contact the administrator." });
+        }
         if (!user.email) {
             return res.status(400).json({ success: false, message: "This account has no registered email. Please contact the administrator." });
         }
@@ -62,6 +65,12 @@ router.post("/login", async (req, res, next) => {
             const fakeReq = { ip: req.ip, headers: req.headers, socket: req.socket, user: undefined } as any;
             await logAuditAction(fakeReq, "User Login Attempt", `Failed login attempt for non-existent username: "${username}"`, "Failed", { username, role: "Guest" });
             return res.status(401).json({ success: false, message: "Invalid username or staff credential." });
+        }
+
+        if (!user.isActive) {
+            const fakeReq = { ip: req.ip, headers: req.headers, socket: req.socket, user: undefined } as any;
+            await logAuditAction(fakeReq, "User Login Attempt", `Failed login attempt for inactive username: "${username}"`, "Failed", { username, role: user.role });
+            return res.status(403).json({ success: false, message: "Your account is currently inactive. Please contact the administrator." });
         }
 
         // Compare password encoded in Base64
@@ -178,6 +187,9 @@ router.post("/forgot-password", async (req, res, next) => {
         if (!user) {
             // Return success anyway to avoid user enumeration
             return res.json({ success: true, message: "If this email is registered, an OTP has been sent." });
+        }
+        if (!user.isActive) {
+            return res.status(403).json({ success: false, message: "Your account is currently inactive. Please contact the administrator." });
         }
 
         // Generate 6-digit OTP

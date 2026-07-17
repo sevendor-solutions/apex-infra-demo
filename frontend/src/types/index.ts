@@ -114,6 +114,7 @@ export interface User {
   password?: string;
   allowedScreens?: string[];
   agentId?: string;
+  isActive?: boolean;
 }
 
 export interface City {

@@ -33,6 +33,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
   const [password, setPassword] = useState('');
   const [allowedScreens, setAllowedScreens] = useState<string[]>([]);
   const [agentId, setAgentId] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [formErrors, setFormErrors] = useState<{ email?: string }>({});
 
   // Filter users based on logged-in user role
@@ -73,6 +74,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     setPassword('');
     setAllowedScreens(getRoleDefaultScreens('Moderator'));
     setAgentId('');
+    setIsActive(true);
     setModalOpen(true);
   };
 
@@ -82,9 +84,10 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     setUsername(user.username);
     setRole(user.role as any);
     setEmail(user.email);
-    setPassword(user.password || '');
+    setPassword('');
     setAllowedScreens(user.allowedScreens || getRoleDefaultScreens(user.role));
     setAgentId(user.agentId || '');
+    setIsActive(user.isActive !== false);
     setModalOpen(true);
   };
 
@@ -144,10 +147,18 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
       username: cleanUsername,
       role: editingUser ? editingUser.role : role, // preserve role on edit if not changed (handled in select)
       email: email.trim(),
-      password: password.trim() || cleanUsername + '123',
       allowedScreens: isSuperAdmin ? allowedScreens : (editingUser?.allowedScreens || getRoleDefaultScreens(editingUser?.role || 'Moderator')),
-      agentId: role === 'MarketingAgent' ? agentId : undefined
+      agentId: role === 'MarketingAgent' ? agentId : undefined,
+      isActive: isActive
     };
+
+    if (!editingUser) {
+      userData.password = password.trim() || cleanUsername + '123';
+    } else {
+      if (password.trim()) {
+        userData.password = password.trim();
+      }
+    }
 
     // If super admin editing someone else's role
     if (isSuperAdmin && editingUser) {
@@ -191,6 +202,25 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     { key: 'name', label: 'Name' },
     { key: 'username', label: 'Username' },
     { key: 'email', label: 'Email' },
+    {
+      key: 'isActive',
+      label: 'Status',
+      render: (_v, row) => {
+        const u = row as unknown as User;
+        const active = u.isActive !== false;
+        return (
+          <span 
+            className={`badge badge-${active ? 'completed' : 'failed'}`}
+            style={{ 
+              backgroundColor: active ? undefined : '#ef4444', 
+              color: active ? undefined : '#ffffff' 
+            }}
+          >
+            {active ? 'Active' : 'Inactive'}
+          </span>
+        );
+      }
+    },
     {
       key: 'role',
       label: 'System Role',
@@ -387,15 +417,15 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
                 <div className="form-group">
                   <label className="form-label flex align-center gap-0.5">
-                    <Key size={12} /> Password *
+                    <Key size={12} /> Password {editingUser ? '' : '*'}
                   </label>
                   <input 
                     type="text" 
                     className="form-control" 
-                    placeholder="Set custom password" 
+                    placeholder={editingUser ? "Leave blank to keep existing" : "Set custom password"}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    required
+                    required={!editingUser}
                   />
                 </div>
               </div>
@@ -478,6 +508,29 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       </label>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {isSuperAdmin && (
+                <div className="form-group pt-2 border-top mt-3">
+                  <label className="form-label font-bold" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                     Account Status
+                  </label>
+                  <label className="flex align-center gap-0.5" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={e => setIsActive(e.target.checked)}
+                      disabled={editingUser?.id === currentUser?.id}
+                      style={{ accentColor: 'var(--secondary)', cursor: 'pointer', marginRight: '6px' }}
+                    />
+                    <span>Account is Active</span>
+                  </label>
+                  {editingUser?.id === currentUser?.id && (
+                    <span style={{ color: '#64748b', fontSize: '0.75rem', display: 'block', marginTop: '4px' }}>
+                      You cannot deactivate your own logged-in account.
+                    </span>
+                  )}
                 </div>
               )}
             </div>

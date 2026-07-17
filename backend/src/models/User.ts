@@ -64,6 +64,13 @@ export class User extends Model {
     })
     allowedScreens!: string[];
 
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+    })
+    isActive!: boolean;
+
     @CreatedAt
     @Column({
         type: DataType.DATE,
