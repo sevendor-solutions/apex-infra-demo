@@ -620,8 +620,15 @@ export const runAutomatedSiteVisitReminders = async () => {
             }
 
             if (diffDays === config.sendBeforeDays) {
-                // Only send reminders in the evening or night (at or after 5:00 PM / 17:00)
-                const currentHour = new Date().getHours();
+                // Only send reminders in the evening or night (at or after 5:00 PM / 17:00 in IST)
+                const currentHour = parseInt(
+                    new Intl.DateTimeFormat("en-US", {
+                        timeZone: "Asia/Kolkata",
+                        hour: "numeric",
+                        hour12: false
+                    }).format(new Date()),
+                    10
+                );
                 if (currentHour < 17) {
                     continue; // Leave as Pending to trigger during evening/night runs
                 }
