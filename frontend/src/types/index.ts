@@ -126,6 +126,9 @@ export interface LocationMaster {
   id: string;
   name: string;
   cityId: string;
+  city?: City;
+  locationArea?: string;
+  parentCity?: string;
 }
 
 export interface PropertyType {

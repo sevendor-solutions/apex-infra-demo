@@ -13,8 +13,8 @@ import { BlogPage } from './pages/Blog';
 import { Contact } from './pages/Contact';
 import { Careers } from './pages/Careers';
 import { AdminPanel } from './admin/AdminPanel';
-import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings } from './utils/db';
-import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing } from './types';
+import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings, getCities, getLocations } from './utils/db';
+import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing, City, LocationMaster } from './types';
 import { X, Send, User, Mail, Phone, MessageSquare, ShieldCheck } from 'lucide-react';
 interface Toast {
   id: string;
@@ -56,6 +56,8 @@ function App() {
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
   const [propertyTypes, setPropertyTypes] = useState<PropertyType[]>([]);
   const [facings, setFacings] = useState<Facing[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  const [locations, setLocations] = useState<LocationMaster[]>([]);
 
   // Seed and fetch data & Handle URL hash routing (e.g. #/admin)
   useEffect(() => {
@@ -112,13 +114,15 @@ function App() {
 
   const refreshData = async () => {
     try {
-      const [projs, mktg, blgs, gal, pts, fcs] = await Promise.all([
+      const [projs, mktg, blgs, gal, pts, fcs, cts, locs] = await Promise.all([
         getProjects(),
         getMarketing(),
         getBlogs(),
         getGallery(),
         getPropertyTypes(),
-        getFacings()
+        getFacings(),
+        getCities(),
+        getLocations()
       ]);
       setProjects(projs);
       setMarketing(mktg);
@@ -126,6 +130,8 @@ function App() {
       setGallery(gal);
       setPropertyTypes(pts);
       setFacings(fcs);
+      setCities(cts);
+      setLocations(locs);
     } catch (err) {
       console.error("Error loading data from API:", err);
       addToast("Failed to load data from backend server.", "error");
@@ -284,6 +290,8 @@ function App() {
             onOpenEnquiry={handleOpenEnquiryModal}
             propertyTypes={propertyTypes}
             facings={facings}
+            cities={cities}
+            locations={locations}
           />
         )}
 
@@ -296,6 +304,8 @@ function App() {
             onOpenEnquiry={handleOpenEnquiryModal}
             propertyTypes={propertyTypes}
             facings={facings}
+            cities={cities}
+            locations={locations}
           />
         )}
         {activePage === 'projects-upcoming' && (
@@ -306,6 +316,8 @@ function App() {
             onOpenEnquiry={handleOpenEnquiryModal}
             propertyTypes={propertyTypes}
             facings={facings}
+            cities={cities}
+            locations={locations}
           />
         )}
         {activePage === 'projects-completed' && (
@@ -316,6 +328,8 @@ function App() {
             onOpenEnquiry={handleOpenEnquiryModal}
             propertyTypes={propertyTypes}
             facings={facings}
+            cities={cities}
+            locations={locations}
           />
         )}
 
@@ -346,6 +360,8 @@ function App() {
             onNavigate={handleNavigate}
             propertyTypes={propertyTypes}
             facings={facings}
+            cities={cities}
+            locations={locations}
             initialFilters={activeParams?.initialFilters}
           />
         )}

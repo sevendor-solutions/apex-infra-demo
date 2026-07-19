@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
-import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing } from '../types';
+import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing, City, LocationMaster } from '../types';
 import { getProjectMainImage } from '../utils/image';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -12,6 +12,8 @@ interface ProjectsProps {
   onOpenEnquiry: (projectName?: string) => void;
   propertyTypes: PropertyType[];
   facings: Facing[];
+  cities?: City[];
+  locations?: LocationMaster[];
 }
 
 export const Projects: React.FC<ProjectsProps> = ({
@@ -20,7 +22,9 @@ export const Projects: React.FC<ProjectsProps> = ({
   onNavigate,
   onOpenEnquiry,
   propertyTypes = [],
-  facings = []
+  facings = [],
+  cities = [],
+  locations = []
 }) => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showMap, setShowMap] = useState<boolean>(false);
@@ -61,35 +65,51 @@ export const Projects: React.FC<ProjectsProps> = ({
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [key: string]: L.Marker }>({});
 
-  // Extract unique cities dynamically from projects database
+  // Extract unique cities dynamically from Master Data & projects database
   const citiesList = useMemo(() => {
     const set = new Set<string>();
+    cities.forEach(c => {
+      if (c.name) set.add(c.name);
+    });
     projects.forEach(p => {
       if (p.city) {
         set.add(p.city);
       } else {
-        const parts = p.location.split(',');
+        const parts = (p.location || '').split(',');
         const city = parts[parts.length - 1]?.trim();
         if (city) set.add(city);
       }
     });
     return Array.from(set).sort();
-  }, [projects]);
+  }, [cities, projects]);
 
-  // Extract unique micro-locations dynamically from projects database
+  // Extract unique micro-locations dynamically from Master Data & projects database
   const locationsList = useMemo(() => {
     const set = new Set<string>();
+    const selectedCitySet = new Set(selectedCities.map(c => c.toLowerCase()));
+
+    locations.forEach(loc => {
+      const parentCityName = loc.city?.name || loc.parentCity || cities.find(c => c.id === loc.cityId)?.name || '';
+      const areaName = loc.name || loc.locationArea || '';
+      if (selectedCitySet.size === 0 || selectedCitySet.has(parentCityName.toLowerCase())) {
+        if (areaName) set.add(areaName);
+      }
+    });
+
     projects.forEach(p => {
-      if (p.microLocation) {
-        set.add(p.microLocation);
-      } else {
-        const parts = p.location.split(',');
-        const loc = parts[0]?.trim();
-        if (loc) set.add(loc);
+      const pCity = (p.city || (p.location || '').split(',').pop()?.trim() || '').toLowerCase();
+      if (selectedCitySet.size === 0 || (pCity && selectedCitySet.has(pCity))) {
+        if (p.microLocation) {
+          set.add(p.microLocation);
+        } else {
+          const parts = (p.location || '').split(',');
+          const locName = parts[0]?.trim();
+          if (locName) set.add(locName);
+        }
       }
     });
     return Array.from(set).sort();
-  }, [projects]);
+  }, [locations, cities, projects, selectedCities]);
 
   // Property Type options
   const propertyTypesOptions = useMemo(() => {

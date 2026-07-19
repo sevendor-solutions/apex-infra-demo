@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Project, ProjectCategory, PropertyType, Facing } from '../types';
+import type { Project, ProjectCategory, PropertyType, Facing, City, LocationMaster } from '../types';
 import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
 import { getProjectMainImage } from '../utils/image';
 
@@ -10,6 +10,8 @@ interface MarketingProps {
   onNavigate: (page: string, category?: ProjectCategory | null, siteCategory?: string | null, params?: any) => void;
   propertyTypes?: PropertyType[];
   facings?: Facing[];
+  cities?: City[];
+  locations?: LocationMaster[];
   initialFilters?: {
     city?: string | null;
     location?: string | null;
@@ -26,6 +28,8 @@ export const Marketing: React.FC<MarketingProps> = ({
   onNavigate,
   propertyTypes = [],
   facings = [],
+  cities = [],
+  locations = [],
   initialFilters
 }) => {
   // Filter States
@@ -135,23 +139,51 @@ export const Marketing: React.FC<MarketingProps> = ({
     });
   }, [projects, category, siteCategory]);
 
-  // Extract unique cities dynamically from matching projects
+  // Extract unique cities dynamically from Master Data & matching projects
   const citiesList = useMemo(() => {
     const set = new Set<string>();
+    cities.forEach(c => {
+      if (c.name) set.add(c.name);
+    });
     matchingProjects.forEach(p => {
-      if (p.city) set.add(p.city);
+      if (p.city) {
+        set.add(p.city);
+      } else {
+        const parts = (p.location || '').split(',');
+        const city = parts[parts.length - 1]?.trim();
+        if (city) set.add(city);
+      }
     });
     return Array.from(set).sort();
-  }, [matchingProjects]);
+  }, [cities, matchingProjects]);
 
-  // Extract unique locations dynamically from matching projects
+  // Extract unique micro-locations dynamically from Master Data & matching projects
   const locationsList = useMemo(() => {
     const set = new Set<string>();
+    const selectedCitySet = new Set(selectedCities.map(c => c.toLowerCase()));
+
+    locations.forEach(loc => {
+      const parentCityName = loc.city?.name || loc.parentCity || cities.find(c => c.id === loc.cityId)?.name || '';
+      const areaName = loc.name || loc.locationArea || '';
+      if (selectedCitySet.size === 0 || selectedCitySet.has(parentCityName.toLowerCase())) {
+        if (areaName) set.add(areaName);
+      }
+    });
+
     matchingProjects.forEach(p => {
-      if (p.microLocation) set.add(p.microLocation);
+      const pCity = (p.city || (p.location || '').split(',').pop()?.trim() || '').toLowerCase();
+      if (selectedCitySet.size === 0 || (pCity && selectedCitySet.has(pCity))) {
+        if (p.microLocation) {
+          set.add(p.microLocation);
+        } else {
+          const parts = (p.location || '').split(',');
+          const locName = parts[0]?.trim();
+          if (locName) set.add(locName);
+        }
+      }
     });
     return Array.from(set).sort();
-  }, [matchingProjects]);
+  }, [locations, cities, matchingProjects, selectedCities]);
 
   // Apply checkbox/search/sort filters dynamically
   const finalFilteredProjects = useMemo(() => {
