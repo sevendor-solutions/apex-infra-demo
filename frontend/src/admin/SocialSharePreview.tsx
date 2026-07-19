@@ -14,6 +14,9 @@ interface SocialSharePreviewProps {
   description: string;
   imageUrl?: string;
   facebookUrl?: string;
+  isMarketing?: boolean;
+  agentName?: string;
+  agentPhone?: string;
 }
 
 export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
@@ -26,7 +29,10 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
   priceRange,
   description,
   imageUrl,
-  facebookUrl = "https://www.facebook.com/profile.php?id=6159154908963"
+  facebookUrl = "https://www.facebook.com/profile.php?id=6159154908963",
+  isMarketing = false,
+  agentName,
+  agentPhone
 }) => {
   const [activeTab, setActiveTab] = useState<'facebook' | 'instagram'>('facebook');
   const [isLiveFb, setIsLiveFb] = useState(false);
@@ -56,7 +62,7 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
   const generateHashtags = () => {
     const base = ['RealEstate', 'Housing', 'JKFutureInfra', 'Trending', 'Investment'];
     if (city) base.push(city.replace(/\s+/g, ''));
-    if (category) base.push(category);
+    if (category) base.push(category.replace(/\s+/g, ''));
     base.push('LuxuryLiving', 'DreamHome');
     return base.map(tag => `#${tag}`).join(' ');
   };
@@ -67,6 +73,63 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
   // If imageUrl has multiple comma-separated values, get the first one
   const firstImageUrl = imageUrl ? imageUrl.split(',')[0].trim() : '';
   const displayImage = firstImageUrl || fallbackImage;
+
+  const websiteUrl = "https://jkfutureinfra.com";
+  const locParts = [location, city].filter(Boolean);
+  const locationStr = locParts.join(", ");
+
+  const defaultPhone = "+91 9000553832, +91 7893963322";
+
+  const postTextBody = isMarketing ? (
+    <>
+      <p style={{ margin: '0 0 8px 0', fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>✨ FEATURED PROPERTY SHOWCASE ✨</p>
+      <p style={{ margin: '0 0 6px 0' }}>🏢 <strong>Property:</strong> {propertyName}</p>
+      <p style={{ margin: '0 0 6px 0' }}>🏷️ <strong>Segment:</strong> {category || 'Real Estate'}</p>
+      <p style={{ margin: '0 0 6px 0' }}>📍 <strong>Location:</strong> {locationStr}</p>
+      <p style={{ margin: '0 0 10px 0' }}>💰 <strong>Investment:</strong> {priceRange || 'Contact for Price'}</p>
+      <p style={{ margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>📝 <strong>Description:</strong><br />{description}</p>
+      <p style={{ margin: '0 0 4px 0', color: '#0854a0', fontWeight: 600 }}>🌐 <strong>Website:</strong> {websiteUrl}</p>
+      {agentName && <p style={{ margin: '0 0 4px 0', color: '#0f172a', fontWeight: 600 }}>👤 <strong>Marketing Agent:</strong> {agentName}</p>}
+      <p style={{ margin: '0 0 12px 0', color: '#0f172a', fontWeight: 600 }}>📞 <strong>Call / WhatsApp:</strong> {agentPhone || defaultPhone}</p>
+      <p style={{ margin: 0, color: '#1877f2', fontWeight: 600 }}>{hashtags}</p>
+    </>
+  ) : (
+    <>
+      <p style={{ margin: '0 0 8px 0', fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>✨ PREMIUM REAL ESTATE OPPORTUNITY ✨</p>
+      <p style={{ margin: '0 0 6px 0' }}>🏢 <strong>Venture:</strong> {propertyName}</p>
+      <p style={{ margin: '0 0 6px 0' }}>🏷️ <strong>Category:</strong> {category || 'Real Estate'}</p>
+      <p style={{ margin: '0 0 6px 0' }}>📍 <strong>Location:</strong> {locationStr}</p>
+      <p style={{ margin: '0 0 10px 0' }}>💰 <strong>Price Range:</strong> {priceRange || 'Contact for Price'}</p>
+      <p style={{ margin: '0 0 10px 0', whiteSpace: 'pre-line' }}>📝 <strong>Overview:</strong><br />{description}</p>
+      <p style={{ margin: '0 0 4px 0', color: '#0854a0', fontWeight: 600 }}>🌐 <strong>Website:</strong> {websiteUrl}</p>
+      <p style={{ margin: '0 0 12px 0', color: '#0f172a', fontWeight: 600 }}>📞 <strong>Call / WhatsApp:</strong> {defaultPhone}</p>
+      <p style={{ margin: 0, color: '#1877f2', fontWeight: 600 }}>{hashtags}</p>
+    </>
+  );
+
+  const igCaptionText = isMarketing ? (
+    <>
+      <span style={{ fontWeight: 600, marginRight: '6px' }}>jk_future_infra</span>
+      ✨ FEATURED PROPERTY SHOWCASE ✨ 🏢 <strong>{propertyName}</strong> 📍 {locationStr} 💰 {priceRange}. {description.substring(0, 80)}...
+      <div style={{ color: '#00376b', marginTop: '6px', fontWeight: 600 }}>
+        🌐 {websiteUrl} {agentName ? `| 👤 Agent: ${agentName} 📞 ${agentPhone || defaultPhone}` : `| 📞 ${defaultPhone}`}
+      </div>
+      <div style={{ color: '#00376b', marginTop: '4px' }}>
+        {hashtags}
+      </div>
+    </>
+  ) : (
+    <>
+      <span style={{ fontWeight: 600, marginRight: '6px' }}>jk_future_infra</span>
+      ✨ PREMIUM REAL ESTATE OPPORTUNITY ✨ 🏢 <strong>{propertyName}</strong> 📍 {locationStr} 💰 {priceRange}. {description.substring(0, 80)}...
+      <div style={{ color: '#00376b', marginTop: '6px', fontWeight: 600 }}>
+        🌐 {websiteUrl} | 📞 {defaultPhone}
+      </div>
+      <div style={{ color: '#00376b', marginTop: '4px' }}>
+        {hashtags}
+      </div>
+    </>
+  );
 
   return (
     <div style={{
@@ -292,14 +355,7 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
 
               {/* FB Post Body Text */}
               <div style={{ padding: '0 12px 12px 12px', fontSize: '0.88rem', color: '#050505', lineHeight: '1.4' }}>
-                <p style={{ margin: '0 0 8px 0' }}>🏢 <strong>New Venture Alert: {propertyName}</strong></p>
-                <p style={{ margin: '0 0 8px 0' }}>📍 Location: {location}, {city}</p>
-                <p style={{ margin: '0 0 8px 0' }}>💰 Price Range: {priceRange}</p>
-                <p style={{ margin: '0 0 12px 0' }}>{description}</p>
-                <p style={{ margin: '0 0 12px 0', color: '#1877f2' }}>
-                  Facebook Page: <span style={{ textDecoration: 'underline' }}>{facebookUrl}</span>
-                </p>
-                <p style={{ margin: 0, color: '#1877f2', fontWeight: 600 }}>{hashtags}</p>
+                {postTextBody}
               </div>
 
               {/* FB Post Attachment Image & Link Preview Box */}
@@ -426,14 +482,7 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
 
               {/* IG Caption & Hashtags */}
               <div style={{ padding: '0 14px 14px 14px', fontSize: '0.82rem', color: '#262626', lineHeight: '1.4' }}>
-                <span style={{ fontWeight: 600, marginRight: '6px' }}>jk_future_infra</span>
-                🏢 New Venture Alert: <strong>{propertyName}</strong> is now live! 📍 Location: {location}, {city}. 💰 Price Range: {priceRange}. {description.substring(0, 80)}...
-                <div style={{ color: '#00376b', marginTop: '4px', fontWeight: 500 }}>
-                  Link: {facebookUrl}
-                </div>
-                <div style={{ color: '#00376b', marginTop: '4px' }}>
-                  {hashtags}
-                </div>
+                {igCaptionText}
               </div>
             </div>
           )}

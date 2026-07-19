@@ -277,7 +277,10 @@ export class Project extends Model {
         const prefix = instance.isMarketing ? 'm' : 'p';
         const rawPrefix = instance.isMarketing ? 'm_' : 'p_';
         if (!instance.id || instance.id.startsWith(rawPrefix)) {
-            const all = await Project.findAll({ where: { isMarketing: instance.isMarketing } });
+            const all = await Project.findAll({
+                where: { isMarketing: instance.isMarketing },
+                attributes: ['id']
+            });
             let nextNum = 1;
             all.forEach(item => {
                 const regex = new RegExp(`^${prefix}(\\d+)$`);

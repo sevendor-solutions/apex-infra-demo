@@ -37,6 +37,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerSearchText, setCustomerSearchText] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [customerMobile, setCustomerMobile] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -141,6 +142,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const resetForm = () => {
     setCustomerName('');
     setCustomerSearchText('');
+    setShowCustomerDropdown(false);
+    setShowProjectDropdown(false);
     setCustomerMobile('');
     setCustomerAddress('');
     setProjectName('');
@@ -849,7 +852,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       required
                     />
                   </div>
-                  <div className="form-group">
+                  <div className="form-group" style={{ position: 'relative' }}>
                     <label className="form-label">Project Association</label>
                     <input 
                       type="text" 
@@ -858,22 +861,65 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       onChange={e => {
                         const val = e.target.value;
                         setProjectName(val);
+                        setShowProjectDropdown(true);
                         // Reset line items to prevent mismatch when switching products
                         setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
                       }} 
+                      onFocus={() => setShowProjectDropdown(true)}
                       onBlur={() => {
-                        // Auto-clear if typed value doesn't match any existing product
-                        if (projectName.trim() !== '' && !itemsList.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
-                          setProjectName('');
-                          setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
-                        }
+                        setTimeout(() => {
+                          setShowProjectDropdown(false);
+                          // Auto-clear if typed value doesn't match any existing product
+                          if (projectName.trim() !== '' && !itemsList.some(p => p.name.toLowerCase() === projectName.trim().toLowerCase())) {
+                            setProjectName('');
+                            setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
+                          }
+                        }, 250);
                       }}
-                      placeholder="Search existing product..." 
-                      list="quotations-projects-datalist"
+                      placeholder="Search or type project name..." 
                     />
-                    <datalist id="quotations-projects-datalist">
-                      {itemsList.map(p => <option key={p.id} value={p.name} />)}
-                    </datalist>
+                    {showProjectDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        backgroundColor: '#fff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        zIndex: 9999,
+                        maxHeight: '200px',
+                        overflowY: 'auto',
+                        marginTop: '2px'
+                      }}>
+                        {itemsList
+                          .filter(p => p.name.toLowerCase().includes(projectName.toLowerCase()))
+                          .map(p => (
+                            <div 
+                              key={p.id}
+                              onMouseDown={() => {
+                                setProjectName(p.name);
+                                setShowProjectDropdown(false);
+                                setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
+                              }}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                color: '#1e293b',
+                                backgroundColor: '#fff',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              {p.name} {p.code ? `(${p.code})` : ''}
+                            </div>
+                          ))
+                        }
+                      </div>
+                    )}
                   </div>
                 </div>
 

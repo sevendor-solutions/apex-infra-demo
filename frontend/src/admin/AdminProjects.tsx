@@ -385,7 +385,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
           city,
           priceRange,
           description,
-          imageUrl
+          imageUrl,
+          isMarketing: false
         });
         setShowSharePreview(true);
       }
@@ -1139,6 +1140,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
           priceRange={sharePreviewData.priceRange}
           description={sharePreviewData.description}
           imageUrl={sharePreviewData.imageUrl}
+          isMarketing={false}
         />
       )}
     </div>

@@ -78,8 +78,8 @@ const models = [
 ];
 
 const poolConfig = {
-    max: 15,
-    min: 0,
+    max: 30,
+    min: 2,
     acquire: 30000,
     idle: 10000
 };

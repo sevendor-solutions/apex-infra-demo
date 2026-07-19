@@ -284,16 +284,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Log system action
-  const logAction = async (action: string, details: string, status: 'Success' | 'Warning' | 'Failed' = 'Success') => {
-    // Backend logs database changes automatically. For client-side UI logs, we refresh logs from backend.
+  const logAction = (action: string, details: string, status: 'Success' | 'Warning' | 'Failed' = 'Success') => {
     console.log(`[Client LogAction] ${action} - ${details} - Status: ${status}`);
-    try {
-      if (sessionStorage.getItem('jk_infra_logged_user_token')) {
-        const logs = await getAuditLogs();
-        setAuditLogs(logs);
-      }
-    } catch (err) {
-      console.error("Failed to sync audit logs on action:", err);
+    // Sync audit logs asynchronously only if viewing audit logs
+    if (activeTab === 'audit_logs' && sessionStorage.getItem('jk_infra_logged_user_token')) {
+      (async () => {
+        try {
+          const logs = await getAuditLogs();
+          setAuditLogs(logs);
+        } catch (err) {
+          console.error("Failed to sync audit logs on action:", err);
+        }
+      })();
     }
   };
 
@@ -514,6 +516,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     } catch (err) {
       console.error("Error syncing data from backend:", err);
       onAddToast("Failed to fetch records from backend server.", "error");
+    }
+  };
+
+  const refreshProjectsAndMarketing = async () => {
+    try {
+      const [projs, mktg] = await Promise.all([
+        getProjects(),
+        getMarketing()
+      ]);
+      setProjects(projs);
+      setMarketing(mktg);
+    } catch (err) {
+      console.error("Error refreshing projects/marketing:", err);
     }
   };
 
@@ -2200,7 +2215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               propertyTypes={propertyTypes}
               facings={facings}
               amenities={amenities}
-              onRefresh={() => { syncDBData(); logAction('Data Sync', 'Refreshed project lists from SQL database', 'Success'); }}
+              onRefresh={() => { refreshProjectsAndMarketing(); logAction('Data Sync', 'Refreshed project lists from SQL database', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);
                 if (type === 'success') logAction('Project Update', msg, 'Success');
@@ -2218,7 +2233,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               facings={facings}
               amenities={amenities}
               agents={marketingAgents}
-              onRefresh={() => { syncDBData(); logAction('Data Sync', 'Refreshed marketing lists from SQL database', 'Success'); }}
+              onRefresh={() => { refreshProjectsAndMarketing(); logAction('Data Sync', 'Refreshed marketing lists from SQL database', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);
                 if (type === 'success') logAction('Marketing Update', msg, 'Success');

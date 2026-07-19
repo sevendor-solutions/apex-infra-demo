@@ -581,6 +581,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       onRefresh();
 
       if (autoPostSocial) {
+        const assignedAgent = agents.find(a => a.id === agentId);
         setSharePreviewData({
           propertyName: name,
           category,
@@ -588,7 +589,10 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           city,
           priceRange,
           description,
-          imageUrl
+          imageUrl,
+          isMarketing: true,
+          agentName: assignedAgent?.name,
+          agentPhone: assignedAgent?.phone
         });
         setShowSharePreview(true);
       }
@@ -1699,6 +1703,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           priceRange={sharePreviewData.priceRange}
           description={sharePreviewData.description}
           imageUrl={sharePreviewData.imageUrl}
+          isMarketing={sharePreviewData.isMarketing}
+          agentName={sharePreviewData.agentName}
+          agentPhone={sharePreviewData.agentPhone}
         />
       )}
     </div>
