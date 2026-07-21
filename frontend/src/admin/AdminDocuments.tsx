@@ -3,7 +3,7 @@ import type { Document, Project } from '../types';
 import {
   Folder, FolderOpen, FolderPlus, FileText, Image as ImageIcon,
   FileMinus, Trash2, Edit2, Download, Eye, X, ChevronRight,
-  Upload, Home, Search, Grid, List, Check, ArrowLeft, Video
+  Upload, Home, Search, Grid, List, Check, ArrowLeft, Video, Network, MoreVertical
 } from 'lucide-react';
 import { addDocument, updateDocument, deleteDocument, uploadImage } from '../utils/db';
 
@@ -69,7 +69,12 @@ const fileColor: Record<string, string> = {
 /* ─────────────────────────────────────────────────────────
    TreeNode Component (Reconciliation-safe)
 ───────────────────────────────────────────────────────── */
-const TreeNode: React.FC<TreeNodeProps> = ({
+const TreeNode: React.FC<TreeNodeProps> = (props) => {
+  if (props.depth > 12) return null;
+  return <TreeNodeInner {...props} />;
+};
+
+const TreeNodeInner: React.FC<TreeNodeProps> = ({
   folder,
   depth,
   activeFolderId,
@@ -223,6 +228,172 @@ const TreeNode: React.FC<TreeNodeProps> = ({
 };
 
 /* ─────────────────────────────────────────────────────────
+   FlowFolderNode Component (Tree Diagram Banner Layout)
+───────────────────────────────────────────────────────── */
+interface FlowFolderNodeProps {
+  folder: FolderNode;
+  depth: number;
+  activeFolderId: string;
+  setActiveFolderId: (id: string) => void;
+  childFolders: (parentId: string) => FolderNode[];
+  filesIn: (folderId: string) => DocEntry[];
+  totalDescendantFiles: (folderId: string) => number;
+  setPreviewDoc: (file: DocEntry) => void;
+  triggerRename: (id: string, type: 'folder' | 'file', name: string) => void;
+  deleteFile: (file: DocEntry) => void;
+  deleteFolder: (folderId: string) => void;
+  setShowCF: (show: boolean) => void;
+  setNewFolderName: (val: string) => void;
+  setCtx: (ctx: { id: string; type: 'folder' | 'file'; x: number; y: number } | null) => void;
+}
+
+const FlowFolderNode: React.FC<FlowFolderNodeProps> = (props) => {
+  if (props.depth > 12) return null;
+  return <FlowFolderNodeInner {...props} />;
+};
+
+const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
+  folder,
+  depth,
+  activeFolderId,
+  setActiveFolderId,
+  childFolders,
+  filesIn,
+  totalDescendantFiles,
+  setPreviewDoc,
+  triggerRename,
+  deleteFile,
+  deleteFolder,
+  setShowCF,
+  setNewFolderName,
+  setCtx,
+}) => {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const kids  = childFolders(folder.id);
+  const files = filesIn(folder.id);
+  const totalCount = totalDescendantFiles(folder.id);
+
+  return (
+    <div
+      className={`sap-flow-folder-group ${!isCollapsed ? 'expanded' : 'collapsed'}`}
+      style={{
+        marginLeft: (depth > 0 && !isCollapsed) ? (depth * 10) : 0,
+        width: '100%',
+      }}
+    >
+      {/* 🔷 Subfolder Banner: Clean Banner with Right-Click Context Menu & 3-Dots Menu */}
+      <div
+        className="sap-subfolder-banner"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        onDoubleClick={() => setActiveFolderId(folder.id)}
+        onContextMenu={e => {
+          e.preventDefault();
+          e.stopPropagation();
+          setCtx({ id: folder.id, type: 'folder', x: e.clientX, y: e.clientY });
+        }}
+      >
+        <div className="sap-subfolder-left">
+          <span className="sap-subfolder-arrow">
+            {isCollapsed ? '▸' : '▾'}
+          </span>
+          <FolderOpen size={16} className="sap-subfolder-icon" />
+          <span className="sap-subfolder-title" title={folder.name}>
+            {folder.name}
+          </span>
+          <span className="sap-subfolder-badge">
+            {totalCount} {totalCount === 1 ? 'item' : 'items'}
+          </span>
+        </div>
+
+        {/* Folder Context Menu Trigger (3 Dots) */}
+        <div className="sap-subfolder-actions" onClick={e => e.stopPropagation()}>
+          <button
+            title="Folder Options"
+            onClick={e => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setCtx({ id: folder.id, type: 'folder', x: rect.left, y: rect.bottom + 4 });
+            }}
+          >
+            <MoreVertical size={14} />
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded Content */}
+      {!isCollapsed && (
+        <div className="sap-subfolder-content">
+          {/* 📄 File Link Cards Grid */}
+          {files.length > 0 && (
+            <div className="sap-file-cards-grid">
+              {files.map(file => (
+                <div
+                  key={file.id}
+                  className="sap-file-link-card"
+                  onClick={() => setPreviewDoc(file)}
+                  onContextMenu={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY });
+                  }}
+                  title={`Preview ${file.title}`}
+                >
+                  <div className="sap-file-card-main">
+                    <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
+                    <div className="sap-file-card-text">
+                      <span className="sap-file-card-title">{file.title}</span>
+                      <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
+                    </div>
+                  </div>
+                  <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                    <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                    <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                    <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Nested Subfolders Grid (Side-by-Side) */}
+          {kids.length > 0 && (
+            <div className="sap-subfolders-grid">
+              {kids.map(child => (
+                <FlowFolderNode
+                  key={child.id}
+                  folder={child}
+                  depth={depth + 1}
+                  activeFolderId={activeFolderId}
+                  setActiveFolderId={setActiveFolderId}
+                  childFolders={childFolders}
+                  filesIn={filesIn}
+                  totalDescendantFiles={totalDescendantFiles}
+                  setPreviewDoc={setPreviewDoc}
+                  triggerRename={triggerRename}
+                  deleteFile={deleteFile}
+                  deleteFolder={deleteFolder}
+                  setShowCF={setShowCF}
+                  setNewFolderName={setNewFolderName}
+                  setCtx={setCtx}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty Folder Notice */}
+          {files.length === 0 && kids.length === 0 && (
+            <div className="sap-empty-folder-notice">
+              <span>Folder is empty</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────
    Main Component
 ───────────────────────────────────────────────────────── */
 export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
@@ -235,7 +406,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   /* ── State ── */
   const [activeFolderId, setActiveFolderId] = useState<string>(ROOT);
   const [expandedIds, setExpandedIds]       = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode]             = useState<'grid' | 'list' | 'tree'>('tree');
   const [search, setSearch]                 = useState('');
 
   /* Rename modal states */
@@ -263,29 +434,26 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
 
   /* ── Derived Data from Database Documents ── */
   const folders = useMemo<FolderNode[]>(() => {
-    return documents
-      .filter(d => d.fileType === 'folder')
+    return (documents || [])
+      .filter(d => d && d.fileType === 'folder')
       .map(d => ({
         id: d.id,
-        name: d.title,
+        name: d.title || 'Untitled Folder',
         parentId: d.category === 'root' ? ROOT : d.category
       }));
   }, [documents]);
 
   const files = useMemo<DocEntry[]>(() => {
-    return documents
-      .filter(d => d.fileType !== 'folder')
-      .map(d => {
-        const isFolderRef = d.category === 'root' || (d.category && d.category.startsWith('folder_'));
-        return {
-          ...d,
-          folderId: isFolderRef ? (d.category === 'root' ? ROOT : d.category) : ROOT
-        };
-      });
+    return (documents || [])
+      .filter(d => d && d.fileType !== 'folder')
+      .map(d => ({
+        ...d,
+        folderId: (!d.category || d.category === 'root') ? ROOT : d.category
+      }));
   }, [documents]);
 
   const childFolders = useCallback(
-    (parentId: string) => folders.filter(f => f.parentId === parentId),
+    (parentId: string) => folders.filter(f => f.parentId === parentId && f.id !== parentId),
     [folders]
   );
 
@@ -294,15 +462,18 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       const inFolder = files.filter(f => f.folderId === folderId);
       if (!search.trim()) return inFolder;
       const q = search.toLowerCase();
-      return inFolder.filter(f => f.title.toLowerCase().includes(q));
+      return inFolder.filter(f => f.title && f.title.toLowerCase().includes(q));
     },
     [files, search]
   );
 
   const totalDescendantFiles = useCallback(
-    (folderId: string): number => {
+    (folderId: string, visited = new Set<string>()): number => {
+      if (visited.has(folderId)) return 0;
+      const nextVisited = new Set(visited);
+      nextVisited.add(folderId);
       const directFiles = files.filter(f => f.folderId === folderId).length;
-      const childCount  = childFolders(folderId).reduce((sum, c) => sum + totalDescendantFiles(c.id), 0);
+      const childCount  = childFolders(folderId).reduce((sum, c) => sum + totalDescendantFiles(c.id, nextVisited), 0);
       return directFiles + childCount;
     },
     [files, childFolders]
@@ -313,10 +484,13 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
     const path: Array<{ id: string; name: string }> = [{ id: ROOT, name: 'Root' }];
     if (activeFolderId === ROOT) return path;
 
+    const visited = new Set<string>();
     const build = (id: string) => {
+      if (visited.has(id)) return;
+      visited.add(id);
       const f = folders.find(x => x.id === id);
       if (!f) return;
-      if (f.parentId !== ROOT) build(f.parentId);
+      if (f.parentId !== ROOT && f.parentId !== f.id) build(f.parentId);
       path.push({ id: f.id, name: f.name });
     };
     build(activeFolderId);
@@ -621,8 +795,9 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
             />
           </div>
           <div className="sap-view-toggle">
-            <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Grid"><Grid size={15} /></button>
-            <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')} title="List"><List size={15} /></button>
+            <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Grid View"><Grid size={15} /></button>
+            <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')} title="Table / List View"><List size={15} /></button>
+            <button className={viewMode === 'tree' ? 'active' : ''} onClick={() => setViewMode('tree')} title="Tree Hierarchy Diagram View"><Network size={15} /></button>
           </div>
           <button className="sap-btn sap-btn-ghost" onClick={() => { setShowCF(true); setNewFolderName(''); }}>
             <FolderPlus size={15} /> New Folder
@@ -718,209 +893,254 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                   <button
                     className={`sap-bc-btn${i === bc.length - 1 ? ' current' : ''}`}
                     onClick={() => setActiveFolderId(seg.id)}
+                    onContextMenu={e => {
+                      if (seg.id !== ROOT) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCtx({ id: seg.id, type: 'folder', x: e.clientX, y: e.clientY });
+                      }
+                    }}
+                    title={seg.id !== ROOT ? `Right-click for options on "${seg.name}"` : undefined}
                   >
                     {i === 0 && <Home size={12} />} {seg.name}
                   </button>
                 </React.Fragment>
               ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <button
-                className="sap-btn sap-btn-ghost"
-                style={{ fontSize: '0.78rem', padding: '0.32rem 0.7rem', gap: 5 }}
-                title={`Create folder inside ${activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}`}
-                onClick={() => { setShowCF(true); setNewFolderName(''); }}
-              >
-                <FolderPlus size={14} />
-                + Create Folder
+            {activeFolderId !== ROOT && (
+              <button className="sap-btn-back" onClick={() => {
+                const cur = folders.find(f => f.id === activeFolderId);
+                setActiveFolderId(cur?.parentId ?? ROOT);
+              }}>
+                <ArrowLeft size={13} /> Back
               </button>
-              <label 
-                className={`sap-btn sap-btn-primary ${uploading ? 'disabled' : ''}`}
-                style={{ fontSize: '0.78rem', padding: '0.32rem 0.7rem', gap: 5, cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
-                title={`Upload files inside ${activeFolderId === ROOT ? 'Root' : (activeFolder?.name ?? '')}`}
-              >
-                <Upload size={14} />
-                {uploading ? 'Uploading…' : 'Upload Files'}
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.webm,.ogg,.mov"
-                  onChange={handleUpload}
-                  style={{ display: 'none' }}
-                  disabled={uploading}
-                />
-              </label>
-              {activeFolderId !== ROOT && (
-                <button className="sap-btn-back" onClick={() => {
-                  const cur = folders.find(f => f.id === activeFolderId);
-                  setActiveFolderId(cur?.parentId ?? ROOT);
-                }}>
-                  <ArrowLeft size={13} /> Back
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Empty state */}
           {subFolders.length === 0 && activeFiles.length === 0 && (
             <div className="sap-empty">
-              <FolderPlus size={52} style={{ color: '#c3d9f7' }} />
+              <FolderPlus size={44} style={{ color: '#c3d9f7' }} />
               <p className="sap-empty-title">This folder is empty</p>
-              <p className="sap-empty-sub">Create a subfolder, upload files, or drop them directly here</p>
-              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
-                <button className="sap-btn sap-btn-ghost" onClick={() => setShowCF(true)}><FolderPlus size={14} /> New Folder</button>
-                <label className="sap-btn sap-btn-primary" style={{ cursor: 'pointer' }}>
-                  <Upload size={14} /> Upload Files
-                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.mp4,.webm,.ogg,.mov" onChange={handleUpload} style={{ display: 'none' }} />
-                </label>
-              </div>
+              <p className="sap-empty-sub">Upload files or create subfolders using the buttons in the top toolbar above</p>
             </div>
           )}
 
-          {/* Subfolders section */}
-          {subFolders.length > 0 && (
-            <section className="sap-section">
-              <div className="sap-section-header">
-                <span className="sap-section-title">Folders</span>
-                <span className="sap-section-count">{subFolders.length}</span>
-                <button
-                  className="sap-inline-add-btn"
-                  title="Create folder here"
-                  onClick={() => { setShowCF(true); setNewFolderName(''); }}
-                >
-                  <FolderPlus size={13} /> + Folder
-                </button>
+          {/* Universal Modern Enterprise Tree Diagram View */}
+          {viewMode === 'tree' ? (
+            <div className="sap-tree-diagram-container">
+              {/* 🔵 Top/Root Parent Header Banner */}
+              <div className="sap-root-header-banner">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <FolderOpen size={20} style={{ color: '#ffffff' }} />
+                  <span className="sap-root-header-title">
+                    1.{activeFolderId === ROOT ? 'Document Storage' : (activeFolder?.name ?? 'Folder')}
+                  </span>
+                </div>
+                <span className="sap-root-header-badge">{files.length} Files · {folders.length} Folders</span>
               </div>
-              <div className={viewMode === 'grid' ? 'sap-folders-grid' : 'sap-folders-list'}>
-                {subFolders.map(sf => {
-                  const count = totalDescendantFiles(sf.id);
-                  const isDragOver = dragOverFolderId === sf.id;
-                  return (
-                    <div
+
+              {/* Subfolders Grid (Side-by-Side) */}
+              {subFolders.length > 0 && (
+                <div className="sap-subfolders-grid">
+                  {subFolders.map(sf => (
+                    <FlowFolderNode
                       key={sf.id}
-                      className={`sap-folder-tile${isDragOver ? ' drag-over' : ''}`}
-                      onClick={() => {
-                        setActiveFolderId(sf.id);
-                        setExpandedIds(prev => {
-                          const n = new Set(prev);
-                          n.add(sf.id);
-                          return n;
-                        });
-                      }}
-                      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: sf.id, type: 'folder', x: e.clientX, y: e.clientY }); }}
-                      
-                      // Drag & Drop
-                      draggable={true}
-                      onDragStart={(e) => handleDragStartItem(e, sf.id, 'folder')}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOverFolderId(sf.id);
-                      }}
-                      onDragLeave={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOverFolderId(null);
-                      }}
-                      onDrop={(e) => handleDropOnFolder(e, sf.id)}
+                      folder={sf}
+                      depth={0}
+                      activeFolderId={activeFolderId}
+                      setActiveFolderId={setActiveFolderId}
+                      childFolders={childFolders}
+                      filesIn={filesIn}
+                      totalDescendantFiles={totalDescendantFiles}
+                      setPreviewDoc={setPreviewDoc}
+                      triggerRename={triggerRename}
+                      deleteFile={deleteFile}
+                      deleteFolder={deleteFolder}
+                      setShowCF={setShowCF}
+                      setNewFolderName={setNewFolderName}
+                      setCtx={setCtx}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Direct Files under current folder */}
+              {activeFiles.length > 0 && (
+                <div className="sap-file-cards-grid" style={{ marginTop: '0.25rem' }}>
+                  {activeFiles.map(file => (
+                    <div
+                      key={file.id}
+                      className="sap-file-link-card"
+                      onClick={() => setPreviewDoc(file)}
+                      title={`Preview ${file.title}`}
                     >
-                      <div className="sap-folder-tile-icon">
-                        <FolderOpen size={viewMode === 'grid' ? 40 : 22} style={{ color: '#0070f2' }} />
-                      </div>
-                      <div className="sap-folder-tile-info">
-                        <span className="sap-folder-tile-name">{sf.name}</span>
-                        <span className="sap-folder-tile-sub">{count} item{count !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="sap-folder-tile-actions">
-                        <button title="Rename" onClick={e => { e.stopPropagation(); triggerRename(sf.id, 'folder', sf.name); }}><Edit2 size={13} /></button>
-                        <button title="Delete" className="danger" onClick={e => { e.stopPropagation(); deleteFolder(sf.id); }}><Trash2 size={13} /></button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Files section */}
-          {activeFiles.length > 0 && (
-            <section className="sap-section">
-              <div className="sap-section-header">
-                <span className="sap-section-title">Files</span>
-                <span className="sap-section-count">{activeFiles.length}</span>
-              </div>
-
-              {viewMode === 'grid' ? (
-                <div className="sap-files-grid">
-                  {activeFiles.map(file => {
-                    return (
-                      <div
-                        key={file.id}
-                        className="sap-file-card"
-                        style={{ background: fileColor[file.fileType] ?? '#f7fafc' }}
-                        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
-                        
-                        // Drag file card
-                        draggable={true}
-                        onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
-                      >
+                      <div className="sap-file-card-main">
                         <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
-                        <span className="sap-file-card-name" title={file.title}>{file.title}</span>
-                        <span className="sap-file-card-type">{file.fileType.toUpperCase()} · {file.date}</span>
-                        <div className="sap-file-card-actions">
-                          <button onClick={() => setPreviewDoc(file)} title="Preview"><Eye size={13} /></button>
-                          <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
-                          <button onClick={() => triggerRename(file.id, 'file', file.title)} title="Rename"><Edit2 size={13} /></button>
-                          <button className="danger" onClick={() => deleteFile(file)} title="Delete"><Trash2 size={13} /></button>
+                        <div className="sap-file-card-text">
+                          <span className="sap-file-card-title">{file.title}</span>
+                          <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
                         </div>
                       </div>
-                    );
-                  })}
+                      <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                        <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                        <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                        <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                        <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <div className="sap-files-table-wrap">
-                  <table className="sap-files-table">
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>File Name</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Subfolders section */}
+              {subFolders.length > 0 && (
+                <section className="sap-section">
+                  <div className="sap-section-header">
+                    <span className="sap-section-title">Folders</span>
+                    <span className="sap-section-count">{subFolders.length}</span>
+                    <button
+                      className="sap-inline-add-btn"
+                      title="Create folder here"
+                      onClick={() => { setShowCF(true); setNewFolderName(''); }}
+                    >
+                      <FolderPlus size={13} /> + Folder
+                    </button>
+                  </div>
+                  <div className={viewMode === 'grid' ? 'sap-folders-grid' : 'sap-folders-list'}>
+                    {subFolders.map(sf => {
+                      const count = totalDescendantFiles(sf.id);
+                      const isDragOver = dragOverFolderId === sf.id;
+                      return (
+                        <div
+                          key={sf.id}
+                          className={`sap-folder-tile${isDragOver ? ' drag-over' : ''}`}
+                          onClick={() => {
+                            setActiveFolderId(sf.id);
+                            setExpandedIds(prev => {
+                              const n = new Set(prev);
+                              n.add(sf.id);
+                              return n;
+                            });
+                          }}
+                          onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: sf.id, type: 'folder', x: e.clientX, y: e.clientY }); }}
+                          
+                          // Drag & Drop
+                          draggable={true}
+                          onDragStart={(e) => handleDragStartItem(e, sf.id, 'folder')}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverFolderId(sf.id);
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverFolderId(null);
+                          }}
+                          onDrop={(e) => handleDropOnFolder(e, sf.id)}
+                        >
+                          <div className="sap-folder-tile-icon">
+                            <FolderOpen size={viewMode === 'grid' ? 40 : 22} style={{ color: '#0070f2' }} />
+                          </div>
+                          <div className="sap-folder-tile-info">
+                            <span className="sap-folder-tile-name">{sf.name}</span>
+                            <span className="sap-folder-tile-sub">{count} item{count !== 1 ? 's' : ''}</span>
+                          </div>
+                          <div className="sap-folder-tile-actions">
+                            <button title="Rename" onClick={e => { e.stopPropagation(); triggerRename(sf.id, 'folder', sf.name); }}><Edit2 size={13} /></button>
+                            <button title="Delete" className="danger" onClick={e => { e.stopPropagation(); deleteFolder(sf.id); }}><Trash2 size={13} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Files section */}
+              {activeFiles.length > 0 && (
+                <section className="sap-section">
+                  <div className="sap-section-header">
+                    <span className="sap-section-title">Files</span>
+                    <span className="sap-section-count">{activeFiles.length}</span>
+                  </div>
+
+                  {viewMode === 'grid' ? (
+                    <div className="sap-files-grid">
                       {activeFiles.map(file => {
                         return (
-                          <tr 
-                            key={file.id} 
+                          <div
+                            key={file.id}
+                            className="sap-file-card"
+                            style={{ background: fileColor[file.fileType] ?? '#f7fafc' }}
                             onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
                             
-                            // Drag table row
+                            // Drag file card
                             draggable={true}
                             onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
                           >
-                            <td style={{ width: 44 }}>{fileIcon(file.fileType)}</td>
-                            <td>
-                              <span className="sap-table-filename">{file.title}</span>
-                              <span className="sap-table-filemeta">{file.fileType.toUpperCase()}</span>
-                            </td>
-                            <td className="sap-table-date">{file.date}</td>
-                            <td>
-                              <div className="sap-table-actions">
-                                <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
-                                <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
-                                <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
-                                <button title="Delete" className="danger" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
-                              </div>
-                            </td>
-                          </tr>
+                            <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
+                            <span className="sap-file-card-name" title={file.title}>{file.title}</span>
+                            <span className="sap-file-card-type">{file.fileType.toUpperCase()} · {file.date}</span>
+                            <div className="sap-file-card-actions">
+                              <button onClick={() => setPreviewDoc(file)} title="Preview"><Eye size={13} /></button>
+                              <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                              <button onClick={() => triggerRename(file.id, 'file', file.title)} title="Rename"><Edit2 size={13} /></button>
+                              <button className="danger" onClick={() => deleteFile(file)} title="Delete"><Trash2 size={13} /></button>
+                            </div>
+                          </div>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  ) : (
+                    <div className="sap-files-table-wrap">
+                      <table className="sap-files-table">
+                        <thead>
+                          <tr>
+                            <th>Type</th>
+                            <th>File Name</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeFiles.map(file => {
+                            return (
+                              <tr 
+                                key={file.id} 
+                                onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
+                                
+                                // Drag table row
+                                draggable={true}
+                                onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                              >
+                                <td style={{ width: 44 }}>{fileIcon(file.fileType)}</td>
+                                <td>
+                                  <span className="sap-table-filename">{file.title}</span>
+                                  <span className="sap-table-filemeta">{file.fileType.toUpperCase()}</span>
+                                </td>
+                                <td className="sap-table-date">{file.date}</td>
+                                <td>
+                                  <div className="sap-table-actions">
+                                    <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                                    <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                                    <button title="Delete" className="danger" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
               )}
-            </section>
+            </>
           )}
         </main>
       </div>
@@ -991,6 +1211,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
           {ctx.type === 'folder' ? (
             <>
               <button onClick={() => { setActiveFolderId(ctx.id); setExpandedIds(p => { const n = new Set(p); n.add(ctx.id); return n; }); setCtx(null); }}><FolderOpen size={13} /> Open</button>
+              <button onClick={() => { setActiveFolderId(ctx.id); setCtx(null); setTimeout(() => fileInputRef.current?.click(), 50); }}><Upload size={13} /> Upload File</button>
               <button onClick={() => { const f = folders.find(x => x.id === ctx.id); if (f) triggerRename(ctx.id, 'folder', f.name); setCtx(null); }}><Edit2 size={13} /> Rename</button>
               <button onClick={() => { setActiveFolderId(ctx.id); setShowCF(true); setCtx(null); }}><FolderPlus size={13} /> New Subfolder</button>
               <hr className="sap-ctx-sep" />
@@ -1236,13 +1457,309 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
         .sap-modal-sub { font-size: 0.8rem; color: #8c9cb0; margin: 0; }
         .sap-modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem; }
 
+        /* ──────────── Universal Modern Enterprise Tree Palette ──────────── */
+        .sap-tree-diagram-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          padding: 0.25rem 0;
+        }
+
+        /* 🔵 Top/Root Parent Header Banner: Deep professional blue */
+        .sap-root-header-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          background: linear-gradient(135deg, #0070f2 0%, #0057c2 100%);
+          color: #ffffff;
+          font-weight: 800;
+          font-size: 1rem;
+          padding: 12px 18px;
+          border-radius: 8px;
+          box-shadow: 0 4px 14px rgba(0, 112, 242, 0.25);
+          letter-spacing: 0.02em;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .sap-root-header-title {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #ffffff;
+        }
+        .sap-root-header-badge {
+          background: rgba(255, 255, 255, 0.22);
+          color: #ffffff;
+          font-size: 0.78rem;
+          font-weight: 700;
+          padding: 3px 10px;
+          border-radius: 12px;
+        }
+
+        .sap-subfolders-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 12px;
+          width: 100%;
+        }
+
+        .sap-flow-folder-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          width: 100%;
+          transition: all 0.15s ease;
+          grid-column: span 1;
+        }
+        .sap-flow-folder-group.expanded {
+          grid-column: 1 / -1;
+        }
+
+        /* 🔷 Subfolder Banner: Soft ice blue (#e8f0fe) with primary blue border (#0070f2) and dark blue text (#0057c2) */
+        .sap-subfolder-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          background: #e8f0fe;
+          color: #0057c2;
+          font-weight: 700;
+          font-size: 0.9rem;
+          padding: 9px 14px;
+          border: 1.5px solid #0070f2;
+          border-radius: 6px;
+          box-shadow: 0 1px 4px rgba(0, 112, 242, 0.1);
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.15s ease;
+          gap: 8px;
+        }
+        .sap-subfolder-banner:hover {
+          background: #0070f2;
+          color: #ffffff;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 112, 242, 0.2);
+        }
+        .sap-subfolder-banner:hover .sap-subfolder-arrow,
+        .sap-subfolder-banner:hover .sap-subfolder-icon {
+          color: #ffffff !important;
+        }
+        .sap-subfolder-banner:hover .sap-subfolder-badge {
+          background: rgba(255, 255, 255, 0.25);
+          color: #ffffff;
+        }
+        .sap-subfolder-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          flex: 1;
+        }
+        .sap-subfolder-arrow {
+          font-size: 0.85rem;
+          color: #0057c2;
+          flex-shrink: 0;
+          width: 12px;
+        }
+        .sap-subfolder-icon {
+          color: #0057c2;
+          flex-shrink: 0;
+        }
+        .sap-subfolder-title {
+          font-weight: 700;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sap-subfolder-badge {
+          background: #ffffff;
+          color: #0070f2;
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 1px 8px;
+          border-radius: 10px;
+          flex-shrink: 0;
+        }
+
+        .sap-subfolder-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+        .sap-subfolder-actions button {
+          background: #ffffff;
+          border: 1px solid #bcd3f7;
+          color: #0070f2;
+          border-radius: 4px;
+          padding: 3px 7px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          transition: all 0.12s;
+        }
+        .sap-subfolder-banner:hover .sap-subfolder-actions button {
+          background: rgba(255, 255, 255, 0.2);
+          border-color: rgba(255, 255, 255, 0.4);
+          color: #ffffff;
+        }
+        .sap-subfolder-actions button:hover,
+        .sap-subfolder-banner:hover .sap-subfolder-actions button:hover {
+          background: #ffffff !important;
+          color: #0070f2 !important;
+        }
+        .sap-subfolder-actions button.danger:hover,
+        .sap-subfolder-banner:hover .sap-subfolder-actions button.danger:hover {
+          background: #e53e3e !important;
+          color: #ffffff !important;
+          border-color: #e53e3e !important;
+        }
+
+        .sap-subfolder-content {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          width: 100%;
+          padding-top: 0.25rem;
+        }
+        .sap-subfolder-nested-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.65rem;
+          width: 100%;
+        }
+
+        /* 📄 Side-by-Side File Link Cards (Full Space Utilization) */
+        .sap-file-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 12px;
+          width: 100%;
+        }
+        .sap-file-link-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: #ffffff;
+          border: 1px solid #d1dce8;
+          border-radius: 6px;
+          padding: 10px 14px;
+          cursor: pointer;
+          transition: all 0.15s ease-in-out;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+          min-width: 0;
+        }
+        .sap-file-link-card:hover {
+          background: #f0f7ff;
+          border-color: #0070f2;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 112, 242, 0.12);
+        }
+        .sap-file-card-main {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          flex: 1;
+        }
+        .sap-file-card-icon {
+          flex-shrink: 0;
+        }
+        .sap-file-card-text {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1;
+        }
+        .sap-file-card-title {
+          font-weight: 600;
+          font-size: 0.85rem;
+          color: #2d3a4a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sap-file-card-meta {
+          font-size: 0.68rem;
+          color: #8c9cb0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sap-file-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-shrink: 0;
+          opacity: 0.7;
+          transition: opacity 0.15s;
+        }
+        .sap-file-link-card:hover .sap-file-card-actions {
+          opacity: 1;
+        }
+        .sap-file-card-actions button, .sap-file-card-actions a {
+          background: #ffffff;
+          border: 1px solid #d1dce8;
+          border-radius: 4px;
+          padding: 3px 6px;
+          color: #4a5568;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          transition: all 0.12s;
+        }
+        .sap-file-card-actions button:hover, .sap-file-card-actions a:hover {
+          background: #0070f2;
+          color: #ffffff;
+          border-color: #0070f2;
+        }
+        .sap-file-card-actions button.danger:hover {
+          background: #e53e3e;
+          color: #ffffff;
+          border-color: #e53e3e;
+        }
+
+        .sap-empty-folder-notice {
+          padding: 6px 12px;
+          font-size: 0.75rem;
+          font-style: italic;
+          color: #8c9cb0;
+        }
+
+        /* Mobile Responsiveness Improvements */
         @media (max-width: 768px) {
-          .sap-nav { width: 180px; }
-          .sap-folders-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+          .sap-nav {
+            width: 100% !important;
+            max-height: 180px;
+            border-right: none;
+            border-bottom: 1px solid #d1dce8;
+          }
+          .sap-file-cards-grid {
+            grid-template-columns: 1fr;
+          }
+          .hide-mobile {
+            display: none;
+          }
+          .sap-toolbar {
+            padding: 0.5rem 0.75rem;
+          }
+          .sap-main {
+            padding: 0.5rem;
+          }
+          .sap-folders-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          }
         }
         @media (max-width: 600px) {
-          .sap-body { flex-direction: column; }
-          .sap-nav { width: 100%; max-height: 160px; border-right: none; border-bottom: 1px solid #d1dce8; }
+          .sap-body {
+            flex-direction: column;
+          }
         }
       `}</style>
     </div>
