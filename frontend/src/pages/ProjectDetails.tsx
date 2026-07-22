@@ -41,7 +41,6 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   // Gallery slider state
   const [activeImgIdx, setActiveImgIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'units' | 'payment'>('overview');
 
   // Form state
   const [name, setName] = useState('');
@@ -423,275 +422,188 @@ Email: jkfutureinfra@gmail.com
             )}
           </div>
 
-          {/* SINGLE PAGE TAB NAVIGATION */}
-          <div style={{ display: 'flex', gap: '0.4rem', borderBottom: '2px solid #e2e8f0', marginBottom: '0.75rem', background: '#f8fafc', padding: '0.35rem 0.5rem', borderRadius: '8px 8px 0 0' }}>
-            <button
-              onClick={() => setActiveTab('overview')}
-              style={{
-                padding: '0.45rem 0.9rem',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeTab === 'overview' ? 'var(--primary)' : 'transparent',
-                color: activeTab === 'overview' ? '#ffffff' : '#64748b',
-                transition: 'all 0.2s'
-              }}
-            >
-              📋 Overview &amp; Specifications
-            </button>
-            <button
-              onClick={() => setActiveTab('units')}
-              style={{
-                padding: '0.45rem 0.9rem',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeTab === 'units' ? 'var(--primary)' : 'transparent',
-                color: activeTab === 'units' ? '#ffffff' : '#64748b',
-                transition: 'all 0.2s'
-              }}
-            >
-              🏠 Availability &amp; Highlights
-            </button>
-            <button
-              onClick={() => setActiveTab('payment')}
-              style={{
-                padding: '0.45rem 0.9rem',
-                fontWeight: 700,
-                fontSize: '0.82rem',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                backgroundColor: activeTab === 'payment' ? 'var(--primary)' : 'transparent',
-                color: activeTab === 'payment' ? '#ffffff' : '#64748b',
-                transition: 'all 0.2s'
-              }}
-            >
-              💳 Payment &amp; Timeline
-            </button>
-          </div>
-
-          {/* TAB PANELS */}
-          {activeTab === 'overview' && (
-            <div className="tab-panel flex flex-col gap-2">
-              {project.description && (
-                <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Project Overview</h4>
-                  <p className="text-muted" style={{ fontSize: '0.85rem', lineHeight: '1.5', margin: 0 }}>{project.description}</p>
-                </div>
-              )}
-
-              <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Specifications &amp; Configurations</h4>
-                <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                        <th style={{ padding: '0.5rem 0.85rem', color: 'var(--primary)', fontWeight: 700, width: '40%' }}>Specification</th>
-                        <th style={{ padding: '0.5rem 0.85rem', color: 'var(--primary)', fontWeight: 700, width: '60%' }}>Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {project.city && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><MapPin size={15} style={{ color: 'var(--secondary)' }} /> City</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.city}</td>
-                        </tr>
-                      )}
-                      {project.classification && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Tag size={15} style={{ color: 'var(--secondary)' }} /> Classification</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.classification}</td>
-                        </tr>
-                      )}
-                      {project.microLocation && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={15} style={{ color: 'var(--secondary)' }} /> Micro Location</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.microLocation}</td>
-                        </tr>
-                      )}
-                      {project.facing && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={15} style={{ color: 'var(--secondary)' }} /> Facing Direction</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.facing}</td>
-                        </tr>
-                      )}
-                      {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Layers size={15} style={{ color: 'var(--secondary)' }} /> Total Floors</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>G+{project.floors}</td>
-                        </tr>
-                      )}
-                      {project.unitsCount !== undefined && project.unitsCount > 0 && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Home size={15} style={{ color: 'var(--secondary)' }} /> Total Units</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.unitsCount}</td>
-                        </tr>
-                      )}
-                      {project.category === 'Sites' && project.uds && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Sparkles size={15} style={{ color: 'var(--secondary)' }} /> Total Area</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.uds} Sq. Yds</td>
-                        </tr>
-                      )}
-                      {project.width && project.length && (
-                        <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><SlidersHorizontal size={15} style={{ color: 'var(--secondary)' }} /> Dimensions</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 700, color: 'var(--primary)' }}>{project.width} x {project.length} ft</td>
-                        </tr>
-                      )}
-                      {project.priceRange && (
-                        <tr style={{ backgroundColor: '#ffffff' }}>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Landmark size={15} style={{ color: 'var(--secondary)' }} /> Price Range</span>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.85rem', fontWeight: 800, color: 'var(--secondary)', fontSize: '0.95rem' }}>{project.priceRange}</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          {/* Project Overview */}
+          {project.description && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Project Overview</h3>
+              <p className="text-muted" style={{ fontSize: '0.9rem', lineHeight: '1.6', margin: 0 }}>{project.description}</p>
             </div>
           )}
 
-          {activeTab === 'units' && (
-            <div className="tab-panel flex flex-col gap-2">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-                {project.availabilityDetails && (
-                  <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Configurations &amp; Availability</h4>
-                    <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                            <th style={{ padding: '0.5rem 0.75rem', color: 'var(--primary)', fontWeight: 700 }}>Type</th>
-                            <th style={{ padding: '0.5rem 0.75rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
-                            {project.availabilityDetails.includes(':') && project.availabilityDetails.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim()) && (
-                              <th style={{ padding: '0.5rem 0.75rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq.Yds)</th>
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {project.availabilityDetails.split(',').map((part, idx) => {
-                            const parts = part.split(':').map(s => s.trim());
-                            const type = parts[0];
-                            const qty = parts[1];
-                            const udsVal = parts[2];
-                            const countNum = parseInt(qty || '0', 10);
-                            const isAvailable = !isNaN(countNum) && countNum > 0;
-                            const hasUdsCol = project.availabilityDetails?.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim());
+          {/* Specifications Card */}
+          <div className="detail-card admin-card mb-3">
+            <h3 className="border-bottom-title mb-2">Specifications &amp; Configurations</h3>
+            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                    <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '40%' }}>Specification</th>
+                    <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '60%' }}>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {project.city && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><MapPin size={16} style={{ color: 'var(--secondary)' }} /> City</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.city}</td>
+                    </tr>
+                  )}
+                  {project.classification && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Tag size={16} style={{ color: 'var(--secondary)' }} /> Classification</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.classification}</td>
+                    </tr>
+                  )}
+                  {project.microLocation && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={16} style={{ color: 'var(--secondary)' }} /> Micro Location</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.microLocation}</td>
+                    </tr>
+                  )}
+                  {project.facing && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={16} style={{ color: 'var(--secondary)' }} /> Facing Direction</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.facing}</td>
+                    </tr>
+                  )}
+                  {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Layers size={16} style={{ color: 'var(--secondary)' }} /> Total Floors</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>G+{project.floors}</td>
+                    </tr>
+                  )}
+                  {project.unitsCount !== undefined && project.unitsCount > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Home size={16} style={{ color: 'var(--secondary)' }} /> Total Units</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.unitsCount}</td>
+                    </tr>
+                  )}
+                  {project.category === 'Sites' && project.uds && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Sparkles size={16} style={{ color: 'var(--secondary)' }} /> Total Area</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.uds} Sq. Yds</td>
+                    </tr>
+                  )}
+                  {project.width && project.length && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><SlidersHorizontal size={16} style={{ color: 'var(--secondary)' }} /> Dimensions</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.width} x {project.length} ft</td>
+                    </tr>
+                  )}
+                  {project.priceRange && (
+                    <tr style={{ backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Landmark size={16} style={{ color: 'var(--secondary)' }} /> Price Range</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 800, color: 'var(--secondary)', fontSize: '1rem' }}>{project.priceRange}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                            return (
-                              <tr key={idx} style={{ borderBottom: idx < project.availabilityDetails!.split(',').length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
-                                <td style={{ padding: '0.5rem 0.75rem' }}>
-                                  <span 
-                                    className="badge" 
-                                    style={{
-                                      backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
-                                      color: isAvailable ? '#1e7e34' : '#c5221f',
-                                      border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
-                                      padding: '0.2rem 0.5rem',
-                                      fontSize: '0.75rem',
-                                      fontWeight: 700
-                                    }}
-                                  >
-                                    {isAvailable ? `${qty} Units` : '0 Units'}
-                                  </span>
-                                </td>
-                                {hasUdsCol && (
-                                  <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: '#475569' }}>
-                                    {udsVal ? `${udsVal} Sq.Yds` : '-'}
-                                  </td>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {project.highlights && project.highlights.length > 0 && (
-                  <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                    <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Key Highlights</h4>
-                    <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                            <th style={{ padding: '0.5rem 0.5rem', color: 'var(--primary)', fontWeight: 700, width: '40px', textAlign: 'center' }}>#</th>
-                            <th style={{ padding: '0.5rem 0.75rem', color: 'var(--primary)', fontWeight: 700 }}>Highlight Details</th>
-                            <th style={{ padding: '0.5rem 0.5rem', color: 'var(--primary)', fontWeight: 700, width: '80px', textAlign: 'center' }}>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {project.highlights.map((hl, i) => (
-                            <tr key={i} style={{ borderBottom: i < project.highlights.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                              <td style={{ padding: '0.5rem 0.5rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
-                              <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: 'var(--primary)' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                  <CheckCircle2 size={15} style={{ color: 'var(--secondary)' }} />
-                                  {hl}
-                                </span>
-                              </td>
-                              <td style={{ padding: '0.5rem 0.5rem', textAlign: 'center' }}>
-                                <span style={{ backgroundColor: '#e1f4e9', color: '#1e7e34', border: '1px solid #c3edd5', padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>Included</span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {project.amenities && project.amenities.length > 0 && (
-                <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Modern Amenities</h4>
-                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+          {/* Side-by-side grid for Configurations & Availability and Key Highlights */}
+          {(project.availabilityDetails || (project.highlights && project.highlights.length > 0)) && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+              {/* Configurations & Availability */}
+              {project.availabilityDetails ? (
+                <div className="detail-card admin-card" style={{ marginBottom: 0 }}>
+                  <h3 className="border-bottom-title mb-2">Configurations &amp; Availability</h3>
+                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                       <thead>
                         <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                          <th style={{ padding: '0.5rem 0.5rem', color: 'var(--primary)', fontWeight: 700, width: '40px', textAlign: 'center' }}>#</th>
-                          <th style={{ padding: '0.5rem 0.75rem', color: 'var(--primary)', fontWeight: 700 }}>Amenity Name</th>
-                          <th style={{ padding: '0.5rem 0.5rem', color: 'var(--primary)', fontWeight: 700, width: '100px', textAlign: 'center' }}>Availability</th>
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Type</th>
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
+                          {project.availabilityDetails.includes(':') && project.availabilityDetails.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim()) && (
+                            <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq.Yds)</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
-                        {project.amenities.map((am, i) => (
-                          <tr key={i} style={{ borderBottom: i < project.amenities.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                            <td style={{ padding: '0.5rem 0.5rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
-                            <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: 'var(--primary)' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <CheckCircle2 size={15} style={{ color: '#16a34a' }} />
-                                {am}
+                        {project.availabilityDetails.split(',').map((part, idx) => {
+                          const parts = part.split(':').map(s => s.trim());
+                          const type = parts[0];
+                          const qty = parts[1];
+                          const udsVal = parts[2];
+                          const countNum = parseInt(qty || '0', 10);
+                          const isAvailable = !isNaN(countNum) && countNum > 0;
+                          const hasUdsCol = project.availabilityDetails?.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim());
+
+                          return (
+                            <tr key={idx} style={{ borderBottom: idx < project.availabilityDetails!.split(',').length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                              <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
+                              <td style={{ padding: '0.65rem 1rem' }}>
+                                <span 
+                                  className="badge" 
+                                  style={{
+                                    backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
+                                    color: isAvailable ? '#1e7e34' : '#c5221f',
+                                    border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
+                                    padding: '0.25rem 0.6rem',
+                                    fontSize: '0.8rem',
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  {isAvailable ? `${qty} Units` : '0 Units'}
+                                </span>
+                              </td>
+                              {hasUdsCol && (
+                                <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
+                                  {udsVal ? `${udsVal} Sq.Yds` : '-'}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : <div />}
+
+              {/* Key Highlights Table */}
+              {project.highlights && project.highlights.length > 0 ? (
+                <div className="detail-card admin-card" style={{ marginBottom: 0 }}>
+                  <h3 className="border-bottom-title mb-2">Key Highlights</h3>
+                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '50px', textAlign: 'center' }}>#</th>
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Highlight Details</th>
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '90px', textAlign: 'center' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {project.highlights.map((hl, i) => (
+                          <tr key={i} style={{ borderBottom: i < project.highlights.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
+                            <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: 'var(--primary)' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <CheckCircle2 size={16} style={{ color: 'var(--secondary)' }} />
+                                {hl}
                               </span>
                             </td>
-                            <td style={{ padding: '0.5rem 0.5rem', textAlign: 'center' }}>
-                              <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.15rem 0.35rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>Available</span>
+                            <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
+                              <span style={{ backgroundColor: '#e1f4e9', color: '#1e7e34', border: '1px solid #c3edd5', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Included</span>
                             </td>
                           </tr>
                         ))}
@@ -699,67 +611,86 @@ Email: jkfutureinfra@gmail.com
                     </table>
                   </div>
                 </div>
-              )}
+              ) : <div />}
             </div>
           )}
 
-          {activeTab === 'payment' && (
-            <div className="tab-panel flex flex-col gap-2">
-              {project.paymentPlans && project.paymentPlans.length > 0 && (
-                <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Standard Payment Schedule</h4>
-                  <ul className="payment-plans-list" style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
-                    {project.paymentPlans.map((plan, i) => (
-                      <li key={i} className="text-sm py-0.5" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem', paddingTop: '0.35rem' }}>
-                        <span className="text-secondary font-bold">Step {i+1}:</span> {plan}
-                      </li>
+          {/* Amenities Table */}
+          {project.amenities && project.amenities.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Modern Amenities</h3>
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '80px', textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Amenity Name</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '140px', textAlign: 'center' }}>Availability</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {project.amenities.map((am, i) => (
+                      <tr key={i} style={{ borderBottom: i < project.amenities.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
+                            {am}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
+                          <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Available</span>
+                        </td>
+                      </tr>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-              {project.timeline && project.timeline.length > 0 && (
-                <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Construction Progress Timeline</h4>
-                  <div className="timeline-trail flex flex-col gap-2">
-                    {project.timeline.map((event, i) => (
-                      <div key={event.id} className="timeline-node flex gap-2">
-                        <div className="timeline-marker-box">
-                          <div className="timeline-dot" />
-                          {i < project.timeline.length - 1 && <div className="timeline-line" />}
-                        </div>
-                        <div className="timeline-node-content">
-                          <span className="timeline-node-date text-secondary font-bold text-sm">{event.date}</span>
-                          <h4 style={{ margin: 0, fontSize: '0.9rem' }}>{event.title}</h4>
-                          <p className="text-muted text-sm" style={{ margin: 0 }}>{event.desc}</p>
-                        </div>
-                      </div>
-                    ))}
+          {/* Timeline Milestones */}
+          {project.timeline && project.timeline.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Construction Progress Timeline</h3>
+              <div className="timeline-trail flex flex-col gap-2">
+                {project.timeline.map((event, i) => (
+                  <div key={event.id} className="timeline-node flex gap-2">
+                    <div className="timeline-marker-box">
+                      <div className="timeline-dot" />
+                      {i < project.timeline.length - 1 && <div className="timeline-line" />}
+                    </div>
+                    <div className="timeline-node-content">
+                      <span className="timeline-node-date text-secondary font-bold text-sm">{event.date}</span>
+                      <h4>{event.title}</h4>
+                      <p className="text-muted text-sm">{event.desc}</p>
+                    </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+            </div>
+          )}
 
-              {(!isMarketing || showMap) && (
-                <div className="detail-card admin-card" style={{ padding: '0.85rem 1rem', marginBottom: 0 }}>
-                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem', marginBottom: '0.4rem' }}>Google Map Location</h4>
-                  <div className="detail-map-box" style={{ height: '200px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                    <iframe 
-                      src={`https://maps.google.com/maps?q=${
-                        project.mapCoordinates && project.mapCoordinates.lat && project.mapCoordinates.lng
-                          ? `${project.mapCoordinates.lat},${project.mapCoordinates.lng}`
-                          : encodeURIComponent(project.name + ', ' + project.location)
-                      }&z=15&output=embed`} 
-                      width="100%" 
-                      height="100%" 
-                      style={{ border: 0 }} 
-                      allowFullScreen={false} 
-                      loading="lazy" 
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="Google Map Locator"
-                    />
-                  </div>
-                </div>
-              )}
+          {/* Map Location — hidden for marketing projects unless showMap is enabled */}
+          {(!isMarketing || showMap) && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Google Map Location</h3>
+              <div className="detail-map-box" style={{ height: '300px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                <iframe 
+                  src={`https://maps.google.com/maps?q=${
+                    project.mapCoordinates && project.mapCoordinates.lat && project.mapCoordinates.lng
+                      ? `${project.mapCoordinates.lat},${project.mapCoordinates.lng}`
+                      : encodeURIComponent(project.name + ', ' + project.location)
+                  }&z=15&output=embed`} 
+                  width="100%" 
+                  height="100%" 
+                  style={{ border: 0 }} 
+                  allowFullScreen={false} 
+                  loading="lazy" 
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Google Map Locator"
+                />
+              </div>
             </div>
           )}
         </div>
