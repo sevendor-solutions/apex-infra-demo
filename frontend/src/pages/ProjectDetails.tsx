@@ -412,7 +412,7 @@ Email: jkfutureinfra@gmail.com
                 backgroundColor: '#0f172a',
                 display: 'flex',
                 alignItems: 'center',
-                justify: 'center',
+                justifyContent: 'center',
                 position: 'relative',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 cursor: 'pointer'
@@ -451,7 +451,7 @@ Email: jkfutureinfra@gmail.com
                       border: idx === activeImgIdx ? '2.5px solid var(--secondary)' : '1px solid #cbd5e1',
                       display: 'flex',
                       alignItems: 'center',
-                      justify: 'center'
+                      justifyContent: 'center'
                     }}
                   >
                     <img src={img} alt="Thumbnail" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} />
