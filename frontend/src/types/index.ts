@@ -64,6 +64,9 @@ export interface Project {
   marketingResult?: string;
   isMarketing?: boolean;
   agentId?: string;
+  referredByName?: string;
+  referredByPhone?: string;
+  referredRemarks?: string;
   autoPostSocial?: boolean;
 }
 

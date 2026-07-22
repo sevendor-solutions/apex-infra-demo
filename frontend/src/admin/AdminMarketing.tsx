@@ -335,6 +335,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [remarks, setRemarks] = useState('');
   const [marketingResult, setMarketingResult] = useState('');
   const [agentId, setAgentId] = useState('');
+  const [referredByName, setReferredByName] = useState('');
+  const [referredByPhone, setReferredByPhone] = useState('');
+  const [referredRemarks, setReferredRemarks] = useState('');
 
   // (single-page form — no tab state needed)
 
@@ -375,6 +378,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setRemarks('');
     setMarketingResult('');
     setAgentId('');
+    setReferredByName('');
+    setReferredByPhone('');
+    setReferredRemarks('');
 
     setModalOpen(true);
   };
@@ -422,6 +428,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setRemarks(prop.remarks || '');
     setMarketingResult(prop.marketingResult || '');
     setAgentId(prop.agentId || '');
+    setReferredByName(prop.referredByName || '');
+    setReferredByPhone(prop.referredByPhone || '');
+    setReferredRemarks(prop.referredRemarks || '');
 
     setModalOpen(true);
   };
@@ -566,6 +575,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       remarks: remarks || undefined,
       marketingResult: !isActive ? (marketingResult || undefined) : undefined,
       agentId: agentId || undefined,
+      referredByName: referredByName || undefined,
+      referredByPhone: referredByPhone || undefined,
+      referredRemarks: referredRemarks || undefined,
       autoPostSocial
     };
 
@@ -793,6 +805,25 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
           >
             {active ? 'Active' : `Inactive (${r.marketingResult || 'No Outcome'})`}
           </span>
+        );
+      }
+    },
+    {
+      key: 'referredByName',
+      label: 'Referred By',
+      render: (_v, row) => {
+        const r = row as any;
+        if (!r.referredByName && !r.referredByPhone && !r.referredRemarks) return <span style={{ color: 'var(--text-muted)' }}>-</span>;
+        return (
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--text-dark)' }}>{r.referredByName || 'N/A'}</div>
+            {r.referredByPhone && (
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📞 {r.referredByPhone}</div>
+            )}
+            {r.referredRemarks && (
+              <div style={{ fontSize: '0.75rem', color: '#0854a0', fontStyle: 'italic' }}>💬 {r.referredRemarks}</div>
+            )}
+          </div>
         );
       }
     },
@@ -1432,10 +1463,43 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   </div>
                 </div>
 
-                    <div className="modal-section-title">Marketing Status &amp; Remarks</div>
-                <div className={!isActive ? "grid grid-3 gap-2" : "grid grid-2 gap-2"}>
-                  <div className="form-group">
-                    <label className="form-label">Marketing Status</label>
+                    <div className="modal-section-title">Referral Details &amp; Marketing Remarks</div>
+                <div className="grid grid-3 gap-2" style={{ marginBottom: '1rem', alignItems: 'end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Referred By Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Rahul Sharma"
+                      value={referredByName}
+                      onChange={e => setReferredByName(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Referred By Phone</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="e.g. 9876543210"
+                      value={referredByPhone}
+                      onChange={e => setReferredByPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Referral Remarks</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Commission / referral details"
+                      value={referredRemarks}
+                      onChange={e => setReferredRemarks(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className={!isActive ? "grid grid-3 gap-2" : "grid grid-2 gap-2"} style={{ alignItems: 'end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Marketing Status</label>
                     <select
                       className="form-control"
                       value={isActive ? 'Active' : 'Inactive'}
@@ -1452,8 +1516,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     </select>
                   </div>
                   {!isActive && (
-                    <div className="form-group">
-                      <label className="form-label">Deal Outcome *</label>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Deal Outcome *</label>
                       <select
                         className="form-control"
                         value={marketingResult}
@@ -1466,12 +1530,12 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       </select>
                     </div>
                   )}
-                  <div className="form-group">
-                    <label className="form-label">Success/Failure Remarks</label>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ minHeight: '32px', display: 'flex', alignItems: 'flex-end', marginBottom: '0.35rem' }}>Marketing Remarks</label>
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="e.g. Lead converted successfully"
+                      placeholder="e.g. Deal notes / marketing outcome"
                       value={remarks}
                       onChange={e => setRemarks(e.target.value)}
                     />

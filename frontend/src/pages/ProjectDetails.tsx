@@ -431,132 +431,146 @@ Email: jkfutureinfra@gmail.com
           <div className="detail-card admin-card mb-3">
             <h3 className="border-bottom-title mb-2">Specifications & Configurations</h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-              {project.city && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><MapPin size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>City</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.city}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.classification && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Tag size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Classification</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.classification}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.microLocation && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Compass size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Micro Location</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.microLocation}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.facing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Compass size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Facing Direction</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.facing}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Layers size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Floors</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>G+{project.floors}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.unitsCount !== undefined && project.unitsCount > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Home size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Units</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.unitsCount}</div>
-                  </div>
-                </div>
-              )}
-
-              {project.category === 'Sites' && project.uds && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Sparkles size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Area</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.uds} Sq. Yds</div>
-                  </div>
-                </div>
-              )}
-
-              {project.width && project.length && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><SlidersHorizontal size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Dimensions</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 700 }}>{project.width} x {project.length} ft</div>
-                  </div>
-                </div>
-              )}
-
-              {project.priceRange && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}><Landmark size={18} /></div>
-                  <div>
-                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Price Range</div>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--secondary)', fontWeight: 800 }}>{project.priceRange}</div>
-                  </div>
-                </div>
-              )}
+            {/* Specifications Table */}
+            <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                    <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '40%' }}>Specification</th>
+                    <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '60%' }}>Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {project.city && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><MapPin size={16} style={{ color: 'var(--secondary)' }} /> City</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.city}</td>
+                    </tr>
+                  )}
+                  {project.classification && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Tag size={16} style={{ color: 'var(--secondary)' }} /> Classification</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.classification}</td>
+                    </tr>
+                  )}
+                  {project.microLocation && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={16} style={{ color: 'var(--secondary)' }} /> Micro Location</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.microLocation}</td>
+                    </tr>
+                  )}
+                  {project.facing && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Compass size={16} style={{ color: 'var(--secondary)' }} /> Facing Direction</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.facing}</td>
+                    </tr>
+                  )}
+                  {project.category !== 'Sites' && project.floors !== undefined && project.floors > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Layers size={16} style={{ color: 'var(--secondary)' }} /> Total Floors</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>G+{project.floors}</td>
+                    </tr>
+                  )}
+                  {project.unitsCount !== undefined && project.unitsCount > 0 && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Home size={16} style={{ color: 'var(--secondary)' }} /> Total Units</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.unitsCount}</td>
+                    </tr>
+                  )}
+                  {project.category === 'Sites' && project.uds && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Sparkles size={16} style={{ color: 'var(--secondary)' }} /> Total Area</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.uds} Sq. Yds</td>
+                    </tr>
+                  )}
+                  {project.width && project.length && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><SlidersHorizontal size={16} style={{ color: 'var(--secondary)' }} /> Dimensions</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.width} x {project.length} ft</td>
+                    </tr>
+                  )}
+                  {project.priceRange && (
+                    <tr style={{ backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Landmark size={16} style={{ color: 'var(--secondary)' }} /> Price Range</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 800, color: 'var(--secondary)', fontSize: '1rem' }}>{project.priceRange}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
             {project.availabilityDetails && (
-              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1.25rem' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Home size={16} className="text-secondary" /> Configurations & Availability
+              <div style={{ marginTop: '1.25rem' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Home size={16} className="text-secondary" /> Configurations &amp; Availability
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
-                  {project.availabilityDetails.split(',').map((part, idx) => {
-                    const parts = part.split(':').map(s => s.trim());
-                    const type = parts[0];
-                    const qty = parts[1];
-                    const udsVal = parts[2];
-                    return (
-                      <div key={idx} style={{
-                        padding: '0.75rem 1rem',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '8px',
-                        backgroundColor: '#f0f7ff',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '0.25rem',
-                        boxShadow: 'var(--shadow-sm)',
-                      }}>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-                          Available: <span style={{ color: 'var(--secondary)', fontWeight: 800 }}>{qty || '0'} Units</span>
-                        </div>
-                        {udsVal && (
-                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>
-                            UDS: {udsVal} Sq.Yds
-                          </div>
+                <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                        <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Configuration / Type</th>
+                        <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
+                        {project.availabilityDetails.includes(':') && project.availabilityDetails.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim()) && (
+                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq. Yds)</th>
                         )}
-                      </div>
-                    );
-                  })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {project.availabilityDetails.split(',').map((part, idx) => {
+                        const parts = part.split(':').map(s => s.trim());
+                        const type = parts[0];
+                        const qty = parts[1];
+                        const udsVal = parts[2];
+                        const countNum = parseInt(qty || '0', 10);
+                        const isAvailable = !isNaN(countNum) && countNum > 0;
+                        const hasUdsCol = project.availabilityDetails?.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim());
+
+                        return (
+                          <tr key={idx} style={{ borderBottom: idx < project.availabilityDetails!.split(',').length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                            <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
+                            <td style={{ padding: '0.65rem 1rem' }}>
+                              <span 
+                                className="badge" 
+                                style={{
+                                  backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
+                                  color: isAvailable ? '#1e7e34' : '#c5221f',
+                                  border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
+                                  padding: '0.25rem 0.6rem',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 700
+                                }}
+                              >
+                                {isAvailable ? `${qty} Units Available` : '0 Units (Sold Out)'}
+                              </span>
+                            </td>
+                            {hasUdsCol && (
+                              <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
+                                {udsVal ? `${udsVal} Sq.Yds` : '-'}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

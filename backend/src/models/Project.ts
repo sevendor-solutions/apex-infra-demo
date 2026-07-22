@@ -243,6 +243,15 @@ export class Project extends Model {
     @Column(DataType.STRING)
     agentId?: string;
 
+    @Column(DataType.STRING)
+    referredByName?: string;
+
+    @Column(DataType.STRING)
+    referredByPhone?: string;
+
+    @Column(DataType.TEXT)
+    referredRemarks?: string;
+
     @Column({
         type: DataType.BOOLEAN,
         allowNull: false,
