@@ -577,31 +577,73 @@ Email: jkfutureinfra@gmail.com
           </div>
 
 
-          {/* Highlights */}
-          <div className="detail-card admin-card mb-3">
-            <h3 className="border-bottom-title mb-2">Key Highlights</h3>
-            <ul className="highlights-list grid grid-2 gap-2" style={{ listStyle: 'none', padding: 0 }}>
-              {project.highlights.map((hl, i) => (
-                <li key={i} className="flex gap-2" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.50rem' }}>
-                  <CheckCircle2 size={18} className="text-secondary shrink-0" style={{ color: 'var(--secondary)' }} />
-                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{hl}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Amenities */}
-          <div className="detail-card admin-card mb-3">
-            <h3 className="border-bottom-title mb-2">Modern Amenities</h3>
-            <div className="amenities-grid">
-              {project.amenities.map((am, i) => (
-                <div key={i} className="amenity-item text-center">
-                  <div className="amenity-icon">✓</div>
-                  <span className="text-sm font-semibold">{am}</span>
-                </div>
-              ))}
+          {/* Highlights Table */}
+          {project.highlights && project.highlights.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Key Highlights</h3>
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '80px', textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Feature / Highlight Details</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '120px', textAlign: 'center' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {project.highlights.map((hl, i) => (
+                      <tr key={i} style={{ borderBottom: i < project.highlights.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: 'var(--primary)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={16} style={{ color: 'var(--secondary)' }} />
+                            {hl}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
+                          <span style={{ backgroundColor: '#e1f4e9', color: '#1e7e34', border: '1px solid #c3edd5', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Included</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Amenities Table */}
+          {project.amenities && project.amenities.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Modern Amenities</h3>
+              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '80px', textAlign: 'center' }}>#</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Amenity Name</th>
+                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '140px', textAlign: 'center' }}>Availability</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {project.amenities.map((am, i) => (
+                      <tr key={i} style={{ borderBottom: i < project.amenities.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
+                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
+                            {am}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
+                          <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Available</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Floor Plans */}
           {validFloorPlans.length > 0 && (
