@@ -450,6 +450,14 @@ Email: jkfutureinfra@gmail.com
                       <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.city}</td>
                     </tr>
                   )}
+                  {project.location && (
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><MapPin size={16} style={{ color: 'var(--secondary)' }} /> Location / Address</span>
+                      </td>
+                      <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{project.location}</td>
+                    </tr>
+                  )}
                   {project.classification && (
                     <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
                       <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569', backgroundColor: '#f8fafc' }}>
