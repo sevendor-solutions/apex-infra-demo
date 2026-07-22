@@ -400,22 +400,61 @@ Email: jkfutureinfra@gmail.com
             </button>
           </div>
 
-          {/* Compact Slider gallery */}
-          <div className="detail-gallery-slider mb-2">
-            <div className="active-img-wrapper" onClick={() => setLightboxOpen(true)} style={{ height: '220px', borderRadius: '10px', overflow: 'hidden' }}>
-              <img src={galleryImages[activeImgIdx]} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <button className="slider-lightbox-btn" style={{ fontSize: '0.75rem', padding: '0.3rem 0.6rem' }}><ImageIcon size={14} /> View All ({galleryImages.length})</button>
+          {/* Full Display Slider gallery */}
+          <div className="detail-gallery-slider mb-3">
+            <div 
+              className="active-img-wrapper" 
+              onClick={() => setLightboxOpen(true)} 
+              style={{ 
+                height: '420px', 
+                borderRadius: '12px', 
+                overflow: 'hidden', 
+                backgroundColor: '#0f172a',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'center',
+                position: 'relative',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                cursor: 'pointer'
+              }}
+            >
+              <img 
+                src={galleryImages[activeImgIdx]} 
+                alt={project.name} 
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '100%', 
+                  objectFit: 'contain',
+                  display: 'block',
+                  margin: 'auto'
+                }} 
+              />
+              <button className="slider-lightbox-btn" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}>
+                <ImageIcon size={15} /> Fullscreen / View All ({galleryImages.length})
+              </button>
             </div>
             {galleryImages.length > 1 && (
-              <div className="thumbnails-wrapper flex gap-1 mt-1 overflow-x-auto" style={{ paddingBottom: '4px' }}>
+              <div className="thumbnails-wrapper flex gap-1 mt-2 overflow-x-auto" style={{ paddingBottom: '4px' }}>
                 {galleryImages.map((img, idx) => (
                   <div 
                     key={idx} 
                     className={`thumb-box ${idx === activeImgIdx ? 'active' : ''}`}
                     onClick={() => setActiveImgIdx(idx)}
-                    style={{ width: '60px', height: '42px', flexShrink: 0, borderRadius: '6px', overflow: 'hidden', cursor: 'pointer', border: idx === activeImgIdx ? '2px solid var(--secondary)' : '1px solid #cbd5e1' }}
+                    style={{ 
+                      width: '72px', 
+                      height: '52px', 
+                      flexShrink: 0, 
+                      borderRadius: '6px', 
+                      overflow: 'hidden', 
+                      cursor: 'pointer', 
+                      background: '#1e293b',
+                      border: idx === activeImgIdx ? '2.5px solid var(--secondary)' : '1px solid #cbd5e1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justify: 'center'
+                    }}
                   >
-                    <img src={img} alt="Thumbnail" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={img} alt="Thumbnail" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} />
                   </div>
                 ))}
               </div>
