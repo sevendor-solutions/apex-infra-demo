@@ -1083,13 +1083,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
-        {hasScreenAccess('careers') && (
-          <div style={kpiCardStyle(colors.cardBg, colors.accent, colors.border)} onClick={() => onSetTab('careers')}>
-            <div style={kpiHeaderStyle}><span style={{ ...kpiTitleStyle, color: colors.textMuted }}>Job Applications</span><Briefcase size={16} style={{ color: colors.accent }} /></div>
-            <div style={{ ...kpiValueStyle, color: colors.textMain }}>{stats.totalCareers}</div>
-            <div style={{ ...kpiFooterStyle, color: colors.textMuted }}>Hiring pipeline records</div>
-          </div>
-        )}
+
 
         {hasScreenAccess('blogs') && (
           <div style={kpiCardStyle(colors.cardBg, colors.accent, colors.border)} onClick={() => onSetTab('blogs')}>

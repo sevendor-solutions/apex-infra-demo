@@ -51,7 +51,14 @@ export class Document extends Model {
     })
     date!: string;
 
-        @Column({
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    })
+    sortOrder!: number;
+
+    @Column({
         type: DataType.STRING,
         allowNull: true
     })

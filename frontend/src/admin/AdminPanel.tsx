@@ -49,7 +49,6 @@ import { AdminBlogs } from './AdminBlogs';
 import { AdminDocuments } from './AdminDocuments';
 import { AdminEnquiries } from './AdminEnquiries';
 import { AdminUsers } from './AdminUsers';
-import { AdminCareers } from './AdminCareers';
 import { AdminMasters } from './AdminMasters';
 import { AdminAuditLogs } from './AdminAuditLogs';
 import type { AuditLog } from './AdminAuditLogs';
@@ -1638,50 +1637,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
           )}
 
-          {/* Group 9: Talent Acquisition */}
-          {hasScreenAccess('careers') && (
-            <div className="admin-sidebar-group">
-              <div 
-                className="admin-sidebar-group-header" 
-                onClick={() => toggleGroup('talentAcquisition')}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  cursor: 'pointer',
-                  paddingRight: '1.25rem',
-                  userSelect: 'none'
-                }}
-              >
-                <div className="admin-sidebar-group-title" style={{ flex: 1, paddingRight: 0 }}>Talent Acquisition</div>
-                {!sidebarCollapsed && (
-                  <ChevronDown 
-                    size={14} 
-                    className="group-arrow-icon"
-                    style={{ 
-                      transform: expandedGroups.talentAcquisition ? 'rotate(0deg)' : 'rotate(-90deg)', 
-                      transition: 'transform 0.2s ease',
-                      color: 'rgba(255, 255, 255, 0.4)',
-                      flexShrink: 0
-                    }} 
-                  />
-                )}
-              </div>
-              {(expandedGroups.talentAcquisition || sidebarCollapsed) && (
-                <>
-                  <li className="admin-sidebar-item">
-                    <button 
-                      onClick={() => handleOpenTab('careers')} 
-                      className={`admin-sidebar-link ${activeTab === 'careers' ? 'active' : ''}`}
-                      data-tooltip="Job Applications"
-                    >
-                      <Briefcase size={16} /> <span className="admin-sidebar-link-text">Job Applications</span>
-                    </button>
-                  </li>
-                </>
-              )}
-            </div>
-          )}
+
 
           {/* Group 10: Site Visits */}
           {hasScreenAccess('site_visits') && (
@@ -2347,17 +2303,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             />
           )}
 
-          {activeTab === 'careers' && hasScreenAccess('careers') && (
-            <AdminCareers 
-              applications={applications}
-              onRefresh={() => { syncDBData(); logAction('Careers Sync', 'Synced job applications list', 'Success'); }}
-              onAddToast={(msg, type) => {
-                onAddToast(msg, type);
-                if (type === 'success') logAction('Careers Update', msg, 'Success');
-              }}
-              onConfirm={handleConfirmAction}
-            />
-          )}
+
 
           {activeTab === 'users' && hasScreenAccess('users') && (
             <AdminUsers 

@@ -11,7 +11,6 @@ import { Marketing } from './pages/Marketing';
 import { Gallery } from './pages/Gallery';
 import { BlogPage } from './pages/Blog';
 import { Contact } from './pages/Contact';
-import { Careers } from './pages/Careers';
 import { AdminPanel } from './admin/AdminPanel';
 import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings, getCities, getLocations } from './utils/db';
 import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing, City, LocationMaster } from './types';
@@ -372,11 +371,7 @@ function App() {
           />
         )}
 
-        {activePage === 'careers' && (
-          <Careers 
-            onAddToast={addToast}
-          />
-        )}
+
 
         {activePage === 'blog' && (
           <BlogPage 

@@ -20,9 +20,28 @@ router.get("/", async (req, res, next) => {
 
         const docs = await Document.findAll({
             where: whereClause,
-            order: [["createdAt", "DESC"]]
+            order: [["sortOrder", "ASC"], ["createdAt", "DESC"]]
         });
         return res.json({ success: true, data: docs });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// PUT bulk reorder documents
+router.put("/reorder", authenticateToken, async (req, res, next) => {
+    try {
+        const { items } = req.body;
+        if (Array.isArray(items)) {
+            for (const item of items) {
+                const updatePayload: any = { sortOrder: item.sortOrder };
+                if (item.category !== undefined) {
+                    updatePayload.category = item.category;
+                }
+                await Document.update(updatePayload, { where: { id: item.id } });
+            }
+        }
+        return res.json({ success: true, message: "Reordered successfully" });
     } catch (error) {
         next(error);
     }

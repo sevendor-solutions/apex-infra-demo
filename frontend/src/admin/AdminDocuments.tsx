@@ -5,7 +5,7 @@ import {
   FileMinus, Trash2, Edit2, Download, Eye, X, ChevronRight,
   Upload, Home, Search, Grid, List, Check, ArrowLeft, Video, Network, MoreVertical
 } from 'lucide-react';
-import { addDocument, updateDocument, deleteDocument, uploadImage } from '../utils/db';
+import { addDocument, updateDocument, deleteDocument, reorderDocuments, uploadImage } from '../utils/db';
 
 /* ─────────────────────────────────────────────────────────
    Types
@@ -14,6 +14,7 @@ interface FolderNode {
   id: string;
   name: string;
   parentId: string;   // empty string = root level
+  sortOrder?: number;
 }
 
 interface DocEntry extends Document {
@@ -245,6 +246,10 @@ interface FlowFolderNodeProps {
   setShowCF: (show: boolean) => void;
   setNewFolderName: (val: string) => void;
   setCtx: (ctx: { id: string; type: 'folder' | 'file'; x: number; y: number } | null) => void;
+  dragOverItemId: string | null;
+  setDragOverItemId: (id: string | null) => void;
+  handleDragStartItem: (e: React.DragEvent, id: string, type: 'folder' | 'file') => void;
+  handleDropToReorder: (e: React.DragEvent, targetId: string, targetParentId: string) => void;
 }
 
 const FlowFolderNode: React.FC<FlowFolderNodeProps> = (props) => {
@@ -267,11 +272,16 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
   setShowCF,
   setNewFolderName,
   setCtx,
+  dragOverItemId,
+  setDragOverItemId,
+  handleDragStartItem,
+  handleDropToReorder,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const kids  = childFolders(folder.id);
   const files = filesIn(folder.id);
   const totalCount = totalDescendantFiles(folder.id);
+  const isDragOver = dragOverItemId === folder.id;
 
   return (
     <div
@@ -281,7 +291,7 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
         width: '100%',
       }}
     >
-      {/* 🔷 Subfolder Banner: Clean Banner with Right-Click Context Menu & 3-Dots Menu */}
+      {/* 🔷 Subfolder Banner: Clean Banner with Drag & Drop Reordering, Context Menu & 3-Dots Menu */}
       <div
         className="sap-subfolder-banner"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -290,6 +300,23 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
           e.preventDefault();
           e.stopPropagation();
           setCtx({ id: folder.id, type: 'folder', x: e.clientX, y: e.clientY });
+        }}
+        draggable={true}
+        onDragStart={(e) => handleDragStartItem(e, folder.id, 'folder')}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragOverItemId(folder.id);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragOverItemId(null);
+        }}
+        onDrop={(e) => handleDropToReorder(e, folder.id, folder.parentId)}
+        style={{
+          border: isDragOver ? '2px dashed #0070f2' : undefined,
+          backgroundColor: isDragOver ? '#ebf5ff' : undefined
         }}
       >
         <div className="sap-subfolder-left">
@@ -326,33 +353,53 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
           {/* 📄 File Link Cards Grid */}
           {files.length > 0 && (
             <div className="sap-file-cards-grid">
-              {files.map(file => (
-                <div
-                  key={file.id}
-                  className="sap-file-link-card"
-                  onClick={() => setPreviewDoc(file)}
-                  onContextMenu={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY });
-                  }}
-                  title={`Preview ${file.title}`}
-                >
-                  <div className="sap-file-card-main">
-                    <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
-                    <div className="sap-file-card-text">
-                      <span className="sap-file-card-title">{file.title}</span>
-                      <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
+              {files.map(file => {
+                const isFileDragOver = dragOverItemId === file.id;
+                return (
+                  <div
+                    key={file.id}
+                    className="sap-file-link-card"
+                    onClick={() => setPreviewDoc(file)}
+                    onContextMenu={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY });
+                    }}
+                    title={`Preview ${file.title}`}
+                    draggable={true}
+                    onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverItemId(file.id);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverItemId(null);
+                    }}
+                    onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
+                    style={{
+                      border: isFileDragOver ? '2px dashed #0070f2' : undefined,
+                      backgroundColor: isFileDragOver ? '#ebf5ff' : undefined
+                    }}
+                  >
+                    <div className="sap-file-card-main">
+                      <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
+                      <div className="sap-file-card-text">
+                        <span className="sap-file-card-title">{file.title}</span>
+                        <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
+                      </div>
+                    </div>
+                    <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                      <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                      <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                      <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                      <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
                     </div>
                   </div>
-                  <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
-                    <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
-                    <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
-                    <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
-                    <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -376,6 +423,10 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
                   setShowCF={setShowCF}
                   setNewFolderName={setNewFolderName}
                   setCtx={setCtx}
+                  dragOverItemId={dragOverItemId}
+                  setDragOverItemId={setDragOverItemId}
+                  handleDragStartItem={handleDragStartItem}
+                  handleDropToReorder={handleDropToReorder}
                 />
               ))}
             </div>
@@ -430,27 +481,43 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
 
   /* Drag & drop states */
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [isDraggingLocal, setIsDraggingLocal] = useState(false);
+
+  /* Sort order lookup with localStorage fallback */
+  const getSortOrder = useCallback((docId: string, defaultOrder: number): number => {
+    try {
+      const localMap = JSON.parse(localStorage.getItem('jk_infra_doc_order_map') || '{}');
+      if (localMap[docId] !== undefined) return Number(localMap[docId]);
+    } catch {}
+    const doc = (documents || []).find(d => d.id === docId);
+    if (doc && typeof doc.sortOrder === 'number') return doc.sortOrder;
+    return defaultOrder;
+  }, [documents]);
 
   /* ── Derived Data from Database Documents ── */
   const folders = useMemo<FolderNode[]>(() => {
-    return (documents || [])
+    const raw = (documents || [])
       .filter(d => d && d.fileType === 'folder')
-      .map(d => ({
+      .map((d, idx) => ({
         id: d.id,
         name: d.title || 'Untitled Folder',
-        parentId: d.category === 'root' ? ROOT : d.category
+        parentId: d.category === 'root' ? ROOT : d.category,
+        sortOrder: getSortOrder(d.id, d.sortOrder ?? idx)
       }));
-  }, [documents]);
+    return raw.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }, [documents, getSortOrder]);
 
   const files = useMemo<DocEntry[]>(() => {
-    return (documents || [])
+    const raw = (documents || [])
       .filter(d => d && d.fileType !== 'folder')
-      .map(d => ({
+      .map((d, idx) => ({
         ...d,
-        folderId: (!d.category || d.category === 'root') ? ROOT : d.category
+        folderId: (!d.category || d.category === 'root') ? ROOT : d.category,
+        sortOrder: getSortOrder(d.id, d.sortOrder ?? idx)
       }));
-  }, [documents]);
+    return raw.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  }, [documents, getSortOrder]);
 
   const childFolders = useCallback(
     (parentId: string) => folders.filter(f => f.parentId === parentId && f.id !== parentId),
@@ -661,6 +728,93 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   const handleDragStartItem = (e: React.DragEvent, id: string, type: 'folder' | 'file') => {
     e.dataTransfer.setData('text/plain', JSON.stringify({ id, type }));
     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDropToReorder = async (
+    e: React.DragEvent,
+    targetId: string,
+    targetParentId: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFolderId(null);
+    setDragOverItemId(null);
+
+    try {
+      const dataStr = e.dataTransfer.getData('text/plain');
+      if (!dataStr) return;
+      const { id: draggedId, type: draggedType } = JSON.parse(dataStr);
+
+      if (draggedId === targetId) return;
+
+      // Drop ON a folder with shift key moves INSIDE that folder
+      const targetIsFolder = folders.some(f => f.id === targetId);
+      if (targetIsFolder && e.shiftKey) {
+        if (draggedType === 'folder') {
+          const isDescendant = (parent: string, child: string): boolean => {
+            if (parent === child) return true;
+            const parentFolder = folders.find(f => f.id === child);
+            if (!parentFolder || parentFolder.parentId === ROOT) return false;
+            return isDescendant(parent, parentFolder.parentId);
+          };
+          if (isDescendant(draggedId, targetId)) {
+            onAddToast('Cannot move a folder inside its own subfolder.', 'error');
+            return;
+          }
+        }
+        const doc = documents.find(d => d.id === draggedId);
+        if (doc) {
+          await updateDocument({
+            ...doc,
+            category: targetId === ROOT ? 'root' : targetId
+          });
+          onAddToast(`Moved inside folder successfully.`, 'success');
+          onRefresh();
+        }
+        return;
+      }
+
+      // Reorder items within container targetParentId
+      const siblingFolders = childFolders(targetParentId);
+      const siblingFiles = filesIn(targetParentId);
+
+      let allSiblingIds = [
+        ...siblingFolders.map(f => f.id),
+        ...siblingFiles.map(f => f.id)
+      ];
+
+      allSiblingIds = allSiblingIds.filter(id => id !== draggedId);
+      const targetIdx = allSiblingIds.indexOf(targetId);
+      if (targetIdx !== -1) {
+        allSiblingIds.splice(targetIdx, 0, draggedId);
+      } else {
+        allSiblingIds.push(draggedId);
+      }
+
+      const payload = allSiblingIds.map((id, index) => ({
+        id,
+        sortOrder: index,
+        category: targetParentId === ROOT ? 'root' : targetParentId
+      }));
+
+      // Update localStorage map for instant client-side persistence across logins & logouts
+      try {
+        const localMap = JSON.parse(localStorage.getItem('jk_infra_doc_order_map') || '{}');
+        payload.forEach(item => {
+          localMap[item.id] = item.sortOrder;
+        });
+        localStorage.setItem('jk_infra_doc_order_map', JSON.stringify(localMap));
+      } catch (err) {
+        console.warn('localStorage error:', err);
+      }
+
+      // Save to backend database
+      await reorderDocuments(payload);
+      onAddToast('File order saved successfully.', 'success');
+      onRefresh();
+    } catch (err) {
+      console.error('Reorder error:', err);
+    }
   };
 
   const handleDropOnFolder = async (e: React.DragEvent, targetFolderId: string) => {
@@ -960,6 +1114,10 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                       setShowCF={setShowCF}
                       setNewFolderName={setNewFolderName}
                       setCtx={setCtx}
+                      dragOverItemId={dragOverItemId}
+                      setDragOverItemId={setDragOverItemId}
+                      handleDragStartItem={handleDragStartItem}
+                      handleDropToReorder={handleDropToReorder}
                     />
                   ))}
                 </div>
@@ -968,28 +1126,53 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
               {/* Direct Files under current folder */}
               {activeFiles.length > 0 && (
                 <div className="sap-file-cards-grid" style={{ marginTop: '0.25rem' }}>
-                  {activeFiles.map(file => (
-                    <div
-                      key={file.id}
-                      className="sap-file-link-card"
-                      onClick={() => setPreviewDoc(file)}
-                      title={`Preview ${file.title}`}
-                    >
-                      <div className="sap-file-card-main">
-                        <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
-                        <div className="sap-file-card-text">
-                          <span className="sap-file-card-title">{file.title}</span>
-                          <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
+                  {activeFiles.map(file => {
+                    const isFileDragOver = dragOverItemId === file.id;
+                    return (
+                      <div
+                        key={file.id}
+                        className="sap-file-link-card"
+                        onClick={() => setPreviewDoc(file)}
+                        onContextMenu={e => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY });
+                        }}
+                        title={`Preview ${file.title}`}
+                        draggable={true}
+                        onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragOverItemId(file.id);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDragOverItemId(null);
+                        }}
+                        onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
+                        style={{
+                          border: isFileDragOver ? '2px dashed #0070f2' : undefined,
+                          backgroundColor: isFileDragOver ? '#ebf5ff' : undefined
+                        }}
+                      >
+                        <div className="sap-file-card-main">
+                          <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
+                          <div className="sap-file-card-text">
+                            <span className="sap-file-card-title">{file.title}</span>
+                            <span className="sap-file-card-meta">{file.fileType.toUpperCase()} · {file.date}</span>
+                          </div>
+                        </div>
+                        <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                          <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
+                          <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
+                          <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
+                          <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
                         </div>
                       </div>
-                      <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
-                        <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
-                        <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
-                        <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
-                        <button className="danger" title="Delete" onClick={() => deleteFile(file)}><Trash2 size={13} /></button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1012,7 +1195,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                   <div className={viewMode === 'grid' ? 'sap-folders-grid' : 'sap-folders-list'}>
                     {subFolders.map(sf => {
                       const count = totalDescendantFiles(sf.id);
-                      const isDragOver = dragOverFolderId === sf.id;
+                      const isDragOver = dragOverFolderId === sf.id || dragOverItemId === sf.id;
                       return (
                         <div
                           key={sf.id}
@@ -1027,20 +1210,24 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                           }}
                           onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: sf.id, type: 'folder', x: e.clientX, y: e.clientY }); }}
                           
-                          // Drag & Drop
+                          // Drag & Drop to move or reorder
                           draggable={true}
                           onDragStart={(e) => handleDragStartItem(e, sf.id, 'folder')}
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setDragOverFolderId(sf.id);
+                            setDragOverItemId(sf.id);
                           }}
                           onDragLeave={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setDragOverFolderId(null);
+                            setDragOverItemId(null);
                           }}
-                          onDrop={(e) => handleDropOnFolder(e, sf.id)}
+                          onDrop={(e) => handleDropToReorder(e, sf.id, sf.parentId)}
+                          style={{
+                            border: isDragOver ? '2px dashed #0070f2' : undefined,
+                            backgroundColor: isDragOver ? '#ebf5ff' : undefined
+                          }}
                         >
                           <div className="sap-folder-tile-icon">
                             <FolderOpen size={viewMode === 'grid' ? 40 : 22} style={{ color: '#0070f2' }} />
@@ -1071,16 +1258,31 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                   {viewMode === 'grid' ? (
                     <div className="sap-files-grid">
                       {activeFiles.map(file => {
+                        const isFileDragOver = dragOverItemId === file.id;
                         return (
                           <div
                             key={file.id}
                             className="sap-file-card"
-                            style={{ background: fileColor[file.fileType] ?? '#f7fafc' }}
+                            style={{ 
+                              background: fileColor[file.fileType] ?? '#f7fafc',
+                              border: isFileDragOver ? '2px dashed #0070f2' : undefined
+                            }}
                             onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
                             
-                            // Drag file card
+                            // Drag & Drop reorder
                             draggable={true}
                             onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDragOverItemId(file.id);
+                            }}
+                            onDragLeave={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setDragOverItemId(null);
+                            }}
+                            onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
                           >
                             <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
                             <span className="sap-file-card-name" title={file.title}>{file.title}</span>

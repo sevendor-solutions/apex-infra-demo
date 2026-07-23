@@ -170,6 +170,7 @@ export interface Document {
   projectAssociation?: string;
   uploadedBy?: string;
   date: string;
+  sortOrder?: number;
 }
 
 export interface SiteVisit {

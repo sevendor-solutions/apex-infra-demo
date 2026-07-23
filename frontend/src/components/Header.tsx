@@ -154,14 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Gallery
                 </button>
               </li>
-              <li>
-                <button 
-                  onClick={() => handleLinkClick('careers')} 
-                  className={`nav-link ${activePage === 'careers' ? 'active' : ''}`}
-                >
-                  Careers
-                </button>
-              </li>
+
               <li>
                 <button 
                   onClick={() => handleLinkClick('blog')} 
@@ -239,9 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
           <li>
             <button onClick={() => handleLinkClick('gallery')}>Gallery</button>
           </li>
-          <li>
-            <button onClick={() => handleLinkClick('careers')}>Careers</button>
-          </li>
+
           <li>
             <button onClick={() => handleLinkClick('blog')}>Blog</button>
           </li>

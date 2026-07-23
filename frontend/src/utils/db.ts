@@ -551,6 +551,15 @@ export const deleteDocument = async (id: string): Promise<void> => {
   }
 };
 
+export const reorderDocuments = async (items: { id: string; sortOrder: number; category?: string }[]): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/documents/reorder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ items })
+  });
+  await handleResponse(res);
+};
+
 // Site Visits
 export const getSiteVisits = async (): Promise<SiteVisit[]> => {
   const res = await fetch(`${API_BASE_URL}/site-visits`, {
