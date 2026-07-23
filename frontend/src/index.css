@@ -43,18 +43,45 @@
 
   /* Transitions */
   --transition-fast: 0.15s ease;
-  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.25s ease;
+  --transition-slow: 0.35s ease;
   
   /* Border Radius */
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 20px;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
   --radius-full: 9999px;
 
   /* Layout Constants */
   --header-height: 80px;
   --max-width: 1280px;
+}
+
+/* Universal Modern User-Friendly Scrollbars */
+*, *::before, *::after {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0070f2;
 }
 
 /* Global Reset */
@@ -1094,20 +1121,39 @@ button {
   border-bottom: 1px solid var(--sap-border-color);
   display: flex;
   align-items: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
   min-height: 40px;
-  height: auto;
-  padding: 0.25rem 1rem 0;
-  gap: 2px;
-  overflow-x: hidden;
+  max-height: 40px;
+  height: 40px;
+  padding: 0.25rem 0.75rem 0;
+  gap: 4px;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
   z-index: 70;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
 }
 
 .sap-tabbar::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+  display: block !important;
+}
+
+.sap-tabbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+.sap-tabbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.sap-tabbar::-webkit-scrollbar-thumb:hover {
+  background: #0070f2;
 }
 
 .sap-tab {
+  flex-shrink: 0;
   background-color: #f3f5f8;
   border: 1px solid var(--sap-border-color);
   border-bottom: none;

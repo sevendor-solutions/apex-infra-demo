@@ -32,35 +32,6 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
     onNavigate('projects', null, null, { search: searchQuery, category: searchCategory });
   };
 
-  const testimonials = [
-    {
-      name: 'Ravi Teja Chowdary',
-      role: 'Software Architect, Vizag',
-      text: 'I purchased a luxury villa at JK Grand Horizon. The construction quality is outstanding, and the design offers perfect ventilation. Dealing with the team was fully transparent, from booking to registration.',
-      rating: 5
-    },
-    {
-      name: 'Rama Devi S.',
-      role: 'Retd. Bank Manager, Guntur',
-      text: 'JK Royal Enclave was delivered on time. The independent house stands out in the neighborhood for its architectural elegance. Their follow-up support post-handover is highly commendable.',
-      rating: 5
-    },
-    {
-      name: 'M. Jagadeesh Kumar',
-      role: 'Business Owner, Vijayawada',
-      text: 'Investing in JK Green Meadows open plots was my best financial decision. The VUDA layout was developed exactly as promised with underground lines and high-quality concrete roads. Highly recommended!',
-      rating: 5
-    }
-  ];
-
-  const [testiIndex, setTestiIndex] = useState(0);
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTestiIndex(prev => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   return (
     <div className="home-page">
       {/* Hero Section */}
@@ -271,36 +242,6 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
               alt="Luxury Estate" 
               className="why-img" 
             />
-          </div>
-        </div>
-      </section>
-
-      {/* Testimonials */}
-      <section className="testimonials-section py-6 text-center">
-        <div className="container">
-          <div className="section-title-wrapper section-title-center">
-            <h2 className="section-title">Homeowner Testimonials</h2>
-            <p className="text-muted">Hear what our happy residents say about their home buying experience</p>
-          </div>
-          <div className="testimonial-slider-container glass-card py-4 px-4">
-            <div className="quote-mark">“</div>
-            <p className="testimonial-text">{testimonials[testiIndex].text}</p>
-            <h4 className="testimonial-author">{testimonials[testiIndex].name}</h4>
-            <span className="testimonial-role">{testimonials[testiIndex].role}</span>
-            <div className="stars flex justify-center gap-1 my-1">
-              {Array(testimonials[testiIndex].rating).fill(0).map((_, i) => (
-                <span key={i} style={{ color: 'var(--secondary)' }}>★</span>
-              ))}
-            </div>
-            <div className="slider-dots flex justify-center gap-1">
-              {testimonials.map((_, i) => (
-                <button 
-                  key={i} 
-                  className={`dot ${i === testiIndex ? 'active' : ''}`}
-                  onClick={() => setTestiIndex(i)}
-                />
-              ))}
-            </div>
           </div>
         </div>
       </section>
@@ -581,47 +522,6 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           margin-bottom: 0.25rem;
         }
 
-        /* Testimonials */
-        .quote-mark {
-          font-family: Georgia, serif;
-          font-size: 5rem;
-          line-height: 1;
-          color: rgba(240, 90, 40, 0.15);
-          height: 35px;
-        }
-        .testimonial-slider-container {
-          max-width: 750px;
-          margin: 0 auto;
-        }
-        .testimonial-text {
-          font-size: 1.15rem;
-          font-style: italic;
-          margin-bottom: 1.5rem;
-          color: var(--text-primary);
-        }
-        .testimonial-author {
-          font-size: 1.1rem;
-          margin-bottom: 0.1rem;
-        }
-        .testimonial-role {
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          font-weight: 600;
-        }
-        .slider-dots {
-          margin-top: 1rem;
-        }
-        .dot {
-          width: 10px;
-          height: 10px;
-          border-radius: var(--radius-full);
-          background-color: var(--border-color);
-          transition: var(--transition-fast);
-        }
-        .dot.active {
-          background-color: var(--secondary);
-          width: 25px;
-        }
       `}</style>
     </div>
   );
