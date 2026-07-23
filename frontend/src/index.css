@@ -1214,7 +1214,7 @@ button {
 
 .admin-main {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1rem 1.25rem;
   overflow-y: auto;
   overflow-x: hidden;
   max-width: 100% !important;

@@ -361,49 +361,49 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       </div>
 
       {/* ── KPI Summary Tiles ─────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
         {[
-          { label: 'Total Expenditure', value: fmtK(kpiStats.total), sub: `${kpiStats.bills} bills`, icon: <IndianRupee size={18} />, color: '#7c3aed', bg: '#f5f3ff' },
-          { label: 'This Month', value: fmtK(kpiStats.thisMonth), sub: 'Current month spend', icon: <Calendar size={18} />, color: '#0891b2', bg: '#ecfeff' },
-          { label: 'Total Bills', value: kpiStats.bills.toString(), sub: 'All expense entries', icon: <Receipt size={18} />, color: '#0854a0', bg: '#eff6ff' },
-          { label: 'Top Category', value: kpiStats.topCat, sub: 'Highest spend head', icon: <BarChart3 size={18} />, color: '#d97706', bg: '#fffbeb' },
+          { label: 'Total Expenditure', value: fmtK(kpiStats.total), sub: `${kpiStats.bills} bills`, icon: <IndianRupee size={16} />, color: '#7c3aed', bg: '#f5f3ff' },
+          { label: 'This Month', value: fmtK(kpiStats.thisMonth), sub: 'Current month spend', icon: <Calendar size={16} />, color: '#0891b2', bg: '#ecfeff' },
+          { label: 'Total Bills', value: kpiStats.bills.toString(), sub: 'All expense entries', icon: <Receipt size={16} />, color: '#0854a0', bg: '#eff6ff' },
+          { label: 'Top Category', value: kpiStats.topCat, sub: 'Highest spend head', icon: <BarChart3 size={16} />, color: '#d97706', bg: '#fffbeb' },
         ].map((tile, i) => (
-          <div key={i} style={{ background: tile.bg, border: `1.5px solid ${tile.color}20`, borderRadius: '10px', padding: '1rem 1.1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: tile.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tile.color, flexShrink: 0 }}>
+          <div key={i} style={{ background: tile.bg, border: `1.5px solid ${tile.color}20`, borderRadius: '8px', padding: '0.65rem 0.9rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '8px', background: tile.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tile.color, flexShrink: 0 }}>
               {tile.icon}
             </div>
             <div>
-              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tile.label}</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700, color: tile.color, lineHeight: 1.2 }}>{tile.value}</div>
-              <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '2px' }}>{tile.sub}</div>
+              <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{tile.label}</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: tile.color, lineHeight: 1.2 }}>{tile.value}</div>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '1px' }}>{tile.sub}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* ── Search & Filters Bar ──────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '8px', padding: '0.6rem 1rem' }}>
-        <Search size={15} style={{ color: '#94a3b8', flexShrink: 0 }} />
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '8px', padding: '0.45rem 0.85rem' }}>
+        <Search size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
         <input
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           placeholder="Search by vendor, category, bill number..."
-          style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.85rem', background: 'transparent', color: '#1e293b' }}
+          style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.82rem', background: 'transparent', color: '#1e293b' }}
         />
         {searchTerm && <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}><X size={14} /></button>}
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
-        <Filter size={14} style={{ color: '#94a3b8' }} />
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.8rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
+        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
+        <Filter size={13} style={{ color: '#94a3b8' }} />
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
           <option value="">All Categories</option>
           {expenseCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
-        <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.8rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
+        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
+        <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
           <option value="">All Payment Modes</option>
           {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
-        <div style={{ width: '1px', height: '20px', background: '#e2e8f0' }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.8rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
+        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
           <option value="">All Payment Statuses</option>
           <option value="Paid">Paid</option>
           <option value="Partially Paid">Partially Paid</option>
@@ -415,27 +415,27 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       </div>
 
       {/* ── Expenses List Table ───────────────────────────────── */}
-      <div style={{ background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '10px', overflow: 'hidden', flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.8rem 1.2rem', borderBottom: '1px solid var(--sap-border-color)', background: '#f8fafc' }}>
+      <div style={{ background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 1rem', borderBottom: '1px solid var(--sap-border-color)', background: '#f8fafc' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>
             {filtered.length} expense record{filtered.length !== 1 ? 's' : ''} {(searchTerm || filterCategory || filterPayment || filterStatus) ? '(filtered)' : ''}
           </span>
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
-            <Receipt size={40} style={{ color: '#cbd5e1', margin: '0 auto 1rem' }} />
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
+          <div style={{ padding: '2.5rem', textAlign: 'center' }}>
+            <Receipt size={36} style={{ color: '#cbd5e1', margin: '0 auto 0.75rem' }} />
+            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>
               {expenses.length === 0 ? 'No expenses recorded yet. Click "Add Expense" to get started.' : 'No results match your current filters.'}
             </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
                   {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Attachments', 'Payment Mode', 'Status', 'Paid From', 'Total (₹)', 'Paid (₹)', 'Remaining (₹)', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontWeight: 700, color: '#374151', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--sap-border-color)' }}>{h}</th>
+                    <th key={h} style={{ padding: '0.5rem 0.85rem', textAlign: 'left', fontWeight: 700, color: '#374151', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--sap-border-color)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -454,21 +454,21 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                       onMouseEnter={e => (e.currentTarget.style.background = '#f0f6ff')}
                       onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafafa')}
                     >
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.8rem' }}>{exp.expenseNo || '—'}</span>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.78rem' }}>{exp.expenseNo || '—'}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151', whiteSpace: 'nowrap' }}>
                         {exp.billDate ? new Date(exp.billDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
                         <div style={{ fontWeight: 600, color: '#1e293b' }}>{exp.party}</div>
-                        {exp.location && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px' }}>{exp.location}</div>}
+                        {exp.location && <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '1px' }}>{exp.location}</div>}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
                         {exp.documentUrl || exp.voucherUrl || exp.billUrl ? (
                           <a href={exp.documentUrl || exp.voucherUrl || exp.billUrl} target="_blank" rel="noreferrer" title="View Document" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '0.68rem', fontWeight: 600, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', textDecoration: 'none' }}>
                             <Receipt size={11} /> Document
@@ -477,35 +477,35 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                           <span style={{ color: '#cbd5e1' }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 600 }}>
                           {exp.paymentType || 'Cash'}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.text, borderRadius: '12px', padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.text, borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
                           {status}
                         </span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151', fontWeight: 500 }}>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151', fontWeight: 500 }}>
                         {exp.accountName || <span style={{ color: '#cbd5e1' }}>— None —</span>}
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: '#374151', fontSize: '0.85rem' }}>{fmt(exp.totalAmount || 0)}</span>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: '#374151', fontSize: '0.82rem' }}>{fmt(exp.totalAmount || 0)}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.85rem' }}>{fmt(exp.paidAmount !== undefined ? exp.paidAmount : exp.totalAmount)}</span>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.82rem' }}>{fmt(exp.paidAmount !== undefined ? exp.paidAmount : exp.totalAmount)}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: (exp.pendingAmount || 0) > 0 ? '#ef4444' : '#16a34a', fontSize: '0.85rem' }}>{fmt(exp.pendingAmount || 0)}</span>
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <span style={{ fontWeight: 700, color: (exp.pendingAmount || 0) > 0 ? '#ef4444' : '#16a34a', fontSize: '0.82rem' }}>{fmt(exp.pendingAmount || 0)}</span>
                       </td>
-                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => openEdit(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '5px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}>
-                            <Edit2 size={12} /> Edit
+                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                          <button onClick={() => openEdit(exp)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '4px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}>
+                            <Edit2 size={11} /> Edit
                           </button>
-                          <button onClick={() => handleDelete(exp)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.3rem 0.65rem', fontSize: '0.72rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '5px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                            <Trash2 size={12} /> Del
+                          <button onClick={() => handleDelete(exp)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '4px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
+                            <Trash2 size={11} /> Del
                           </button>
                         </div>
                       </td>
