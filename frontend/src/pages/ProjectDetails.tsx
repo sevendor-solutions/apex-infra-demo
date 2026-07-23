@@ -233,9 +233,6 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       if (project.category !== 'Sites' && project.floors !== undefined && project.floors > 0) {
         drawSpecLine('Total Floors:', `G+${project.floors}`);
       }
-      if (project.unitsCount) {
-        drawSpecLine('Total Units:', `${project.unitsCount}`);
-      }
       if (project.category === 'Sites' && project.uds) {
         drawSpecLine('Total Area:', `${project.uds} Sq. Yds`);
       }
@@ -244,26 +241,58 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       }
 
       // Highlights Box
-      currentY += 5;
-      doc.line(20, currentY, 190, currentY);
-      currentY += 10;
+      if (project.highlights && project.highlights.length > 0) {
+        currentY += 5;
+        doc.line(20, currentY, 190, currentY);
+        currentY += 10;
 
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 43, 70);
-      doc.text('KEY HIGHLIGHTS', 20, currentY);
-      currentY += 8;
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 43, 70);
+        doc.setFontSize(12);
+        doc.text('KEY HIGHLIGHTS', 20, currentY);
+        currentY += 8;
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(80, 80, 80);
-      project.highlights.forEach(h => {
-        if (currentY < 250) {
-          doc.text(`-  ${cleanPDFText(h)}`, 22, currentY);
-          currentY += 7;
-        }
-      });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(80, 80, 80);
+        
+        project.highlights.forEach(h => {
+          if (currentY > 250) {
+            // Render footer before page break
+            doc.setFillColor(15, 43, 70);
+            doc.rect(0, 267, 210, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.text('JK Future Infra - Building the Future', 105, 277, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.text('Call: 9000553832, 7893963322  |  Email: jkfutureinfra@gmail.com', 105, 285, { align: 'center' });
 
-      // Footer bar
+            doc.addPage();
+            currentY = 25;
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(15, 43, 70);
+            doc.setFontSize(12);
+            doc.text('KEY HIGHLIGHTS (Continued)', 20, currentY);
+            currentY += 10;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(80, 80, 80);
+          }
+
+          const cleanedHighlight = cleanPDFText(h);
+          if (cleanedHighlight) {
+            const splitLines = doc.splitTextToSize(`-  ${cleanedHighlight}`, 165);
+            splitLines.forEach((line: string) => {
+              doc.text(line, 22, currentY);
+              currentY += 6;
+            });
+            currentY += 1;
+          }
+        });
+      }
+
+      // Footer bar on last specs page
       doc.setFillColor(15, 43, 70);
       doc.rect(0, 267, 210, 30, 'F');
       doc.setTextColor(255, 255, 255);
@@ -799,11 +828,6 @@ Email: jkfutureinfra@gmail.com
           <div className="sidebar-card admin-card mb-2" style={{ backgroundColor: 'var(--primary)', color: 'var(--white)', border: 'none' }}>
             <span className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>Valuation / Pricing</span>
             <h2 className="text-3xl text-white my-1" style={{ color: 'var(--secondary)' }}>{project.priceRange}</h2>
-            <div className="flex gap-2 mt-2">
-              <button onClick={handleDownloadBrochure} className="btn btn-secondary flex-1 btn-sm">
-                <Download size={16} /> Brochure PDF
-              </button>
-            </div>
           </div>
 
           {/* Dynamic Payment plan structure */}
