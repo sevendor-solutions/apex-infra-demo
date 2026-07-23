@@ -199,11 +199,26 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       doc.setTextColor(50, 50, 50);
       
       let currentY = nextSectionY + 40;
+      const cleanPDFText = (txt: string | undefined | null): string => {
+        if (!txt) return '—';
+        return txt
+          .replace(/₹/g, 'Rs. ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, ' ')
+          .replace(/[^\x00-\x7F]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      };
+
       const drawSpecLine = (label: string, value: string) => {
         doc.setFont('helvetica', 'bold');
         doc.text(label, 20, currentY);
         doc.setFont('helvetica', 'normal');
-        doc.text(value, 65, currentY);
+        doc.text(cleanPDFText(value), 65, currentY);
         currentY += 9;
       };
 
@@ -243,7 +258,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       doc.setTextColor(80, 80, 80);
       project.highlights.forEach(h => {
         if (currentY < 250) {
-          doc.text(`•  ${h}`, 22, currentY);
+          doc.text(`-  ${cleanPDFText(h)}`, 22, currentY);
           currentY += 7;
         }
       });
