@@ -322,11 +322,12 @@ router.post("/process-reminders", authenticateToken, async (req, res, next) => {
         }
 
         for (const visit of pendingVisits) {
-            const visitDate = new Date(visit.visitDate);
+            const [vYear, vMonth, vDay] = visit.visitDate.split('-').map(Number);
+            const visitDate = new Date(vYear, vMonth - 1, vDay);
             visitDate.setHours(0, 0, 0, 0);
 
             const diffTime = visitDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             // Check if it's already today or in the past (too late for a reminder)
             if (diffDays < config.sendBeforeDays) {
@@ -603,11 +604,12 @@ export const runAutomatedSiteVisitReminders = async () => {
         }
 
         for (const visit of pendingVisits) {
-            const visitDate = new Date(visit.visitDate);
+            const [vYear, vMonth, vDay] = visit.visitDate.split('-').map(Number);
+            const visitDate = new Date(vYear, vMonth - 1, vDay);
             visitDate.setHours(0, 0, 0, 0);
 
             const diffTime = visitDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             if (diffDays < config.sendBeforeDays) {
                 await visit.update({ emailStatus: "Skipped" });

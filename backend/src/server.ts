@@ -149,15 +149,15 @@ sequelize.sync({ alter: true }) // Automatically add/drop columns and create tab
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
       
-      // Start background task timer (every 1 hour) for site visit reminders
-      const ONE_HOUR = 60 * 60 * 1000;
+      // Start background task timer (every 10 minutes) for site visit reminders
+      const TEN_MINUTES = 10 * 60 * 1000;
       setInterval(async () => {
         try {
           await runAutomatedSiteVisitReminders();
         } catch (err) {
           console.error("Failed to run automated background reminders interval:", err);
         }
-      }, ONE_HOUR);
+      }, TEN_MINUTES);
 
       // Also run reminders once immediately on server start to catch up
       setTimeout(async () => {

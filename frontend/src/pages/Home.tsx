@@ -571,11 +571,12 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           border: 5px solid var(--white);
         }
         .why-icon {
-          width: 48px;
-          height: 48px;
-          border-radius: var(--radius-full);
-          background-color: var(--accent-light);
-          color: var(--accent);
+          width: 46px;
+          height: 46px;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #00baf2 0%, #002970 100%) !important;
+          color: #ffffff !important;
+          box-shadow: 0 6px 16px rgba(0, 186, 242, 0.35);
           display: flex;
           align-items: center;
           justify-content: center;

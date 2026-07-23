@@ -71,20 +71,20 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="footer-col">
             <h4 className="footer-col-title">Registered Office</h4>
             <ul className="footer-contact-info">
-              <li className="flex gap-2">
-                <MapPin size={22} className="text-secondary shrink-0" />
+              <li className="flex gap-2 align-center">
+                <div className="footer-icon-badge loc"><MapPin size={16} color="#ffffff" /></div>
                 <span>DOOR No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRIVANIPALEM</span>
               </li>
               <li className="flex gap-2 align-center">
-                <Phone size={18} className="text-secondary" />
+                <div className="footer-icon-badge phone"><Phone size={16} color="#ffffff" /></div>
                 <span>9000553832, 7893963322</span>
               </li>
               <li className="flex gap-2 align-center">
-                <Mail size={18} className="text-secondary" />
+                <div className="footer-icon-badge email"><Mail size={16} color="#ffffff" /></div>
                 <span>jkfutureinfra@gmail.com</span>
               </li>
               <li className="flex gap-2 align-center text-sm" style={{ marginTop: '0.5rem', color: '#10b981' }}>
-                <ShieldCheck size={18} />
+                <div className="footer-icon-badge rera"><ShieldCheck size={16} color="#ffffff" /></div>
                 <span>AP RERA Regd: P03290021045</span>
               </li>
             </ul>
@@ -181,6 +181,33 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         }
         .footer-contact-info li {
           line-height: 1.5;
+        }
+        .footer-icon-badge {
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: transform 0.2s ease;
+        }
+        .footer-icon-badge.loc {
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        .footer-icon-badge.phone {
+          background: linear-gradient(135deg, #00baf2 0%, #0056b3 100%);
+          box-shadow: 0 4px 12px rgba(0, 186, 242, 0.4);
+        }
+        .footer-icon-badge.email {
+          background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+          box-shadow: 0 4px 12px rgba(244, 63, 94, 0.4);
+        }
+        .footer-icon-badge.rera {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
         }
         .footer-bottom {
           background-color: #030810;

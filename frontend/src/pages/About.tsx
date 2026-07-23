@@ -163,16 +163,23 @@ export const About: React.FC = () => {
           border-radius: var(--radius-lg);
         }
         .mv-icon-box {
-          width: 64px;
-          height: 64px;
-          border-radius: var(--radius-md);
+          width: 58px;
+          height: 58px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
           margin-bottom: 1.25rem;
+          color: #ffffff !important;
         }
-        .mv-icon-box.mission { background-color: rgba(240, 90, 40, 0.1); color: var(--secondary); }
-        .mv-icon-box.vision { background-color: rgba(0, 141, 213, 0.1); color: var(--accent); }
+        .mv-icon-box.mission {
+          background: linear-gradient(135deg, #f05a28 0%, #d97706 100%) !important;
+          box-shadow: 0 8px 20px rgba(240, 90, 40, 0.4);
+        }
+        .mv-icon-box.vision {
+          background: linear-gradient(135deg, #00baf2 0%, #002970 100%) !important;
+          box-shadow: 0 8px 20px rgba(0, 186, 242, 0.4);
+        }
 
         /* Team Cards */
         .team-card {
