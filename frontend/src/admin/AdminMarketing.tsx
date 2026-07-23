@@ -268,7 +268,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     }
   };
 
-  // Helper function to parse availability string (e.g. "2 BHK: 30: 35, 3 BHK: 20: 45")
+  // Helper function to parse availability string (e.g. "2 BHK: 30: 1250: 35, 3 BHK: 20: 1650: 45")
   const parseAvailabilityDetails = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
@@ -285,16 +285,44 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     return result;
   };
 
+  const parseAvailabilitySft = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length >= 4) {
+        const type = parts[0].trim();
+        const sftVal = parts[2].trim();
+        if (type && sftVal !== '') {
+          result[type] = sftVal;
+        }
+      } else if (parts.length === 3) {
+        const type = parts[0].trim();
+        const val = parts[2].trim();
+        if (type && (val.toLowerCase().includes('sft') || val.toLowerCase().includes('sq.ft'))) {
+          result[type] = val;
+        }
+      }
+    });
+    return result;
+  };
+
   const parseAvailabilityUds = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
     details.split(',').forEach(item => {
       const parts = item.split(':');
-      if (parts.length >= 3) {
+      if (parts.length >= 4) {
         const type = parts[0].trim();
-        const udsVal = parts[2].trim();
+        const udsVal = parts[3].trim();
         if (type && udsVal !== '') {
           result[type] = udsVal;
+        }
+      } else if (parts.length === 3) {
+        const type = parts[0].trim();
+        const val = parts[2].trim();
+        if (type && val !== '' && !val.toLowerCase().includes('sft') && !val.toLowerCase().includes('sq.ft')) {
+          result[type] = val;
         }
       }
     });
@@ -325,6 +353,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [unitsCount, setUnitsCount] = useState(0);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
+  const [configSftValues, setConfigSftValues] = useState<{ [type: string]: string }>({});
   const [configUdsValues, setConfigUdsValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
   const [uds, setUds] = useState('');
@@ -368,6 +397,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUnitsCount(0);
     setSelectedPropertyTypes(['2 BHK', '3 BHK']);
     setConfigValues({ '2 BHK': '30', '3 BHK': '20' });
+    setConfigSftValues({ '2 BHK': '', '3 BHK': '' });
     setConfigUdsValues({ '2 BHK': '', '3 BHK': '' });
     setSpecImage('');
     setUds('');
@@ -414,9 +444,11 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     setUnitsCount(prop.unitsCount || 0);
     
     const parsedValues = parseAvailabilityDetails(prop.availabilityDetails || '');
+    const parsedSftValues = parseAvailabilitySft(prop.availabilityDetails || '');
     const parsedUdsValues = parseAvailabilityUds(prop.availabilityDetails || '');
     setSelectedPropertyTypes(Object.keys(parsedValues));
     setConfigValues(parsedValues);
+    setConfigSftValues(parsedSftValues);
     setConfigUdsValues(parsedUdsValues);
     
     setSpecImage(prop.specImage || '');
@@ -511,8 +543,9 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
     const availabilityString = selectedPropertyTypes
       .map(type => {
         const val = configValues[type] !== undefined ? configValues[type] : '0';
+        const sftVal = configSftValues[type] !== undefined ? configSftValues[type] : '';
         const udsVal = configUdsValues[type] !== undefined ? configUdsValues[type] : '';
-        return `${type}: ${val}: ${udsVal}`;
+        return `${type}: ${val}: ${sftVal}: ${udsVal}`;
       })
       .join(', ');
 
@@ -1238,8 +1271,8 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">BHK / Plot Configurations * (Check config to enable quantity)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
+                  <label className="form-label">BHK / Plot Configurations * (Check config to enable quantity, SFT &amp; UDS)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '6px', backgroundColor: 'rgba(0,0,0,0.02)' }}>
                     {(propertyTypes && propertyTypes.length > 0 ? propertyTypes : [
                       { id: 'dpt1', name: '1 BHK' },
                       { id: 'dpt2', name: '2 BHK' },
@@ -1252,7 +1285,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
                         <div key={pt.id} style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', width: '100px', userSelect: 'none' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.85rem', minWidth: '70px', userSelect: 'none' }}>
                             <input 
                               type="checkbox"
                               checked={isChecked}
@@ -1260,10 +1293,16 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                                 if (e.target.checked) {
                                   setSelectedPropertyTypes(prev => [...prev, pt.name]);
                                   setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                  setConfigSftValues(prev => ({ ...prev, [pt.name]: '' }));
                                   setConfigUdsValues(prev => ({ ...prev, [pt.name]: '' }));
                                 } else {
                                   setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
                                   setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                  setConfigSftValues(prev => {
                                     const next = { ...prev };
                                     delete next[pt.name];
                                     return next;
@@ -1279,12 +1318,12 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                             />
                             {pt.name}
                           </label>
-                          <div style={{ display: 'flex', gap: '0.4rem', flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', flex: 1, minWidth: '210px' }}>
                             <input 
                               type="number"
                               placeholder="Qty"
                               className="form-control"
-                              style={{ flex: 1, minWidth: '55px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                              style={{ flex: 1, minWidth: '45px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem' }}
                               value={countValue}
                               disabled={!isChecked}
                               onChange={(e) => {
@@ -1295,9 +1334,21 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                             />
                             <input 
                               type="text"
+                              placeholder="SFT"
+                              className="form-control"
+                              style={{ flex: 1.2, minWidth: '60px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem' }}
+                              value={configSftValues[pt.name] !== undefined ? configSftValues[pt.name] : ''}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigSftValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                            />
+                            <input 
+                              type="text"
                               placeholder="UDS (Sq.Yds)"
                               className="form-control"
-                              style={{ flex: 1.5, minWidth: '85px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                              style={{ flex: 1.4, minWidth: '75px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem' }}
                               value={configUdsValues[pt.name] !== undefined ? configUdsValues[pt.name] : ''}
                               disabled={!isChecked}
                               onChange={(e) => {

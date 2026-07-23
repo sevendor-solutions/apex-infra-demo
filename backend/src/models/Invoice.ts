@@ -95,6 +95,57 @@ export class Invoice extends Model {
         type: DataType.STRING,
         allowNull: true
     })
+    customerMobile?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    customerAddress?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    projectName?: string;
+
+    @Column({
+        type: DataType.TEXT,
+        allowNull: true,
+        get() {
+            const rawValue = this.getDataValue('amenityItems');
+            return rawValue ? JSON.parse(rawValue) : [];
+        },
+        set(value) {
+            this.setDataValue('amenityItems', value ? JSON.stringify(value) : JSON.stringify([]));
+        }
+    })
+    amenityItems?: Array<{
+        productName: string;
+        productCode: string;
+        quantity: number;
+        price: number;
+        discount: number;
+        gst: number;
+        total: number;
+    }>;
+
+    @Column({
+        type: DataType.TEXT,
+        allowNull: true
+    })
+    notes?: string;
+
+    @Column({
+        type: DataType.TEXT,
+        allowNull: true
+    })
+    termsAndConditions?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
     userId?: string;
 
     @CreatedAt

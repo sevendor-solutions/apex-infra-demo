@@ -104,7 +104,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     }
   };
 
-  // Helper function to parse availability string (e.g. "2 BHK: 30: 35, 3 BHK: 20: 45")
+  // Helper function to parse availability string (e.g. "2 BHK: 30: 1250: 35, 3 BHK: 20: 1650: 45")
   const parseAvailabilityDetails = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
@@ -121,16 +121,44 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     return result;
   };
 
+  const parseAvailabilitySft = (details: string) => {
+    const result: { [type: string]: string } = {};
+    if (!details) return result;
+    details.split(',').forEach(item => {
+      const parts = item.split(':');
+      if (parts.length >= 4) {
+        const type = parts[0].trim();
+        const sftVal = parts[2].trim();
+        if (type && sftVal !== '') {
+          result[type] = sftVal;
+        }
+      } else if (parts.length === 3) {
+        const type = parts[0].trim();
+        const val = parts[2].trim();
+        if (type && (val.toLowerCase().includes('sft') || val.toLowerCase().includes('sq.ft'))) {
+          result[type] = val;
+        }
+      }
+    });
+    return result;
+  };
+
   const parseAvailabilityUds = (details: string) => {
     const result: { [type: string]: string } = {};
     if (!details) return result;
     details.split(',').forEach(item => {
       const parts = item.split(':');
-      if (parts.length >= 3) {
+      if (parts.length >= 4) {
         const type = parts[0].trim();
-        const udsVal = parts[2].trim();
+        const udsVal = parts[3].trim();
         if (type && udsVal !== '') {
           result[type] = udsVal;
+        }
+      } else if (parts.length === 3) {
+        const type = parts[0].trim();
+        const val = parts[2].trim();
+        if (type && val !== '' && !val.toLowerCase().includes('sft') && !val.toLowerCase().includes('sq.ft')) {
+          result[type] = val;
         }
       }
     });
@@ -162,6 +190,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [unitsCount, setUnitsCount] = useState(0);
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>([]);
   const [configValues, setConfigValues] = useState<{ [type: string]: string }>({});
+  const [configSftValues, setConfigSftValues] = useState<{ [type: string]: string }>({});
   const [configUdsValues, setConfigUdsValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
   const [width, setWidth] = useState('');
@@ -196,6 +225,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setUnitsCount(50);
     setSelectedPropertyTypes(['2 BHK', '3 BHK']);
     setConfigValues({ '2 BHK': '20', '3 BHK': '30' });
+    setConfigSftValues({ '2 BHK': '', '3 BHK': '' });
     setConfigUdsValues({ '2 BHK': '', '3 BHK': '' });
     setSpecImage('');
     setWidth('');
@@ -234,9 +264,11 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setUnitsCount(proj.unitsCount || 0);
     
     const parsedValues = parseAvailabilityDetails(proj.availabilityDetails || '');
+    const parsedSftValues = parseAvailabilitySft(proj.availabilityDetails || '');
     const parsedUdsValues = parseAvailabilityUds(proj.availabilityDetails || '');
     setSelectedPropertyTypes(Object.keys(parsedValues));
     setConfigValues(parsedValues);
+    setConfigSftValues(parsedSftValues);
     setConfigUdsValues(parsedUdsValues);
     
     setSpecImage(proj.specImage || '');
@@ -318,8 +350,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     const availabilityString = selectedPropertyTypes
       .map(type => {
         const val = configValues[type] !== undefined ? configValues[type] : '0';
+        const sftVal = configSftValues[type] !== undefined ? configSftValues[type] : '';
         const udsVal = configUdsValues[type] !== undefined ? configUdsValues[type] : '';
-        return `${type}: ${val}: ${udsVal}`;
+        return `${type}: ${val}: ${sftVal}: ${udsVal}`;
       })
       .join(', ');
 
@@ -816,8 +849,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>BHK / Plot Configurations * (Check config to enable quantity)</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>BHK / Plot Configurations * (Check config to enable quantity, SFT &amp; UDS)</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem', marginTop: '0.4rem', padding: '0.75rem', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
                     {(propertyTypes && propertyTypes.length > 0 ? propertyTypes : [
                       { id: 'dpt1', name: '1 BHK' },
                       { id: 'dpt2', name: '2 BHK' },
@@ -829,8 +862,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                       const isChecked = selectedPropertyTypes.includes(pt.name);
                       const countValue = configValues[pt.name] !== undefined ? configValues[pt.name] : '';
                       return (
-                        <div key={pt.id} style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', width: '100px', userSelect: 'none' }}>
+                        <div key={pt.id} style={{ display: 'flex', flexFlow: 'row wrap', alignItems: 'center', gap: '0.4rem', padding: '0.4rem 0.25rem', borderBottom: '1px dashed rgba(0,0,0,0.05)' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#374151', minWidth: '70px', userSelect: 'none' }}>
                             <input 
                               type="checkbox"
                               checked={isChecked}
@@ -838,10 +871,16 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                                 if (e.target.checked) {
                                   setSelectedPropertyTypes(prev => [...prev, pt.name]);
                                   setConfigValues(prev => ({ ...prev, [pt.name]: '0' }));
+                                  setConfigSftValues(prev => ({ ...prev, [pt.name]: '' }));
                                   setConfigUdsValues(prev => ({ ...prev, [pt.name]: '' }));
                                 } else {
                                   setSelectedPropertyTypes(prev => prev.filter(item => item !== pt.name));
                                   setConfigValues(prev => {
+                                    const next = { ...prev };
+                                    delete next[pt.name];
+                                    return next;
+                                  });
+                                  setConfigSftValues(prev => {
                                     const next = { ...prev };
                                     delete next[pt.name];
                                     return next;
@@ -857,12 +896,12 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                             />
                             {pt.name}
                           </label>
-                          <div style={{ display: 'flex', gap: '0.4rem', flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '0.35rem', flex: 1, minWidth: '210px' }}>
                             <input 
                               type="number"
                               placeholder="Qty"
                               className="form-control"
-                              style={{ flex: 1, minWidth: '55px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
+                              style={{ flex: 1, minWidth: '45px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
                               value={countValue}
                               disabled={!isChecked}
                               onChange={(e) => {
@@ -873,9 +912,21 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                             />
                             <input 
                               type="text"
+                              placeholder="SFT"
+                              className="form-control"
+                              style={{ flex: 1.2, minWidth: '60px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
+                              value={configSftValues[pt.name] !== undefined ? configSftValues[pt.name] : ''}
+                              disabled={!isChecked}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setConfigSftValues(prev => ({ ...prev, [pt.name]: val }));
+                              }}
+                            />
+                            <input 
+                              type="text"
                               placeholder="UDS (Sq.Yds)"
                               className="form-control"
-                              style={{ flex: 1.5, minWidth: '85px', height: '28px', margin: 0, padding: '0.2rem 0.4rem', fontSize: '0.8rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
+                              style={{ flex: 1.4, minWidth: '75px', height: '28px', margin: 0, padding: '0.2rem 0.35rem', fontSize: '0.78rem', border: '1px solid #cbd5e1', borderRadius: '4px', background: isChecked ? '#fff' : '#e2e8f0' }}
                               value={configUdsValues[pt.name] !== undefined ? configUdsValues[pt.name] : ''}
                               disabled={!isChecked}
                               onChange={(e) => {

@@ -823,10 +823,21 @@ export const Projects: React.FC<ProjectsProps> = ({
                                       const parts = part.split(':').map(s => s.trim());
                                       const type = parts[0];
                                       const qty = parts[1];
-                                      const udsVal = parts[2];
+                                      let sftVal = '';
+                                      let udsVal = '';
+                                      if (parts.length >= 4) {
+                                        sftVal = parts[2];
+                                        udsVal = parts[3];
+                                      } else if (parts.length === 3) {
+                                        if (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft')) {
+                                          sftVal = parts[2];
+                                        } else {
+                                          udsVal = parts[2];
+                                        }
+                                      }
                                       return (
                                         <span key={idx} className="badge badge-ongoing" style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', border: '1px solid #d0e1f5', borderRadius: '4px', fontWeight: 600 }}>
-                                          {type} {qty ? `(${qty} units)` : ''}{udsVal ? ` - UDS: ${udsVal} Sq.Yds` : ''}
+                                          {type} {qty ? `(${qty} units)` : ''}{sftVal ? ` | ${sftVal} SFT` : ''}{udsVal ? ` | UDS: ${udsVal} Sq.Yds` : ''}
                                         </span>
                                       );
                                     })}

@@ -265,6 +265,10 @@ export interface Expense {
   referenceNo?: string;
   roundOff: boolean;
   gstEnabled?: boolean;
+  hasVoucherBill?: boolean;
+  documentUrl?: string;
+  voucherUrl?: string;
+  billUrl?: string;
   totalAmount: number;
   paidAmount?: number;
   pendingAmount?: number;
@@ -397,6 +401,7 @@ export interface Quotation {
   date: string;
   validTillDate: string;
   items: QuotationItem[];
+  amenityItems?: QuotationItem[];
   totalAmount: number;
   notes?: string;
   termsAndConditions?: string;
@@ -412,6 +417,7 @@ export interface InvoiceItem {
   price: number;
   discount: number;
   gst: number;
+  gstPercentage?: number;
   total: number;
 }
 
@@ -419,14 +425,20 @@ export interface Invoice {
   id: string;
   invoiceNumber: string;
   customerName: string;
+  customerMobile?: string;
+  customerAddress?: string;
+  projectName?: string;
   date: string;
   items: InvoiceItem[];
+  amenityItems?: InvoiceItem[];
   totalAmount: number;
   gstAmount: number;
   discountAmount: number;
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: string;
+  termsAndConditions?: string;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
 }

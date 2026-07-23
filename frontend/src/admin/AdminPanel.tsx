@@ -2519,44 +2519,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </main>
 
         {/* Custom Confirmation Modal */}
-        {confirmOpen && (
-          <div className="modal-overlay" style={{ zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="modal-content confirm-modal" onClick={e => e.stopPropagation()} style={{ width: '400px', borderRadius: '8px', overflow: 'hidden' }}>
-              <div className="confirm-modal-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', backgroundColor: '#fce8e6', borderBottom: '1px solid #f5c2c2', color: '#c93b3b', fontWeight: 'bold' }}>
-                <AlertTriangle size={20} />
-                <span>Confirm Action Request</span>
-              </div>
-              <div className="confirm-modal-body" style={{ padding: '1.25rem', fontSize: '0.9rem', color: '#333' }}>
-                {confirmMessage}
-              </div>
-              <div className="confirm-modal-footer" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', padding: '1rem', borderTop: '1px solid #eee' }}>
-                <button 
-                  type="button"
-                  onClick={() => handleConfirmChoice(false)} 
-                  className="btn btn-outline btn-sm"
-                  style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', cursor: 'pointer' }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => handleConfirmChoice(true)} 
-                  className="btn btn-secondary btn-sm"
-                  style={{ 
-                    backgroundColor: 'var(--danger)', 
-                    borderColor: 'var(--danger)', 
-                    color: 'white',
-                    padding: '0.45rem 1rem', 
-                    fontSize: '0.85rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Delete
-                </button>
+        {confirmOpen && (() => {
+          const isDeleteAction = confirmMessage.toLowerCase().includes('delete');
+          const isConvertAction = confirmMessage.toLowerCase().includes('convert');
+          const btnText = isDeleteAction ? 'Delete' : (isConvertAction ? 'Convert' : 'Confirm');
+          const headerBg = isDeleteAction ? '#fce8e6' : '#eff6ff';
+          const headerBorder = isDeleteAction ? '#f5c2c2' : '#bfdbfe';
+          const headerColor = isDeleteAction ? '#c93b3b' : '#1d4ed8';
+          const btnBg = isDeleteAction ? 'var(--danger)' : 'var(--primary, #0f2b46)';
+
+          return (
+            <div className="modal-overlay" style={{ zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="modal-content confirm-modal" onClick={e => e.stopPropagation()} style={{ width: '400px', borderRadius: '8px', overflow: 'hidden' }}>
+                <div className="confirm-modal-header" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '1rem', backgroundColor: headerBg, borderBottom: `1px solid ${headerBorder}`, color: headerColor, fontWeight: 'bold' }}>
+                  <AlertTriangle size={20} />
+                  <span>Confirm Action Request</span>
+                </div>
+                <div className="confirm-modal-body" style={{ padding: '1.25rem', fontSize: '0.9rem', color: '#333' }}>
+                  {confirmMessage}
+                </div>
+                <div className="confirm-modal-footer" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', padding: '1rem', borderTop: '1px solid #eee' }}>
+                  <button 
+                    type="button"
+                    onClick={() => handleConfirmChoice(false)} 
+                    className="btn btn-outline btn-sm"
+                    style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => handleConfirmChoice(true)} 
+                    className="btn btn-secondary btn-sm"
+                    style={{ 
+                      backgroundColor: btnBg, 
+                      borderColor: btnBg, 
+                      color: 'white',
+                      padding: '0.45rem 1rem', 
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {btnText}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );

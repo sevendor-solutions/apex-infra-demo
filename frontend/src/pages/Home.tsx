@@ -356,7 +356,8 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         /* Hero Slider */
         .hero-slider-section {
           position: relative;
-          height: 600px;
+          height: clamp(660px, 78vh, 800px);
+          min-height: 660px;
           overflow: hidden;
         }
         .hero-slide {
@@ -366,7 +367,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           width: 100%;
           height: 100%;
           background-size: cover;
-          background-position: center;
+          background-position: center 25%;
           display: flex;
           align-items: center;
           opacity: 0;
@@ -386,7 +387,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           transition: opacity 0.25s ease-in-out;
         }
         .hero-slide-content {
-          padding-bottom: 150px;
+          padding-bottom: 120px;
         }
         .hero-badge {
           background-color: rgba(240, 90, 40, 0.2);
@@ -432,7 +433,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         /* Search Bar */
         .hero-search-container {
           position: absolute;
-          bottom: 5.5rem;
+          bottom: 2rem;
           left: 50%;
           transform: translateX(-50%);
           width: 100%;
@@ -471,13 +472,20 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         }
         @media (max-width: 768px) {
           .hero-search-form { flex-direction: column; gap: 0.75rem; }
-          .hero-slider-section { height: auto; min-height: 600px; }
+          .hero-slider-section { height: auto; min-height: 600px; max-height: none; }
           .hero-slide {
             align-items: flex-start !important;
+            background-position: center center !important;
           }
           .hero-slide-content {
             padding-top: 65px !important;
             padding-bottom: 10px !important;
+          }
+          .hero-search-container {
+            position: relative !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
           }
           .hero-slide-content .btn-outline-white {
             display: none !important;

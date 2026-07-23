@@ -595,10 +595,21 @@ export const Marketing: React.FC<MarketingProps> = ({
                                   const parts = part.split(':').map(s => s.trim());
                                   const type = parts[0];
                                   const qty = parts[1];
-                                  const udsVal = parts[2];
+                                  let sftVal = '';
+                                  let udsVal = '';
+                                  if (parts.length >= 4) {
+                                    sftVal = parts[2];
+                                    udsVal = parts[3];
+                                  } else if (parts.length === 3) {
+                                    if (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft')) {
+                                      sftVal = parts[2];
+                                    } else {
+                                      udsVal = parts[2];
+                                    }
+                                  }
                                   return (
                                     <span key={idx} className="text-xxs font-bold" style={{ fontSize: '0.65rem', padding: '0.15rem 0.35rem', backgroundColor: '#e6f0fa', color: '#0b2c5c', borderRadius: '4px', border: '1px solid #d0e1f5', fontWeight: 600 }}>
-                                      {type} {qty ? `(${qty})` : ''}{udsVal ? ` - UDS: ${udsVal} Sq.Yds` : ''}
+                                      {type} {qty ? `(${qty})` : ''}{sftVal ? ` | ${sftVal} SFT` : ''}{udsVal ? ` | UDS: ${udsVal} Sq.Yds` : ''}
                                     </span>
                                   );
                                 })}

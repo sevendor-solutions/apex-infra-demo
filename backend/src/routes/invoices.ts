@@ -21,7 +21,7 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST create invoice (automatically reduces stock & increases customer outstanding balance)
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const { customerName, date, items, totalAmount, gstAmount, discountAmount, paidAmount } = req.body;
+        const { customerName, customerMobile, customerAddress, projectName, date, items, amenityItems, totalAmount, gstAmount, discountAmount, paidAmount, termsAndConditions, notes } = req.body;
 
         if (!customerName || !date || !items || items.length === 0) {
             return res.status(400).json({ success: false, message: "Required fields missing" });
@@ -29,7 +29,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
 
         // Auto-generate invoice number
         const count = await Invoice.count();
-        const invoiceNumber = `INV-${Date.now().toString().slice(-4)}-${count + 1}`;
+        const invoiceNumber = req.body.invoiceNumber || `INV-JKFI-${String(1001 + count).padStart(4, '0')}`;
 
         const total = parseFloat(totalAmount || 0);
         const paid = parseFloat(paidAmount || 0);
@@ -41,14 +41,20 @@ router.post("/", authenticateToken, async (req, res, next) => {
         const invoice = await Invoice.create({
             invoiceNumber,
             customerName,
+            customerMobile,
+            customerAddress,
+            projectName,
             date,
             items,
+            amenityItems,
             totalAmount: total,
             gstAmount: parseFloat(gstAmount || 0),
             discountAmount: parseFloat(discountAmount || 0),
             paidAmount: paid,
             pendingAmount: pending,
             paymentStatus,
+            termsAndConditions,
+            notes,
             userId: req.user?.id
         });
 

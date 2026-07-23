@@ -574,54 +574,90 @@ Email: jkfutureinfra@gmail.com
                 <div className="detail-card admin-card" style={{ marginBottom: 0 }}>
                   <h3 className="border-bottom-title mb-2">Configurations &amp; Availability</h3>
                   <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Type</th>
-                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
-                          {project.availabilityDetails.includes(':') && project.availabilityDetails.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim()) && (
-                            <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq.Yds)</th>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.availabilityDetails.split(',').map((part, idx) => {
-                          const parts = part.split(':').map(s => s.trim());
-                          const type = parts[0];
-                          const qty = parts[1];
-                          const udsVal = parts[2];
-                          const countNum = parseInt(qty || '0', 10);
-                          const isAvailable = !isNaN(countNum) && countNum > 0;
-                          const hasUdsCol = project.availabilityDetails?.split(',').some(p => p.split(':').length >= 3 && p.split(':')[2].trim());
+                    {(() => {
+                      const rawParts = project.availabilityDetails.split(',').map(s => s.trim()).filter(Boolean);
+                      const hasSftCol = rawParts.some(p => {
+                        const parts = p.split(':').map(s => s.trim());
+                        if (parts.length >= 4 && parts[2]) return true;
+                        if (parts.length === 3 && parts[2] && (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft'))) return true;
+                        return false;
+                      });
+                      const hasUdsCol = rawParts.some(p => {
+                        const parts = p.split(':').map(s => s.trim());
+                        if (parts.length >= 4 && parts[3]) return true;
+                        if (parts.length === 3 && parts[2] && !parts[2].toLowerCase().includes('sft') && !parts[2].toLowerCase().includes('sq.ft')) return true;
+                        return false;
+                      });
 
-                          return (
-                            <tr key={idx} style={{ borderBottom: idx < project.availabilityDetails!.split(',').length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                              <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
-                              <td style={{ padding: '0.65rem 1rem' }}>
-                                <span 
-                                  className="badge" 
-                                  style={{
-                                    backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
-                                    color: isAvailable ? '#1e7e34' : '#c5221f',
-                                    border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
-                                    padding: '0.25rem 0.6rem',
-                                    fontSize: '0.8rem',
-                                    fontWeight: 700
-                                  }}
-                                >
-                                  {isAvailable ? `${qty} Units` : '0 Units'}
-                                </span>
-                              </td>
+                      return (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
+                              <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Type</th>
+                              <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
+                              {hasSftCol && (
+                                <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Area (SFT)</th>
+                              )}
                               {hasUdsCol && (
-                                <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
-                                  {udsVal ? `${udsVal} Sq.Yds` : '-'}
-                                </td>
+                                <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq.Yds)</th>
                               )}
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                          </thead>
+                          <tbody>
+                            {rawParts.map((part, idx) => {
+                              const parts = part.split(':').map(s => s.trim());
+                              const type = parts[0];
+                              const qty = parts[1];
+                              let sftVal = '';
+                              let udsVal = '';
+                              if (parts.length >= 4) {
+                                sftVal = parts[2];
+                                udsVal = parts[3];
+                              } else if (parts.length === 3) {
+                                if (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft')) {
+                                  sftVal = parts[2];
+                                } else {
+                                  udsVal = parts[2];
+                                }
+                              }
+                              const countNum = parseInt(qty || '0', 10);
+                              const isAvailable = !isNaN(countNum) && countNum > 0;
+
+                              return (
+                                <tr key={idx} style={{ borderBottom: idx < rawParts.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                                  <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
+                                  <td style={{ padding: '0.65rem 1rem' }}>
+                                    <span 
+                                      className="badge" 
+                                      style={{
+                                        backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
+                                        color: isAvailable ? '#1e7e34' : '#c5221f',
+                                        border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
+                                        padding: '0.25rem 0.6rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 700
+                                      }}
+                                    >
+                                      {isAvailable ? `${qty} UNITS` : '0 UNITS'}
+                                    </span>
+                                  </td>
+                                  {hasSftCol && (
+                                    <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
+                                      {sftVal ? (sftVal.toLowerCase().includes('sft') || sftVal.toLowerCase().includes('sq.ft') ? sftVal : `${sftVal} SFT`) : '-'}
+                                    </td>
+                                  )}
+                                  {hasUdsCol && (
+                                    <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
+                                      {udsVal ? (udsVal.toLowerCase().includes('sq.yds') || udsVal.toLowerCase().includes('yds') ? udsVal : `${udsVal} Sq.Yds`) : '-'}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 </div>
               ) : <div />}

@@ -74,6 +74,27 @@ export class Quotation extends Model {
     }>;
 
     @Column({
+        type: DataType.TEXT,
+        allowNull: true,
+        get() {
+            const rawValue = this.getDataValue('amenityItems');
+            return rawValue ? JSON.parse(rawValue) : [];
+        },
+        set(value) {
+            this.setDataValue('amenityItems', value ? JSON.stringify(value) : JSON.stringify([]));
+        }
+    })
+    amenityItems?: Array<{
+        productName: string;
+        productCode: string;
+        quantity: number;
+        unitPrice: number;
+        discount: number;
+        gstPercentage: number;
+        total: number;
+    }>;
+
+    @Column({
         type: DataType.DOUBLE,
         allowNull: false,
         defaultValue: 0

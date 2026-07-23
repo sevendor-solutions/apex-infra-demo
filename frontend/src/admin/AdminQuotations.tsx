@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
-import type { Quotation, QuotationItem, Customer, InventoryItem, Project } from '../types';
+import type { Quotation, QuotationItem, Customer, InventoryItem, Project, Amenity } from '../types';
 import { 
   X, Trash, Download, Share2
 } from 'lucide-react';
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
   getInventoryItems, getCustomers, addInvoice, getProjects,
-  addCustomer
+  addCustomer, getAmenities
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -29,6 +29,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [_projectsList, setProjectsList] = useState<Project[]>([]);
+  const [amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -56,20 +57,30 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     { productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
   ]);
 
+  // Quotation Amenity Items
+  const [amenityItems, setAmenityItems] = useState<QuotationItem[]>([
+    { productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
+  ]);
+
+  const availableAmenityOptions = useMemo(() => {
+    return amenitiesMasterList.map(a => a.name).filter(Boolean);
+  }, [amenitiesMasterList]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const [quotes, items, customers, projs] = await Promise.all([
+      const [quotes, items, customers, projs, fetchedAmenities] = await Promise.all([
         getQuotations(),
         getInventoryItems(),
         getCustomers(),
-        getProjects()
+        getProjects(),
+        getAmenities().catch(() => [])
       ]);
       setQuotations(quotes);
       setItemsList(items);
       setCustomersList(customers);
       setProjectsList(projs);
+      setAmenitiesMasterList(fetchedAmenities || []);
     } catch (err) {
       onAddToast('Failed to load quotations data.', 'error');
     } finally {
@@ -136,9 +147,42 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setLineItems(prev => prev.filter((_, i) => i !== idx));
   };
 
+  const updateAmenityItem = (idx: number, field: keyof QuotationItem, value: any) => {
+    setAmenityItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const updated = { ...item, [field]: value };
+      
+      const qty = field === 'quantity' ? parseFloat(value) || 0 : item.quantity;
+      const price = field === 'unitPrice' ? parseFloat(value) || 0 : item.unitPrice;
+      const discount = field === 'discount' ? parseFloat(value) || 0 : item.discount;
+      const gst = field === 'gstPercentage' ? parseFloat(value) || 0 : item.gstPercentage;
+      
+      const base = qty * price;
+      const afterDisc = base - discount;
+      updated.total = afterDisc + (afterDisc * (gst / 100));
+
+      return updated;
+    }));
+  };
+
+  const addAmenityItem = () => {
+    setAmenityItems(prev => [
+      ...prev,
+      { productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
+    ]);
+  };
+
+  const removeAmenityItem = (idx: number) => {
+    if (amenityItems.length === 1) return;
+    setAmenityItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const totalAmount = useMemo(() => {
-    return lineItems.reduce((sum, item) => sum + item.total, 0);
-  }, [lineItems]);
+    const lineTotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+    const amenityTotal = amenityItems.reduce((sum, item) => sum + item.total, 0);
+    return lineTotal + amenityTotal;
+  }, [lineItems, amenityItems]);
+
   const resetForm = () => {
     setCustomerName('');
     setCustomerSearchText('');
@@ -157,6 +201,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setTerms('1. Quotation valid for 30 days from date of issue.\n2. Goods once sold will not be taken back.\n3. All disputes subject to local jurisdiction.');
     setStatus('Draft');
     setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
+    setAmenityItems([{ productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
     setEditingQuotation(null);
   };
 
@@ -180,6 +225,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         date,
         validTillDate,
         items: lineItems,
+        amenityItems: amenityItems.filter(a => a.productName.trim() !== ''),
         totalAmount,
         notes,
         termsAndConditions: terms,
@@ -214,6 +260,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     setTerms(q.termsAndConditions || '');
     setStatus(q.status);
     setLineItems(q.items && q.items.length ? q.items : []);
+    setAmenityItems(q.amenityItems && q.amenityItems.length ? q.amenityItems : [{ productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
     setShowModal(true);
   };
 
@@ -389,34 +436,44 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text('#', 18, y + 5.5);
-      doc.text('PRODUCT / DESCRIPTION', 26, y + 5.5);
-      doc.text('QTY', 110, y + 5.5, { align: 'right' });
-      doc.text('UNIT PRICE', 135, y + 5.5, { align: 'right' });
-      doc.text('DISCOUNT', 155, y + 5.5, { align: 'right' });
-      doc.text('GST %', 170, y + 5.5, { align: 'right' });
-      doc.text('TOTAL', 190, y + 5.5, { align: 'right' });
+      doc.setFontSize(7.5);
+      doc.text('#', 17, y + 5.5);
+      doc.text('PRODUCT / DESCRIPTION', 24, y + 5.5);
+      doc.text('SFT', 98, y + 5.5, { align: 'right' });
+      doc.text('UNIT PRICE', 124, y + 5.5, { align: 'right' });
+      doc.text('DISCOUNT', 146, y + 5.5, { align: 'right' });
+      doc.text('GST (Rs.)', 168, y + 5.5, { align: 'right' });
+      doc.text('TOTAL', 193, y + 5.5, { align: 'right' });
 
       y += 8;
       doc.setTextColor(15, 23, 42); // Slate 900
       
-      q.items.forEach((item, idx) => {
+      const allPrintItems = [
+        ...q.items,
+        ...(q.amenityItems || [])
+      ];
+
+      allPrintItems.forEach((item, idx) => {
+        if (!item.productName) return;
         // Striped background rows
         if (idx % 2 === 1) {
           doc.setFillColor(248, 250, 252); // Slate 50
           doc.rect(15, y, 180, 8, 'F');
         }
         
+        const base = (item.unitPrice || 0) * (item.quantity || 1);
+        const afterDisc = base - (item.discount || 0);
+        const itemGstAmt = afterDisc * ((item.gstPercentage || 0) / 100);
+
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(String(idx + 1), 18, y + 5.5);
-        doc.text(item.productName, 26, y + 5.5);
-        doc.text(String(item.quantity), 110, y + 5.5, { align: 'right' });
-        doc.text(fmtPDF(item.unitPrice), 135, y + 5.5, { align: 'right' });
-        doc.text(fmtPDF(item.discount), 155, y + 5.5, { align: 'right' });
-        doc.text(`${item.gstPercentage}%`, 170, y + 5.5, { align: 'right' });
-        doc.text(fmtPDF(item.total), 190, y + 5.5, { align: 'right' });
+        doc.setFontSize(7.5);
+        doc.text(String(idx + 1), 17, y + 5.5);
+        doc.text(item.productName, 24, y + 5.5);
+        doc.text(String(item.quantity), 98, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.unitPrice), 124, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.discount), 146, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(itemGstAmt), 168, y + 5.5, { align: 'right' });
+        doc.text(fmtPDF(item.total), 193, y + 5.5, { align: 'right' });
         
         doc.setDrawColor(241, 245, 249); // Slate 100 border
         doc.setLineWidth(0.5);
@@ -424,20 +481,41 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         y += 8;
       });
 
-      // Totals
+      // Calculate totals breakdown for summary box (matching 3rd image style)
+      const totalSub = allPrintItems.reduce((sum, item) => sum + ((item.unitPrice || 0) * (item.quantity || 1)), 0);
+      const totalDisc = allPrintItems.reduce((sum, item) => sum + (item.discount || 0), 0);
+      const totalGst = allPrintItems.reduce((sum, item) => {
+        const afterDisc = ((item.unitPrice || 0) * (item.quantity || 1)) - (item.discount || 0);
+        return sum + (afterDisc * ((item.gstPercentage || 0) / 100));
+      }, 0);
+
       y += 6;
-      doc.setFillColor(241, 245, 249); // slate 100 background highlight
-      doc.rect(120, y - 4, 75, 8, 'F');
+      doc.setFillColor(248, 250, 252); // slate 50 background
+      doc.setDrawColor(226, 232, 240); // slate 200 border
+      doc.setLineWidth(0.5);
+      doc.rect(110, y - 4, 85, 24, 'FD');
       
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Subtotal:', 115, y + 1);
+      doc.text(fmtPDF(totalSub), 190, y + 1, { align: 'right' });
+      
+      doc.text('Discounts Deducted:', 115, y + 6);
+      doc.text(fmtPDF(totalDisc), 190, y + 6, { align: 'right' });
+
+      doc.text('GST Tax Amount:', 115, y + 11);
+      doc.text(fmtPDF(totalGst), 190, y + 11, { align: 'right' });
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(15, 43, 70); // Deep Navy
-      doc.text('Grand Total:', 125, y + 1.5);
-      doc.setTextColor(15, 23, 42); // Slate 900
-      doc.text(fmtPDF(q.totalAmount), 190, y + 1.5, { align: 'right' });
+      doc.text('Grand Total (INR):', 115, y + 17);
+      doc.text(fmtPDF(q.totalAmount), 190, y + 17, { align: 'right' });
+
+      y += 24;
 
       // Terms & Banking section
-      y += 12;
       if (y > 210) {
         doc.addPage();
         y = 20;
@@ -552,16 +630,28 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     const ok = await onConfirm(`Convert quotation "${q.quotationNumber}" to a Sales Invoice? This will automatically subtract items from warehouse stock.`);
     if (!ok) return;
     try {
+      const allItems = [
+        ...(q.items || []),
+        ...(q.amenityItems || [])
+      ].filter(i => i.productName.trim() !== '');
+
       // Structure items for Invoice
-      const invoiceItems = q.items.map(item => ({
-        productName: item.productName,
-        productCode: item.productCode,
-        quantity: item.quantity,
-        price: item.unitPrice,
-        discount: item.discount,
-        gst: (item.unitPrice * item.quantity - item.discount) * (item.gstPercentage / 100),
-        total: item.total
-      }));
+      const invoiceItems = allItems.map(item => {
+        const qty = item.quantity || 1;
+        const price = item.unitPrice || 0;
+        const discount = item.discount || 0;
+        const gstPct = item.gstPercentage || 0;
+        const gst = ((price * qty) - discount) * (gstPct / 100);
+        return {
+          productName: item.productName,
+          productCode: item.productCode || 'AMENITY',
+          quantity: qty,
+          price: price,
+          discount: discount,
+          gst: gst,
+          total: item.total
+        };
+      });
 
       const gstTotal = invoiceItems.reduce((s, i) => s + i.gst, 0);
       const discountTotal = invoiceItems.reduce((s, i) => s + i.discount, 0);
@@ -577,12 +667,13 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       });
 
       // Update Quotation Status to Converted
-      await updateQuotation({ id: q.id, status: 'Converted' });
+      await updateQuotation({ ...q, status: 'Converted' });
 
       onAddToast(`Quotation ${q.quotationNumber} successfully converted to Invoice!`, 'success');
       loadData();
-    } catch (err) {
-      onAddToast('Failed to convert quotation to invoice.', 'error');
+    } catch (err: any) {
+      console.error(err);
+      onAddToast(err?.message || 'Failed to convert quotation to invoice.', 'error');
     }
   };
 
@@ -930,7 +1021,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                       <thead>
                         <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd' }}>
                           <th style={{ padding: '6px' }}>Product</th>
-                          <th style={{ padding: '6px', width: '90px' }}>Qty</th>
+                          <th style={{ padding: '6px', width: '90px' }}>SFT</th>
                           <th style={{ padding: '6px', width: '120px' }}>Selling Price</th>
                           <th style={{ padding: '6px', width: '100px' }}>Discount</th>
                           <th style={{ padding: '6px', width: '100px', textAlign: 'center' }}>GST %</th>
@@ -1086,6 +1177,117 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                     style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
                   >
                     + Add Product Line
+                  </button>
+                </div>
+
+                {/* Amenities & Additional Charges Grid */}
+                <div className="form-group" style={{ marginTop: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Amenities &amp; Additional Charges</span>
+                  </label>
+                  <div className="modal-table-wrapper">
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} className="text-sm">
+                      <thead>
+                        <tr style={{ textAlign: 'left', borderBottom: '2px solid #ddd', backgroundColor: '#fafafa' }}>
+                          <th style={{ padding: '6px' }}>Amenity / Charge Description</th>
+                          <th style={{ padding: '6px', width: '90px' }}>SFT</th>
+                          <th style={{ padding: '6px', width: '120px' }}>Rate / Price</th>
+                          <th style={{ padding: '6px', width: '100px' }}>Discount</th>
+                          <th style={{ padding: '6px', width: '100px', textAlign: 'center' }}>GST %</th>
+                          <th style={{ padding: '6px', width: '120px', textAlign: 'right' }}>Total</th>
+                          <th style={{ padding: '6px', width: '40px' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {amenityItems.map((item, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '4px' }}>
+                              <select
+                                value={item.productName}
+                                onChange={e => updateAmenityItem(idx, 'productName', e.target.value)}
+                                className="form-control"
+                                style={{ marginBottom: 0, padding: '4px' }}
+                              >
+                                <option value="">-- Select Amenity --</option>
+                                {availableAmenityOptions.map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                              </select>
+                            </td>
+                                <td style={{ padding: '4px' }}>
+                                  <input 
+                                    type="number" 
+                                    value={item.quantity} 
+                                    onChange={e => updateAmenityItem(idx, 'quantity', parseFloat(e.target.value) || 0)} 
+                                    className="form-control"
+                                    style={{ marginBottom: 0, padding: '4px' }}
+                                    min={1}
+                                    required 
+                                  />
+                                </td>
+                                <td style={{ padding: '4px' }}>
+                                  <input 
+                                    type="number" 
+                                    value={item.unitPrice} 
+                                    onChange={e => updateAmenityItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} 
+                                    className="form-control"
+                                    style={{ marginBottom: 0, padding: '4px' }}
+                                    min={0}
+                                    required 
+                                  />
+                                </td>
+                                <td style={{ padding: '4px' }}>
+                                  <input 
+                                    type="number" 
+                                    value={item.discount} 
+                                    onChange={e => updateAmenityItem(idx, 'discount', parseFloat(e.target.value) || 0)} 
+                                    className="form-control"
+                                    style={{ marginBottom: 0, padding: '4px' }}
+                                    min={0}
+                                  />
+                                </td>
+                                <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <select
+                                    value={item.gstPercentage !== undefined ? item.gstPercentage : 18}
+                                    onChange={e => {
+                                      const pct = parseFloat(e.target.value) || 0;
+                                      updateAmenityItem(idx, 'gstPercentage', pct);
+                                    }}
+                                    className="form-control"
+                                    style={{ marginBottom: 0, padding: '4px', fontSize: '0.78rem', textAlign: 'center' }}
+                                  >
+                                    <option value={0}>0%</option>
+                                    <option value={5}>5%</option>
+                                    <option value={12}>12%</option>
+                                    <option value={18}>18%</option>
+                                    <option value={28}>28%</option>
+                                  </select>
+                                </td>
+                                <td style={{ padding: '4px', textAlign: 'right', fontWeight: 'bold' }}>
+                                  {fmt(item.total)}
+                                </td>
+                                <td style={{ padding: '4px', textAlign: 'center' }}>
+                                  <button 
+                                    type="button" 
+                                    onClick={() => removeAmenityItem(idx)} 
+                                    className="text-danger" 
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                                  >
+                                    <Trash size={16} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={addAmenityItem} 
+                    className="btn btn-outline btn-sm mt-1"
+                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.8rem' }}
+                  >
+                    + Add Amenity Line
                   </button>
                 </div>
 

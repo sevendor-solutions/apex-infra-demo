@@ -18,15 +18,15 @@ router.get("/", authenticateToken, async (req, res, next) => {
 // POST create quotation
 router.post("/", authenticateToken, async (req, res, next) => {
     try {
-        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions, projectName } = req.body;
+        const { customerName, customerMobile, customerAddress, date, validTillDate, items, amenityItems, totalAmount, notes, termsAndConditions, projectName } = req.body;
 
         if (!customerName || !customerMobile || !date || !validTillDate || !items) {
             return res.status(400).json({ success: false, message: "Required fields missing" });
         }
 
-        // Auto-generate quotation number
+        // Auto-generate quotation number with QT-JKFI prefix
         const count = await Quotation.count();
-        const quotationNumber = `QT-${Date.now().toString().slice(-4)}-${count + 1}`;
+        const quotationNumber = req.body.quotationNumber || `QT-JKFI-${String(1001 + count).padStart(4, '0')}`;
 
         const quotation = await Quotation.create({
             quotationNumber,
@@ -36,6 +36,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             date,
             validTillDate,
             items,
+            amenityItems,
             totalAmount: totalAmount || 0,
             notes,
             termsAndConditions,
@@ -57,14 +58,15 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         const quotation = await Quotation.findByPk(req.params.id);
         if (!quotation) return res.status(404).json({ success: false, message: "Quotation not found" });
 
-        const { customerName, customerMobile, customerAddress, date, validTillDate, items, totalAmount, notes, termsAndConditions, status, projectName } = req.body;
+        const { customerName, customerMobile, customerAddress, date, validTillDate, items, amenityItems, totalAmount, notes, termsAndConditions, status, projectName } = req.body;
 
         if (customerName) quotation.customerName = customerName;
         if (customerMobile) quotation.customerMobile = customerMobile;
-        if (customerAddress) quotation.customerAddress = customerAddress;
+        if (customerAddress !== undefined) quotation.customerAddress = customerAddress;
         if (date) quotation.date = date;
         if (validTillDate) quotation.validTillDate = validTillDate;
         if (items) quotation.items = items;
+        if (amenityItems !== undefined) quotation.amenityItems = amenityItems;
         if (totalAmount !== undefined) quotation.totalAmount = totalAmount;
         if (notes !== undefined) quotation.notes = notes;
         if (termsAndConditions !== undefined) quotation.termsAndConditions = termsAndConditions;

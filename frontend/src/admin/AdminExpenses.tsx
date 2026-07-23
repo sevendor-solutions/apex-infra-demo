@@ -5,7 +5,7 @@ import {
   Receipt, Search, X, IndianRupee, Calendar,
   FileDown, Filter, BarChart3
 } from 'lucide-react';
-import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities, addSupplier } from '../utils/db';
+import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities, addSupplier, uploadImage } from '../utils/db';
 
 interface AdminExpensesProps {
   expenses: Expense[];
@@ -88,9 +88,29 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   const [roundOff, setRoundOff] = useState(true);
   const [notes, setNotes] = useState('');
   const [gstEnabled, setGstEnabled] = useState(true);
+  const [hasVoucherBill, setHasVoucherBill] = useState(false);
+  const [documentUrl, setDocumentUrl] = useState('');
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
   const [lineItems, setLineItems] = useState<ExpenseLineItem[]>([emptyLine()]);
   const [payStatusOption, setPayStatusOption] = useState<'Full' | 'Partial' | 'Credit'>('Full');
   const [paidAmountInput, setPaidAmountInput] = useState<number>(0);
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const url = await uploadImage(file, 'expenses');
+      setDocumentUrl(url);
+      onAddToast('Voucher / Bill document uploaded successfully.', 'success');
+    } catch (err: any) {
+      onAddToast(err.message || 'Document upload failed', 'error');
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
 
   // ── Computed Totals ──────────────────────────────────────────
   const computedLineItems = useMemo(() => {
@@ -154,6 +174,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     setExpenseCategory(''); setExpenseNo(''); setBillDate(new Date().toISOString().split('T')[0]);
     setStateOfSupply('Andhra Pradesh'); setPaymentType('Cash'); setReferenceNo('');
     setRoundOff(true); setNotes(''); setGstEnabled(true);
+    setHasVoucherBill(false); setDocumentUrl('');
     setWalletId('');
     setLineItems([emptyLine()]);
     setPayStatusOption('Full');
@@ -179,6 +200,8 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     setRoundOff(exp.roundOff !== false);
     setNotes(exp.notes || '');
     setGstEnabled(exp.gstEnabled !== false);
+    setHasVoucherBill(exp.hasVoucherBill || !!exp.documentUrl || !!exp.voucherUrl || !!exp.billUrl);
+    setDocumentUrl(exp.documentUrl || exp.voucherUrl || exp.billUrl || '');
     setLineItems(exp.lineItems?.length ? exp.lineItems : [emptyLine()]);
     
     if (exp.paymentStatus === 'Unpaid') {
@@ -255,6 +278,10 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
         party, location, apartment, projectName, expenseCategory,
         expenseNo, billDate, stateOfSupply, paymentType, referenceNo,
         roundOff, notes, gstEnabled,
+        hasVoucherBill,
+        documentUrl: hasVoucherBill ? documentUrl : '',
+        voucherUrl: hasVoucherBill ? documentUrl : '',
+        billUrl: hasVoucherBill ? documentUrl : '',
         lineItems: computedLineItems,
         totalAmount: grandTotal,
         paidAmount: paidAmt,
@@ -407,7 +434,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: '#f1f5f9' }}>
-                  {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Payment Mode', 'Status', 'Paid From', 'Total (₹)', 'Paid (₹)', 'Remaining (₹)', 'Actions'].map(h => (
+                  {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Attachments', 'Payment Mode', 'Status', 'Paid From', 'Total (₹)', 'Paid (₹)', 'Remaining (₹)', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '0.65rem 1rem', textAlign: 'left', fontWeight: 700, color: '#374151', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--sap-border-color)' }}>{h}</th>
                   ))}
                 </tr>
@@ -441,6 +468,15 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                         <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
+                      <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
+                        {exp.documentUrl || exp.voucherUrl || exp.billUrl ? (
+                          <a href={exp.documentUrl || exp.voucherUrl || exp.billUrl} target="_blank" rel="noreferrer" title="View Document" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '0.68rem', fontWeight: 600, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', textDecoration: 'none' }}>
+                            <Receipt size={11} /> Document
+                          </a>
+                        ) : (
+                          <span style={{ color: '#cbd5e1' }}>—</span>
+                        )}
+                      </td>
                       <td style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9' }}>
                         <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
                           {exp.paymentType || 'Cash'}
@@ -479,7 +515,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
               </tbody>
               <tfoot>
                 <tr style={{ background: '#f1f5f9', borderTop: '2px solid var(--sap-border-color)' }}>
-                  <td colSpan={8} style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#374151', fontSize: '0.78rem' }}>
+                  <td colSpan={9} style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#374151', fontSize: '0.78rem' }}>
                     TOTAL ({filtered.length} records)
                   </td>
                   <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#374151', fontSize: '0.85rem' }}>
@@ -950,6 +986,46 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                   <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Any additional notes..." style={{ ...inputStyle, resize: 'vertical' }} />
                 </div>
               </fieldset>
+
+              {/* Section: Voucher & Bill Attachment (Single Upload) */}
+              <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '0.85rem 1rem', border: '1px solid #cbd5e1' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', userSelect: 'none' }}>
+                  <input 
+                    type="checkbox"
+                    checked={hasVoucherBill}
+                    onChange={e => setHasVoucherBill(e.target.checked)}
+                    style={{ width: '17px', height: '17px', accentColor: 'var(--sap-fiori-blue)', cursor: 'pointer' }}
+                  />
+                  Voucher / Bill Available? (Upload optional copy)
+                </label>
+
+                {hasVoucherBill && (
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed #cbd5e1' }}>
+                    <label style={{ ...labelStyle, marginBottom: '4px' }}>Voucher / Bill Document (Optional)</label>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input 
+                        type="text" 
+                        value={documentUrl} 
+                        onChange={e => setDocumentUrl(e.target.value)} 
+                        placeholder="Image / Document URL or upload file..." 
+                        style={{ ...inputStyle, flex: 1, margin: 0, fontSize: '0.78rem' }} 
+                      />
+                      <label style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', padding: '0.35rem 0.85rem', fontSize: '0.75rem', fontWeight: 600, border: '1.5px solid #cbd5e1', borderRadius: '6px', background: '#fff', color: '#374151', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        {uploadingDoc ? 'Uploading...' : 'Upload File'}
+                        <input type="file" accept="image/*,.pdf" onChange={handleDocUpload} style={{ display: 'none' }} disabled={uploadingDoc} />
+                      </label>
+                    </div>
+                    {documentUrl && (
+                      <div style={{ marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <a href={documentUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--sap-fiori-blue)', fontWeight: 600, textDecoration: 'underline' }}>
+                          View Voucher / Bill Document ↗
+                        </a>
+                        <button type="button" onClick={() => setDocumentUrl('')} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '1px 6px', fontSize: '0.68rem', cursor: 'pointer', fontWeight: 600 }}>Remove</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Section: GST Toggle */}
               <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', background: '#f8fafc', borderRadius: '8px', padding: '0.75rem 1rem', border: '1px solid #e2e8f0' }}>
