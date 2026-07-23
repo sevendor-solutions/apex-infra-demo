@@ -1115,91 +1115,108 @@ button {
   color: var(--text-muted);
 }
 
-/* Multi-Tab Navigation Bar */
+/* Chrome-Style Multi-Tab Navigation Bar (Strict Page Container Bounds) */
 .sap-tabbar {
-  background-color: #ffffff;
-  border-bottom: 1px solid var(--sap-border-color);
+  background-color: #f1f3f4;
+  border-bottom: 1px solid #dadce0;
   display: flex;
   align-items: flex-end;
   flex-wrap: nowrap !important;
-  min-height: 40px;
-  max-height: 40px;
-  height: 40px;
-  padding: 0.25rem 0.75rem 0;
-  gap: 4px;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
+  padding: 4px 6px 0;
+  gap: 2px;
+  overflow: hidden !important;
   z-index: 70;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f8fafc;
+  user-select: none;
+  scrollbar-width: none !important;
 }
 
 .sap-tabbar::-webkit-scrollbar {
-  height: 4px;
-  display: block !important;
-}
-
-.sap-tabbar::-webkit-scrollbar-track {
-  background: #f8fafc;
-}
-
-.sap-tabbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.sap-tabbar::-webkit-scrollbar-thumb:hover {
-  background: #0070f2;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .sap-tab {
-  flex-shrink: 0;
-  background-color: #f3f5f8;
-  border: 1px solid var(--sap-border-color);
+  flex: 1 1 0px;
+  min-width: 40px;
+  max-width: 180px;
+  height: 34px;
+  background-color: #e3e6e8;
+  border: 1px solid #d0d4d9;
   border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  padding: 0.45rem 1rem;
-  font-size: 0.8rem;
+  border-radius: 8px 8px 0 0;
+  padding: 0 0.35rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  color: #555c65;
+  color: #495057;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  gap: 0.25rem;
   cursor: pointer;
-  transition: all 0.2s;
-  height: 32px;
-  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .sap-tab:hover {
-  background-color: #eaf0f6;
-  color: var(--sap-fiori-blue);
+  background-color: #f1f3f5;
+  color: #212529;
 }
 
 .sap-tab.active {
   background-color: #ffffff;
-  color: var(--sap-fiori-blue);
+  color: #0070f2;
   font-weight: 600;
-  border-top: 3px solid var(--sap-fiori-blue);
-  padding-top: calc(0.45rem - 2px);
-  position: relative;
+  border-color: #cbd5e1;
+  border-top: 3px solid #0070f2;
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.08);
   z-index: 2;
-  box-shadow: 0 -2px 5px rgba(0,0,0,0.03);
+}
+
+.sap-tab-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .sap-tab-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  transition: background-color 0.15s;
-  color: #888;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
 }
 
 .sap-tab-close:hover {
   background-color: #e2e8f0;
+  color: #ef4444;
+}
+
+.sap-tab.active .sap-tab-close {
+  color: #64748b;
+}
+
+.sap-tab.active .sap-tab-close:hover {
+  background-color: #fee2e2;
   color: #ef4444;
 }
 

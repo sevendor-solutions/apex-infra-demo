@@ -2112,13 +2112,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               key={tabKey}
               className={`sap-tab ${activeTab === tabKey ? 'active' : ''} ${draggedTabIdx === index ? 'dragging' : ''}`}
               onClick={() => setActiveTab(tabKey)}
+              title={getTabLabel(tabKey)}
               draggable={true}
               onDragStart={(e) => handleDragStart(e, index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
             >
-              <span>{getTabLabel(tabKey)}</span>
+              <span className="sap-tab-title">{getTabLabel(tabKey)}</span>
               {tabKey !== 'dashboard' && (
                 <button 
                   type="button"
@@ -2126,7 +2127,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   className="sap-tab-close"
                   title="Close tab"
                 >
-                  <X size={10} />
+                  <X size={11} />
                 </button>
               )}
             </div>
