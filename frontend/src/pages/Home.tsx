@@ -67,35 +67,35 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             </div>
           </div>
         ))}
-
-        {/* Search Bar Container */}
-        <div className="hero-search-container container">
-          <form onSubmit={handleSearchSubmit} className="hero-search-form glass-card flex align-center">
-            <div className="search-field keyword-field">
-              <label>Search Property</label>
-              <input 
-                type="text" 
-                placeholder="Enter location or project name..." 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="search-field category-field">
-              <label>Category</label>
-              <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)}>
-                <option value="All">All Property Types</option>
-                <option value="Flats">Premium Flats</option>
-                <option value="Villas">Luxury Villas</option>
-                <option value="Individual Houses">Individual Houses</option>
-                <option value="Sites">Residential Sites / Plots</option>
-              </select>
-            </div>
-            <button type="submit" className="btn btn-secondary search-btn">
-              Search Property
-            </button>
-          </form>
-        </div>
       </section>
+
+      {/* Search Bar Container */}
+      <div className="hero-search-container container">
+        <form onSubmit={handleSearchSubmit} className="hero-search-form glass-card flex align-center">
+          <div className="search-field keyword-field">
+            <label>Search Property</label>
+            <input 
+              type="text" 
+              placeholder="Enter location or project name..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="search-field category-field">
+            <label>Category</label>
+            <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)}>
+              <option value="All">All Property Types</option>
+              <option value="Flats">Premium Flats</option>
+              <option value="Villas">Luxury Villas</option>
+              <option value="Individual Houses">Individual Houses</option>
+              <option value="Sites">Residential Sites / Plots</option>
+            </select>
+          </div>
+          <button type="submit" className="btn btn-secondary search-btn">
+            Search Property
+          </button>
+        </form>
+      </div>
 
       {/* Quick Categories */}
       <section className="quick-categories py-6">
@@ -412,31 +412,25 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           height: 46px;
         }
         @media (max-width: 768px) {
-          .hero-search-form { flex-direction: column; gap: 0.75rem; }
-          .hero-slider-section { height: auto; min-height: 600px; max-height: none; }
+          .hero-slider-section { 
+            height: 380px !important; 
+            min-height: 380px !important; 
+            max-height: 380px !important; 
+            position: relative;
+            overflow: hidden;
+          }
           .hero-slide {
-            align-items: flex-start !important;
+            height: 100% !important;
+            align-items: center !important;
             background-position: center center !important;
           }
           .hero-slide-content {
-            padding-top: 65px !important;
-            padding-bottom: 10px !important;
-          }
-          .hero-search-container {
-            position: relative !important;
-            bottom: auto !important;
-            left: auto !important;
-            transform: none !important;
-          }
-          .hero-slide-content .btn-outline-white {
-            display: none !important;
-          }
-          .hero-slide-content .flex {
-            margin-top: 0.4rem !important;
-            margin-bottom: 0.4rem !important;
+            padding-top: 1.5rem !important;
+            padding-bottom: 2rem !important;
+            text-align: left !important;
           }
           .hero-title { 
-            font-size: 1.85rem; 
+            font-size: 1.75rem !important; 
             margin-bottom: 0.3rem !important;
             line-height: 1.2 !important;
           }
@@ -445,13 +439,40 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             font-size: 0.95rem !important;
           }
           .hero-price-tag {
-            margin-bottom: 0.4rem !important;
+            margin-bottom: 0.75rem !important;
             font-size: 0.95rem !important;
           }
           .hero-price-tag .price {
-            font-size: 1.6rem !important;
+            font-size: 1.5rem !important;
           }
-          .search-btn { width: 100%; }
+          .hero-search-container {
+            position: relative !important;
+            bottom: auto !important;
+            left: auto !important;
+            transform: none !important;
+            margin-top: -24px !important;
+            z-index: 20 !important;
+            padding: 0 1rem !important;
+          }
+          .hero-search-form { 
+            flex-direction: column !important; 
+            gap: 0.85rem !important; 
+            background: #ffffff !important;
+            padding: 1.25rem !important;
+            border-radius: 14px !important;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+            border: 1px solid #e2e8f0 !important;
+          }
+          .search-field input, .search-field select {
+            width: 100% !important;
+            height: 44px !important;
+            font-size: 0.9rem !important;
+          }
+          .search-btn { 
+            width: 100% !important; 
+            height: 46px !important;
+            margin-top: 0.2rem !important;
+          }
         }
 
         /* Quick Categories */
