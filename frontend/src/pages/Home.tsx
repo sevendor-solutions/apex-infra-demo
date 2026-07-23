@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Flame, Landmark, Trees, Send } from 'lucide-react';
+import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Building2, Home as HomeIcon, KeyRound, Compass, Send } from 'lucide-react';
 import type { Project, Blog, ProjectCategory, SiteCategory } from '../types';
 import { getProjectMainImage } from '../utils/image';
 
@@ -43,25 +43,21 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${getProjectMainImage(project)})` }}
           >
             <div className="container hero-slide-content">
+              <div className="flex gap-1 align-center">
+                <span className={`badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
+                <span className="badge badge-ongoing" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>{project.category}</span>
+              </div>
               <h1 className="hero-title">{project.name}</h1>
-              <p className="hero-location flex align-center gap-1">
-                <MapPin size={18} /> {project.location}
-              </p>
+              <p className="hero-location flex align-center gap-1"><MapPin size={18} /> {project.location}</p>
               <div className="hero-price-tag">
                 Starting from <span className="price">{project.priceRange.split('-')[0]}</span>
               </div>
-              <div className="flex gap-2 my-2 flex-wrap">
+              <div className="flex gap-2 align-center">
                 <button 
-                  onClick={() => onNavigate('project-details', null, null, { id: project.id })} 
-                  className="btn btn-secondary"
+                  onClick={() => onNavigate('project_details', undefined, undefined, { id: project.id })} 
+                  className="btn btn-secondary btn-lg"
                 >
-                  Explore Project <ArrowRight size={16} />
-                </button>
-                <button 
-                  onClick={() => onOpenEnquiry(project.name)} 
-                  className="btn btn-outline-white"
-                >
-                  Request Callback
+                  Explore Project
                 </button>
               </div>
             </div>
@@ -98,24 +94,60 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
       </div>
 
       {/* Quick Categories */}
-      <section className="quick-categories py-6">
+      <section className="quick-categories py-5">
         <div className="container">
-          <div className="section-title-wrapper section-title-center">
+          <div className="section-title-wrapper section-title-center" style={{ marginBottom: '1.75rem' }}>
             <h2 className="section-title">Property Verticals</h2>
             <p className="text-muted">Explore our wide range of carefully curated housing and investment options</p>
           </div>
           <div className="grid grid-4 gap-3">
             {[
-              { title: 'Premium Flats', cat: 'Flats' as ProjectCategory, desc: 'Sleek luxury apartments with full city connections.', icon: <Landmark size={32} /> },
-              { title: 'Luxury Villas', cat: 'Villas' as ProjectCategory, desc: 'Indulge in spacious, grand layouts with private gardens.', icon: <Flame size={32} /> },
-              { title: 'Individual Houses', cat: 'Individual Houses' as ProjectCategory, desc: 'Independent duplex homes for customized family layouts.', icon: <ShieldCheck size={32} /> },
-              { title: 'VMRDA/VUDA Sites', cat: 'Sites' as ProjectCategory, desc: 'Premium plotting layouts inside high appreciation zones.', icon: <Trees size={32} /> }
+              { 
+                title: 'Premium Flats', 
+                cat: 'Flats' as ProjectCategory, 
+                desc: 'Sleek luxury apartments with full city connections.', 
+                icon: <Building2 size={25} color="#ffffff" />,
+                bgGradient: 'linear-gradient(135deg, #00baf2 0%, #002970 100%)',
+                shadowColor: 'rgba(0, 186, 242, 0.35)'
+              },
+              { 
+                title: 'Luxury Villas', 
+                cat: 'Villas' as ProjectCategory, 
+                desc: 'Indulge in spacious, grand layouts with private gardens.', 
+                icon: <HomeIcon size={25} color="#ffffff" />,
+                bgGradient: 'linear-gradient(135deg, #00baf2 0%, #002970 100%)',
+                shadowColor: 'rgba(0, 186, 242, 0.35)'
+              },
+              { 
+                title: 'Individual Houses', 
+                cat: 'Individual Houses' as ProjectCategory, 
+                desc: 'Independent duplex homes for customized family layouts.', 
+                icon: <KeyRound size={25} color="#ffffff" />,
+                bgGradient: 'linear-gradient(135deg, #00baf2 0%, #002970 100%)',
+                shadowColor: 'rgba(0, 186, 242, 0.35)'
+              },
+              { 
+                title: 'VMRDA/VUDA Sites', 
+                cat: 'Sites' as ProjectCategory, 
+                desc: 'Premium plotting layouts inside high appreciation zones.', 
+                icon: <Compass size={25} color="#ffffff" />,
+                bgGradient: 'linear-gradient(135deg, #00baf2 0%, #002970 100%)',
+                shadowColor: 'rgba(0, 186, 242, 0.35)'
+              }
             ].map((item, idx) => (
               <div key={idx} className="category-card text-center" onClick={() => onNavigate('marketing', item.cat)}>
-                <div className="cat-icon-box">{item.icon}</div>
+                <div 
+                  className="cat-icon-box"
+                  style={{ 
+                    background: item.bgGradient, 
+                    boxShadow: `0 8px 18px ${item.shadowColor}` 
+                  }}
+                >
+                  {item.icon}
+                </div>
                 <h3>{item.title}</h3>
                 <p className="text-sm text-muted">{item.desc}</p>
-                <button className="cat-link">View Projects <ArrowRight size={14} /></button>
+                <button className="cat-link">View Projects <ArrowRight size={13} /></button>
               </div>
             ))}
           </div>
@@ -475,49 +507,60 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           }
         }
 
-        /* Quick Categories */
+        /* Quick Categories (Paytm App Style Compact Cards) */
         .category-card {
-          padding: 2.5rem 1.5rem;
-          background-color: var(--white);
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--border-color);
-          transition: var(--transition-normal);
+          padding: 1.25rem 1rem;
+          background-color: #ffffff;
+          border-radius: 16px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+          transition: all 0.25s ease;
           cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
         .category-card:hover {
-          transform: translateY(-8px);
-          box-shadow: var(--shadow-xl);
-          border-color: rgba(240, 90, 40, 0.25);
+          transform: translateY(-5px);
+          box-shadow: 0 12px 28px rgba(0,0,0,0.09);
+          border-color: rgba(37, 99, 235, 0.3);
         }
         .cat-icon-box {
-          width: 70px;
-          height: 70px;
-          border-radius: var(--radius-md);
-          background-color: var(--light-soft);
-          color: var(--secondary);
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin: 0 auto 1.5rem;
-          transition: var(--transition-normal);
+          margin: 0 auto 0.75rem;
+          transition: transform 0.25s ease;
         }
         .category-card:hover .cat-icon-box {
-          background-color: var(--secondary);
-          color: var(--white);
-          transform: rotate(5deg) scale(1.05);
+          transform: scale(1.1) rotate(4deg);
         }
         .category-card h3 {
-          font-size: 1.25rem;
-          margin-bottom: 0.5rem;
+          font-size: 1.05rem;
+          font-weight: 700;
+          margin-bottom: 0.3rem;
+          color: #0f2b46;
+        }
+        .category-card p {
+          font-size: 0.78rem;
+          line-height: 1.35;
+          color: #64748b;
+          margin-bottom: 0.75rem;
         }
         .cat-link {
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           font-weight: 700;
-          color: var(--secondary);
-          margin-top: 1rem;
+          color: #2563eb;
+          background: transparent;
+          border: none;
           display: inline-flex;
           align-items: center;
           gap: 0.25rem;
+          cursor: pointer;
+          margin-top: auto;
         }
 
         /* Why choose us */
