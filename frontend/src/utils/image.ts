@@ -34,6 +34,6 @@ export const getProjectMainImage = (project: Project): string => {
   
   // Fallback
   return project.isMarketing
-    ? 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=600&auto=format&fit=crop&q=60'
-    : 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
+    ? '/marketing_banner_hd.png'
+    : '/jk_difference_hd.png';
 };

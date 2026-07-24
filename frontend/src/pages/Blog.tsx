@@ -252,7 +252,7 @@ export const BlogPage: React.FC<BlogProps> = ({
   return (
     <div className="blog-listing-page">
       {/* Header Banner */}
-      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.85), rgba(11,25,44,0.85)), url(https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover' }}>
+      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.65), rgba(11,25,44,0.65)), url(/page_header_hd.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="container">
           <h1 className="text-white text-4xl">JK Insights & Guides</h1>
           <p className="text-muted" style={{ color: 'rgba(255,255,255,0.75)' }}>Latest updates, real estate laws, investment strategies, and corporate announcements</p>

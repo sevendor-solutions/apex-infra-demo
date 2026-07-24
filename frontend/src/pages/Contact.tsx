@@ -83,7 +83,7 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
   return (
     <div className="contact-page">
       {/* Header Banner */}
-      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.85), rgba(11,25,44,0.85)), url(https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover' }}>
+      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.65), rgba(11,25,44,0.65)), url(/contact_header_hd.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="container">
           <h1 className="text-white text-4xl">Contact Our Office</h1>
           <p className="text-muted" style={{ color: 'rgba(255,255,255,0.75)' }}>Get in touch with our expert property advisors, arrange site visits, or seek project clarifications</p>
@@ -101,7 +101,7 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
                 <MapPin size={22} className="text-secondary shrink-0" />
                 <div>
                   <h4 className="font-bold">Registered Office:</h4>
-                  <p className="text-sm text-muted">DOOR No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRIVANIPALEM</p>
+                  <p className="text-sm text-muted">Door No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam</p>
                 </div>
               </li>
               <li className="flex gap-2">
@@ -250,7 +250,7 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
       <section className="container py-4 mb-4">
         <div className="admin-card p-1" style={{ borderRadius: '12px', overflow: 'hidden', height: '400px', border: '1px solid var(--border-color)' }}>
           <iframe 
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3800.12356789123!2d83.3031021234567!3d17.72895678912345!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a39431389e6973f%3A0x92d9d203954986f1!2sDwaraka%20Nagar%2C%20Visakhapatnam%2C%20Andhra%20Pradesh!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin" 
+            src="https://maps.google.com/maps?q=Door+No:+4-92/1/6,+FLAT+No:+202,+LEE+INFRA,+TALRI+VANIPALEM,+AGANAMPUDI,+Visakhapatnam,+530053&t=&z=15&ie=UTF8&iwloc=&output=embed" 
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 

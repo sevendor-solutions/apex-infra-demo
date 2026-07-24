@@ -73,7 +73,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul className="footer-contact-info">
               <li className="flex gap-2 align-center">
                 <div className="footer-icon-badge loc"><MapPin size={16} color="#ffffff" /></div>
-                <span>DOOR No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRIVANIPALEM</span>
+                <span>Door No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam</span>
               </li>
               <li className="flex gap-2 align-center">
                 <div className="footer-icon-badge phone"><Phone size={16} color="#ffffff" /></div>

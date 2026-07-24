@@ -1074,6 +1074,15 @@ export const addInvoice = async (invoice: Partial<Invoice>): Promise<Invoice> =>
   return handleResponse(res);
 };
 
+export const updateInvoice = async (id: string, invoice: Partial<Invoice>): Promise<Invoice> => {
+  const res = await fetch(`${API_BASE_URL}/invoices/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(invoice)
+  });
+  return handleResponse(res);
+};
+
 export const deleteInvoice = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE_URL}/invoices/${id}`, {
     method: 'DELETE',

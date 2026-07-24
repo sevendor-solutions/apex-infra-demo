@@ -861,11 +861,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return (
       <>
         <div className="login-screen-wrapper">
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1689574666551-52eb11c37bcd?q=1600&auto=format&fit=crop&q=80')" }}></div>
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1577335029365-35029f68d093?w=1600&auto=format&fit=crop&q=80')" }}></div>
-          <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1682148938395-a7e0da637cd7?w=1600&auto=format&fit=crop&q=80')" }}></div>
-          {/* <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1661963582600-3f5c843cd296?w=1600&auto=format&fit=crop&q=80')" }}></div> */}
-          {/* <div className="login-bg-slide" style={{ backgroundImage: "url('https://plus.unsplash.com/premium_photo-1682148932578-5566a9808f48?w=1600&auto=format&fit=crop&q=80')" }}></div> */}
+          <div className="login-bg-slide" style={{ backgroundImage: "url('/login_bg1_hd.png')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('/login_bg2_hd.png')" }}></div>
+          <div className="login-bg-slide" style={{ backgroundImage: "url('/login_bg3_hd.png')" }}></div>
           <div className="login-card">
             <div className="login-card-header">
               <img 

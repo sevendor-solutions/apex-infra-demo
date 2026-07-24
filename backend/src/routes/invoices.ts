@@ -90,6 +90,98 @@ router.post("/", authenticateToken, async (req, res, next) => {
     }
 });
 
+// PUT update invoice
+router.put("/:id", authenticateToken, async (req, res, next) => {
+    try {
+        const invoice = await Invoice.findByPk(req.params.id);
+        if (!invoice) return res.status(404).json({ success: false, message: "Invoice not found" });
+
+        const { customerName, customerMobile, customerAddress, projectName, date, items, amenityItems, totalAmount, gstAmount, discountAmount, paidAmount, termsAndConditions, notes } = req.body;
+
+        if (!customerName || !date || !items || items.length === 0) {
+            return res.status(400).json({ success: false, message: "Required fields missing" });
+        }
+
+        // 1. Reverse old stock reductions
+        for (const item of invoice.items || []) {
+            if (item.productCode) {
+                const product = await InventoryItem.findOne({ where: { code: item.productCode } });
+                if (product) {
+                    product.currentStock += parseFloat(item.quantity as any || 0);
+                    await product.save();
+                }
+            }
+        }
+
+        // 2. Reverse old customer outstanding amount
+        const oldCustomer = await Customer.findOne({ where: { name: invoice.customerName } });
+        if (oldCustomer) {
+            oldCustomer.outstandingAmount -= invoice.pendingAmount;
+            if (oldCustomer.outstandingAmount < 0) oldCustomer.outstandingAmount = 0;
+            await oldCustomer.save();
+        }
+
+        // 3. Calculate new total, paid, pending, paymentStatus
+        const total = parseFloat(totalAmount || 0);
+        const paid = parseFloat(paidAmount || 0);
+        const pending = total - paid;
+        let paymentStatus = "Unpaid";
+        if (paid >= total) paymentStatus = "Paid";
+        else if (paid > 0) paymentStatus = "Partial";
+
+        // 4. Update invoice fields
+        invoice.customerName = customerName;
+        invoice.customerMobile = customerMobile;
+        invoice.customerAddress = customerAddress;
+        invoice.projectName = projectName;
+        invoice.date = date;
+        invoice.items = items;
+        invoice.amenityItems = amenityItems || [];
+        invoice.totalAmount = total;
+        invoice.gstAmount = parseFloat(gstAmount || 0);
+        invoice.discountAmount = parseFloat(discountAmount || 0);
+        invoice.paidAmount = paid;
+        invoice.pendingAmount = pending;
+        invoice.paymentStatus = paymentStatus;
+        if (termsAndConditions !== undefined) invoice.termsAndConditions = termsAndConditions;
+        if (notes !== undefined) invoice.notes = notes;
+
+        await invoice.save();
+
+        // 5. Apply new customer outstanding amount
+        const newCustomer = await Customer.findOne({ where: { name: customerName } });
+        if (newCustomer) {
+            newCustomer.outstandingAmount += pending;
+            await newCustomer.save();
+        }
+
+        // 6. Apply new stock reductions & Stock Movements
+        for (const item of items) {
+            if (item.productCode) {
+                const product = await InventoryItem.findOne({ where: { code: item.productCode } });
+                if (product) {
+                    product.currentStock -= parseFloat(item.quantity || 0);
+                    await product.save();
+
+                    await StockMovement.create({
+                        productCode: item.productCode,
+                        type: "Stock Out",
+                        quantity: parseFloat(item.quantity || 0),
+                        date,
+                        notes: `Sales Invoice update reference: ${invoice.invoiceNumber}`,
+                        userId: req.user?.id
+                    });
+                }
+            }
+        }
+
+        await logAuditAction(req, "Update Invoice", `Updated invoice: ${invoice.invoiceNumber} for ${customerName}`, "Success", { invoiceId: invoice.id });
+        return res.json({ success: true, data: invoice });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // DELETE invoice
 router.delete("/:id", authenticateToken, async (req, res, next) => {
     try {

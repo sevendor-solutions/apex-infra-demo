@@ -4,22 +4,22 @@ import { Target, Eye, CheckCircle } from 'lucide-react';
 export const About: React.FC = () => {
   const team = [
     {
-      name: 'J. K. Rama Rao',
+      name: 'LOVARAJU KALLA',
       role: 'Founder & Managing Director',
       bio: 'With over 20 years of expertise in civil planning and real estate ventures across Andhra Pradesh, Mr. Rama Rao establishes the vision and corporate governance guidelines for JK Future Infra.',
-      image: 'https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=400&auto=format&fit=crop&q=80'
+      image: '/silhouette_1.png'
     },
     {
-      name: 'K. Prasad Kumar',
+      name: 'VAMSI KRISHNA T',
       role: 'Director - Land & Acquisitions',
       bio: 'Prasad specializes in scouting high-potential development corridors, managing legal verifications, and securing regulatory clearances from VUDA/VMRDA and Panchayati departments.',
-      image: 'https://images.unsplash.com/photo-1544502062-f82887f03d1c?w=400&auto=format&fit=crop&q=80'
+      image: '/silhouette_2.png'
     },
     {
       name: 'M. Sriman',
       role: 'Chief Structural Engineer',
       bio: 'An alumnus of IIT Madras, Sriman oversees all project designs, material testing checks, and ensures our gated communities are built with the highest earthquake-resistant standards.',
-      image: 'https://images.unsplash.com/photo-1620500152176-2e8372ef8f52?w=400&auto=format&fit=crop&q=80'
+      image: '/silhouette_3.png'
     }
   ];
 
@@ -32,10 +32,10 @@ export const About: React.FC = () => {
   return (
     <div className="about-page">
       {/* Page Header Banner */}
-      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.85), rgba(11,25,44,0.85)), url(https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1200&auto=format&fit=crop&q=80)', backgroundSize: 'cover' }}>
+      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.65), rgba(11,25,44,0.65)), url(/page_header_hd.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
         <div className="container">
           <h1 className="text-white text-4xl">About Our Company</h1>
-          <p className="text-muted" style={{ color: 'rgba(255,255,255,0.75)' }}>Building excellence, security, and happy living environments since 2012</p>
+          <p className="text-muted" style={{ color: 'rgba(255,255,255,0.75)' }}>Building excellence, security, and happy living environments since 2020</p>
         </div>
       </section>
 
@@ -43,7 +43,7 @@ export const About: React.FC = () => {
       <section className="overview-section py-6">
         <div className="container grid grid-2 gap-4 align-center">
           <div className="overview-left">
-            <h2 className="section-title mb-2">JK Future Infra</h2>
+            <h2 className="section-title mb-2">JK FUTURE INFRA</h2>
             <p className="text-muted mb-2">
               JK Future Infra has grown into one of Andhra Pradesh's most trusted property developers. Headquartered in Visakhapatnam, we specialize in high-end gated community villas, residential apartments, and premium layout plotting ventures in key locations including Vizag, Guntur, and Vijayawada.
             </p>
@@ -52,23 +52,22 @@ export const About: React.FC = () => {
             </p>
             <div className="stats-strip flex gap-3 text-center my-2">
               <div className="stat-box flex-1 py-1 glass-card">
-                <span className="stat-num text-secondary text-3xl font-bold">14+</span>
+                <span className="stat-num text-secondary text-3xl font-bold">6+</span>
                 <p className="text-sm font-semibold">Projects Completed</p>
               </div>
               <div className="stat-box flex-1 py-1 glass-card">
-                <span className="stat-num text-secondary text-3xl font-bold">1200+</span>
+                <span className="stat-num text-secondary text-3xl font-bold">400+</span>
                 <p className="text-sm font-semibold">Happy Families</p>
               </div>
               <div className="stat-box flex-1 py-1 glass-card">
-                <span className="stat-num text-secondary text-3xl font-bold">15+ Years</span>
+                <span className="stat-num text-secondary text-3xl font-bold">6+ Years</span>
                 <p className="text-sm font-semibold">Core Expertise</p>
               </div>
             </div>
           </div>
           <div className="overview-right">
             <img 
-              src="https://images.unsplash.com/photo-1627640268913-91cfd4675b65?q=80&w=1174&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-              //"https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&auto=format&fit=crop&q=80" 
+              src="/jk_difference_hd.png"
               alt="JK Corporate" 
               className="overview-img"
             />
@@ -144,8 +143,11 @@ export const About: React.FC = () => {
       <style>{`
         .overview-img {
           width: 100%;
+          height: 450px;
+          object-fit: cover;
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-lg);
+          border: 5px solid var(--white);
         }
         .stats-strip {
           margin-top: 1.5rem;

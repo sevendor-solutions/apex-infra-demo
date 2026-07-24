@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import type { Invoice, InvoiceItem, Customer, InventoryItem, Wallet, Amenity, Project } from '../types';
 import { 
-  X, Trash, Download, Share2,
+  X, Trash, Download, Share2, Edit,
   DollarSign, FileText, Landmark 
 } from 'lucide-react';
 import { 
-  getInvoices, addInvoice, deleteInvoice,
+  getInvoices, addInvoice, updateInvoice, deleteInvoice,
   getInventoryItems, getCustomers, getWallets,
   addCustomer, getProjects, getAmenities
 } from '../utils/db';
@@ -22,6 +22,12 @@ interface AdminInvoicesProps {
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtPDF = (n: number) => `Rs. ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const DEFAULT_REAL_ESTATE_TERMS = `1. All payments to be made strictly in favor of JK FUTURE INFRA.
+2. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules & guidelines.
+3. Possession will be handed over only after full settlement of total property dues.
+4. Any delay in scheduled payment installments may attract applicable interest charges.
+5. All disputes are subject to local judicial jurisdiction.`;
+
 export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   onAddToast,
   onConfirm
@@ -31,9 +37,10 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [walletsList, setWalletsList] = useState<Wallet[]>([]);
   const [_projectsList, setProjectsList] = useState<Project[]>([]);
-  const [amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
+  const [_amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
 
   // Form Fields
   const [customerName, setCustomerName] = useState('');
@@ -46,6 +53,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paidAmount, setPaidAmount] = useState(0);
   const [walletId, setWalletId] = useState('');
+  const [termsAndConditions, setTermsAndConditions] = useState(DEFAULT_REAL_ESTATE_TERMS);
 
   // Line Items
   const [lineItems, setLineItems] = useState<InvoiceItem[]>([
@@ -57,9 +65,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     { productName: '', productCode: 'AMENITY', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }
   ]);
 
-  const availableAmenityOptions = useMemo(() => {
-    return amenitiesMasterList.map(a => a.name).filter(Boolean);
-  }, [amenitiesMasterList]);
+
 
   const handleCreateCustomer = async (typedName: string) => {
     if (!typedName.trim()) return;
@@ -197,6 +203,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   }, [lineItems, amenityItems]);
 
   const resetForm = () => {
+    setEditingInvoiceId(null);
     setCustomerName('');
     setCustomerSearchText('');
     setShowCustomerDropdown(false);
@@ -206,8 +213,26 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     setProjectName('');
     setDate(new Date().toISOString().split('T')[0]);
     setPaidAmount(0);
+    setTermsAndConditions(DEFAULT_REAL_ESTATE_TERMS);
     setLineItems([{ productName: '', productCode: '', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
     setAmenityItems([{ productName: '', productCode: 'AMENITY', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
+  };
+
+  const handleEdit = (inv: Invoice) => {
+    setEditingInvoiceId(inv.id);
+    setCustomerName(inv.customerName || '');
+    setCustomerSearchText(inv.customerName || '');
+    setShowCustomerDropdown(false);
+    setShowProjectDropdown(false);
+    setCustomerMobile(inv.customerMobile || '');
+    setCustomerAddress(inv.customerAddress || '');
+    setProjectName(inv.projectName || '');
+    setDate(inv.date || new Date().toISOString().split('T')[0]);
+    setPaidAmount(inv.paidAmount || 0);
+    setTermsAndConditions(inv.termsAndConditions || DEFAULT_REAL_ESTATE_TERMS);
+    setLineItems(inv.items && inv.items.length > 0 ? inv.items : [{ productName: '', productCode: '', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
+    setAmenityItems(inv.amenityItems && inv.amenityItems.length > 0 ? inv.amenityItems : [{ productName: '', productCode: 'AMENITY', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
+    setShowModal(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -234,16 +259,22 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         gstAmount: totalGst,
         discountAmount: totalDiscount,
         paidAmount,
+        termsAndConditions,
         walletId: paidAmount > 0 ? walletId : undefined
       };
 
-      await addInvoice(payload as any);
-      onAddToast('Sales invoice generated successfully.', 'success');
+      if (editingInvoiceId) {
+        await updateInvoice(editingInvoiceId, payload as any);
+        onAddToast('Sales invoice updated successfully.', 'success');
+      } else {
+        await addInvoice(payload as any);
+        onAddToast('Sales invoice generated successfully.', 'success');
+      }
       setShowModal(false);
       resetForm();
       loadData();
     } catch (err) {
-      onAddToast('Failed to generate sales invoice.', 'error');
+      onAddToast('Failed to save sales invoice.', 'error');
     }
   };
 
@@ -338,7 +369,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
       doc.text('LEE INFRA, TALRI VANIPALEM', 120, 19);
-      doc.text('AGANAMPUDI, VSP-530053', 120, 23);
+      doc.text('AGANAMPUDI, Visakhapatnam', 120, 23);
       doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
 
       // Horizontal separator line below header
@@ -568,7 +599,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setTextColor(71, 85, 105);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      const termsText = inv.termsAndConditions || '1. Goods once sold will not be taken back.\n2. All payments to be made in favor of JK FUTURE INFRA.\n3. Subject to local jurisdiction.';
+      const termsText = inv.termsAndConditions || DEFAULT_REAL_ESTATE_TERMS;
       const lines = doc.splitTextToSize(termsText, 180);
       doc.text(lines, 15, y + 5);
 
@@ -664,6 +695,15 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
           <button 
             type="button" 
+            onClick={() => handleEdit(row)} 
+            className="btn btn-sm btn-outline text-warning" 
+            title="Edit Invoice" 
+            style={{ padding: '4px 8px' }}
+          >
+            <Edit size={14} />
+          </button>
+          <button 
+            type="button" 
             onClick={() => handleDownloadPDF(row)} 
             className="btn btn-sm btn-outline text-primary" 
             title="Download PDF" 
@@ -747,7 +787,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '850px', maxWidth: '95%' }}>
             <div className="modal-header">
-              <h3>Generate Sales Invoice</h3>
+              <h3>{editingInvoiceId ? 'Edit Sales Invoice' : 'Generate Sales Invoice'}</h3>
               <button onClick={() => setShowModal(false)} className="close-btn"><X size={20} /></button>
             </div>
             <form onSubmit={handleSave}>
@@ -1144,17 +1184,14 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                         {amenityItems.map((item, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                             <td style={{ padding: '4px' }}>
-                              <select
+                              <input
+                                type="text"
                                 value={item.productName}
                                 onChange={e => updateAmenityItem(idx, 'productName', e.target.value)}
                                 className="form-control"
                                 style={{ marginBottom: 0, padding: '4px' }}
-                              >
-                                <option value="">-- Select Amenity --</option>
-                                {availableAmenityOptions.map(p => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
+                                placeholder="Enter Amenity / Charge Description"
+                              />
                             </td>
                             <td style={{ padding: '4px' }}>
                               <input 
@@ -1260,6 +1297,16 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                         </select>
                       </div>
                     )}
+                    <div className="form-group" style={{ marginTop: '8px' }}>
+                      <label className="form-label">Terms &amp; Conditions</label>
+                      <textarea
+                        className="form-control"
+                        rows={4}
+                        value={termsAndConditions}
+                        onChange={e => setTermsAndConditions(e.target.value)}
+                        style={{ fontSize: '0.78rem' }}
+                      />
+                    </div>
                   </div>
                   <div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
@@ -1290,7 +1337,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
               <div className="modal-footer">
                 <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-primary">Generate &amp; Save Invoice</button>
+                <button type="submit" className="btn btn-primary">{editingInvoiceId ? 'Update Sales Invoice' : 'Generate & Save Invoice'}</button>
               </div>
             </form>
           </div>

@@ -29,7 +29,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
   const [_projectsList, setProjectsList] = useState<Project[]>([]);
-  const [amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
+  const [_amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null);
@@ -49,7 +49,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('');
-  const [terms, setTerms] = useState('1. Quotation valid for 30 days from date of issue.\n2. Goods once sold will not be taken back.\n3. All disputes subject to local jurisdiction.');
+  const DEFAULT_QUOTATION_TERMS = '1. Quotation valid for 30 days from date of issue.\n2. All payments to be made strictly in favor of JK FUTURE INFRA.\n3. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules.\n4. Flat/Unit possession will be handed over after clearance of total property dues.\n5. All disputes subject to local jurisdiction.';
+  const [terms, setTerms] = useState(DEFAULT_QUOTATION_TERMS);
   const [status, setStatus] = useState('Draft');
 
   // Quotation Line Items
@@ -61,10 +62,6 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [amenityItems, setAmenityItems] = useState<QuotationItem[]>([
     { productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }
   ]);
-
-  const availableAmenityOptions = useMemo(() => {
-    return amenitiesMasterList.map(a => a.name).filter(Boolean);
-  }, [amenitiesMasterList]);
 
   const loadData = async () => {
     setLoading(true);
@@ -198,7 +195,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       return d.toISOString().split('T')[0];
     });
     setNotes('');
-    setTerms('1. Quotation valid for 30 days from date of issue.\n2. Goods once sold will not be taken back.\n3. All disputes subject to local jurisdiction.');
+    setTerms(DEFAULT_QUOTATION_TERMS);
     setStatus('Draft');
     setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
     setAmenityItems([{ productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
@@ -343,7 +340,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
       doc.text('LEE INFRA, TALRI VANIPALEM', 120, 19);
-      doc.text('AGANAMPUDI, VSP-530053', 120, 23);
+      doc.text('AGANAMPUDI, Visakhapatnam', 120, 23);
       doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
 
       // Horizontal separator line below header
@@ -1202,17 +1199,14 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                         {amenityItems.map((item, idx) => (
                           <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                             <td style={{ padding: '4px' }}>
-                              <select
+                              <input
+                                type="text"
                                 value={item.productName}
                                 onChange={e => updateAmenityItem(idx, 'productName', e.target.value)}
                                 className="form-control"
                                 style={{ marginBottom: 0, padding: '4px' }}
-                              >
-                                <option value="">-- Select Amenity --</option>
-                                {availableAmenityOptions.map(p => (
-                                  <option key={p} value={p}>{p}</option>
-                                ))}
-                              </select>
+                                placeholder="Enter Amenity / Charge Description"
+                              />
                             </td>
                                 <td style={{ padding: '4px' }}>
                                   <input 
