@@ -16,16 +16,17 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
   const [searchCategory, setSearchCategory] = useState('All');
   
   const featuredProjects = projects.filter(p => p.featured && p.isActive !== false);
+  const displayProjects = featuredProjects.length > 0 ? featuredProjects : projects.slice(0, 1);
   const latestBlogs = blogs.slice(0, 3);
 
   // Auto-play hero slider
   useEffect(() => {
-    if (featuredProjects.length === 0) return;
+    if (displayProjects.length === 0) return;
     const interval = setInterval(() => {
-      setHeroIndex(prev => (prev + 1) % featuredProjects.length);
+      setHeroIndex(prev => (prev + 1) % displayProjects.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [featuredProjects.length]);
+  }, [displayProjects.length]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +37,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
     <div className="home-page">
       {/* Hero Section */}
       <section className="hero-slider-section">
-        {featuredProjects.map((project, idx) => (
+        {displayProjects.map((project, idx) => (
           <div 
             key={project.id} 
             className={`hero-slide ${idx === heroIndex ? 'active' : ''}`}
@@ -52,46 +53,43 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
               <div className="hero-price-tag">
                 Starting from <span className="price">{project.priceRange.split('-')[0]}</span>
               </div>
-              <div className="flex gap-2 align-center">
+              <div className="hero-actions-row">
                 <button 
                   onClick={() => onNavigate('project_details', undefined, undefined, { id: project.id })} 
-                  className="btn btn-secondary btn-lg"
+                  className="btn btn-secondary btn-lg hero-explore-btn"
                 >
                   Explore Project
                 </button>
+
+                <form onSubmit={handleSearchSubmit} className="hero-search-form glass-card">
+                  <div className="search-field keyword-field">
+                    <label>Search Property</label>
+                    <input 
+                      type="text" 
+                      placeholder="Enter location or project name..." 
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="search-field category-field">
+                    <label>Category</label>
+                    <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)}>
+                      <option value="All">All Property Types</option>
+                      <option value="Flats">Premium Flats</option>
+                      <option value="Villas">Luxury Villas</option>
+                      <option value="Individual Houses">Individual Houses</option>
+                      <option value="Sites">Residential Sites / Plots</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="btn btn-secondary search-btn">
+                    Search Property
+                  </button>
+                </form>
               </div>
             </div>
           </div>
         ))}
       </section>
-
-      {/* Search Bar Container */}
-      <div className="hero-search-container container">
-        <form onSubmit={handleSearchSubmit} className="hero-search-form glass-card flex align-center">
-          <div className="search-field keyword-field">
-            <label>Search Property</label>
-            <input 
-              type="text" 
-              placeholder="Enter location or project name..." 
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="search-field category-field">
-            <label>Category</label>
-            <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)}>
-              <option value="All">All Property Types</option>
-              <option value="Flats">Premium Flats</option>
-              <option value="Villas">Luxury Villas</option>
-              <option value="Individual Houses">Individual Houses</option>
-              <option value="Sites">Residential Sites / Plots</option>
-            </select>
-          </div>
-          <button type="submit" className="btn btn-secondary search-btn">
-            Search Property
-          </button>
-        </form>
-      </div>
 
       {/* Quick Categories */}
       <section className="quick-categories py-5">
@@ -328,8 +326,8 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         /* Hero Slider */
         .hero-slider-section {
           position: relative;
-          height: clamp(660px, 78vh, 800px);
-          min-height: 660px;
+          height: clamp(560px, 70vh, 680px);
+          min-height: 560px;
           overflow: hidden;
         }
         .hero-slide {
@@ -359,7 +357,10 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           transition: opacity 0.25s ease-in-out;
         }
         .hero-slide-content {
-          padding-bottom: 120px;
+          padding-bottom: 0;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
         }
         .hero-badge {
           background-color: rgba(240, 90, 40, 0.2);
@@ -374,7 +375,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           border: 1px solid rgba(240, 90, 40, 0.3);
         }
         .hero-title {
-          font-size: 3.5rem;
+          font-size: 3.2rem;
           font-weight: 800;
           color: var(--white);
           margin-bottom: 0.5rem;
@@ -383,13 +384,13 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         }
         .hero-location {
           color: rgba(255, 255, 255, 0.9);
-          font-size: 1.2rem;
+          font-size: 1.15rem;
           font-weight: 500;
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.25rem;
           text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
         }
         .hero-price-tag {
-          font-size: 1.15rem;
+          font-size: 1.1rem;
           color: var(--white);
           margin-bottom: 1.5rem;
           text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
@@ -402,51 +403,96 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           vertical-align: middle;
         }
 
-        /* Search Bar */
-        .hero-search-container {
-          position: absolute;
-          bottom: 2rem;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 100%;
-          z-index: 10;
+        /* Hero Actions Row & Decreased Width Search Property Card */
+        .hero-actions-row {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+          flex-wrap: wrap;
+          margin-top: 0.5rem;
+        }
+        .hero-explore-btn {
+          height: 52px;
+          padding: 0 1.75rem;
+          font-size: 1rem;
+          font-weight: 700;
+          border-radius: 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          box-shadow: 0 4px 14px rgba(240, 90, 40, 0.35);
+          flex-shrink: 0;
         }
         .hero-search-form {
           display: flex;
-          padding: 1rem;
-          gap: 1rem;
-          box-shadow: var(--shadow-lg);
-          background: rgba(255,255,255,0.92);
+          align-items: center;
+          padding: 0.45rem 0.65rem 0.45rem 1rem;
+          gap: 0.75rem;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(12px);
+          border-radius: 14px;
+          border: 1px solid rgba(255, 255, 255, 0.8);
+          max-width: 580px;
         }
         .search-field {
-          flex: 1;
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 2px;
+        }
+        .keyword-field {
+          width: 210px;
+        }
+        .category-field {
+          width: 160px;
         }
         .search-field label {
-          font-size: 0.75rem;
-          font-weight: 700;
+          font-size: 0.68rem;
+          font-weight: 800;
           text-transform: uppercase;
-          color: var(--text-muted);
+          color: #64748b;
           letter-spacing: 0.5px;
         }
         .search-field input, .search-field select {
-          padding: 0.5rem 0.75rem;
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-sm);
-          font-size: 0.95rem;
-          background: var(--white);
+          padding: 0.4rem 0.6rem;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          background: #ffffff;
+          color: #0f172a;
+          height: 38px;
+          outline: none;
+        }
+        .search-field input:focus, .search-field select:focus {
+          border-color: var(--secondary);
+          box-shadow: 0 0 0 2px rgba(240, 90, 40, 0.15);
         }
         .search-btn {
           align-self: flex-end;
-          height: 46px;
+          height: 38px;
+          padding: 0 1rem;
+          font-size: 0.85rem;
+          font-weight: 700;
+          border-radius: 8px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        @media (max-width: 992px) {
+          .hero-search-form {
+            max-width: 100%;
+          }
+          .keyword-field {
+            width: 180px;
+          }
+          .category-field {
+            width: 140px;
+          }
         }
         @media (max-width: 768px) {
           .hero-slider-section { 
-            height: 380px !important; 
-            min-height: 380px !important; 
-            max-height: 380px !important; 
+            height: auto !important; 
+            min-height: 480px !important; 
             position: relative;
             overflow: hidden;
           }
@@ -456,12 +502,12 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             background-position: center center !important;
           }
           .hero-slide-content {
-            padding-top: 1.5rem !important;
+            padding-top: 2rem !important;
             padding-bottom: 2rem !important;
             text-align: left !important;
           }
           .hero-title { 
-            font-size: 1.75rem !important; 
+            font-size: 1.85rem !important; 
             margin-bottom: 0.3rem !important;
             line-height: 1.2 !important;
           }
@@ -476,32 +522,39 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           .hero-price-tag .price {
             font-size: 1.5rem !important;
           }
-          .hero-search-container {
-            position: relative !important;
-            bottom: auto !important;
-            left: auto !important;
-            transform: none !important;
-            margin-top: -24px !important;
-            z-index: 20 !important;
-            padding: 0 1rem !important;
+          .hero-actions-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 0.75rem !important;
+            margin-top: 0.75rem !important;
+          }
+          .hero-explore-btn {
+            width: 100% !important;
+            height: 46px !important;
           }
           .hero-search-form { 
             flex-direction: column !important; 
-            gap: 0.85rem !important; 
+            gap: 0.75rem !important; 
             background: #ffffff !important;
-            padding: 1.25rem !important;
+            padding: 1rem !important;
             border-radius: 14px !important;
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
             border: 1px solid #e2e8f0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .keyword-field, .category-field {
+            width: 100% !important;
           }
           .search-field input, .search-field select {
             width: 100% !important;
-            height: 44px !important;
+            height: 42px !important;
             font-size: 0.9rem !important;
           }
           .search-btn { 
             width: 100% !important; 
-            height: 46px !important;
+            height: 44px !important;
+            align-self: auto !important;
             margin-top: 0.2rem !important;
           }
         }
