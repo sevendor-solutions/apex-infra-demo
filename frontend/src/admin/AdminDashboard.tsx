@@ -1201,13 +1201,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         
         {hasScreenAccess('project_enquiries') && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem', gap: '8px' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 📞 Project Construction Leads
               </h3>
               <button 
                 onClick={() => onSetTab('project_enquiries')} 
-                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, whiteSpace: 'nowrap' }}
               >
                 Manage <ArrowUpRight size={10} />
               </button>
@@ -1215,24 +1215,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {enquiries.length === 0 ? (
               <p style={{ textAlign: 'center', color: colors.textMuted, fontSize: '0.75rem', padding: '1rem 0' }}>No leads recorded.</p>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+              <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                   <thead>
                     <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
-                      <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Client</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Property Interest</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Action</th>
+                      <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Client</th>
+                      <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Property Interest</th>
+                      <th style={{ padding: '5px 6px', textAlign: 'center', color: colors.textMain }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {enquiries.slice(0, 4).map(e => (
                       <tr key={e.id} style={{ borderBottom: colors.border }}>
-                        <td style={{ padding: '6px 8px' }}>
-                          <strong style={{ color: colors.textMain }}>{e.name}</strong>
+                        <td style={{ padding: '5px 6px' }}>
+                          <strong style={{ color: colors.textMain, display: 'block', wordBreak: 'break-word' }}>{e.name}</strong>
                           <div style={{ fontSize: '0.65rem', color: colors.textMuted }}>{e.phone}</div>
                         </td>
-                        <td style={{ padding: '6px 8px', color: colors.textMain }}>{e.projectName || 'General Inquiry'}</td>
-                        <td style={{ padding: '6px 8px' }}>
+                        <td style={{ padding: '5px 6px', color: colors.textMain, wordBreak: 'break-word' }}>{e.projectName || 'General Inquiry'}</td>
+                        <td style={{ padding: '5px 6px', textAlign: 'center' }}>
                           <button 
                             onClick={() => onSelectEnquiry(e)}
                             style={{ padding: '2px 6px', fontSize: '0.65rem', fontWeight: 700, backgroundColor: colors.accentLight, color: colors.accent, border: 'none', borderRadius: '4px', cursor: 'pointer' }}
@@ -1256,9 +1256,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </h3>
             <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
               {inventoryItems.filter(item => item.currentStock <= item.minimumStockLevel).map(item => (
-                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: colors.border, fontSize: '0.78rem' }}>
-                  <div><strong style={{ color: colors.textMain }}>{item.name}</strong> ({item.code})</div>
-                  <div style={{ fontWeight: 700, color: '#ef4444' }}>{item.currentStock} / {item.minimumStockLevel} {item.unit}</div>
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: colors.border, fontSize: '0.75rem', gap: '8px' }}>
+                  <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}><strong style={{ color: colors.textMain }}>{item.name}</strong> ({item.code})</div>
+                  <div style={{ fontWeight: 700, color: '#ef4444', flexShrink: 0 }}>{item.currentStock} / {item.minimumStockLevel} {item.unit}</div>
                 </div>
               ))}
               {inventoryItems.filter(item => item.currentStock <= item.minimumStockLevel).length === 0 && (
@@ -1275,12 +1275,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </h3>
             <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
               {localSiteVisits.slice(0, 4).map(sv => (
-                <div key={sv.id} style={{ padding: '6px 0', borderBottom: colors.border, fontSize: '0.78rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div key={sv.id} style={{ padding: '6px 0', borderBottom: colors.border, fontSize: '0.75rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
                     <strong style={{ color: colors.textMain }}>{sv.customerName}</strong>
-                    <span style={{ fontSize: '0.68rem', color: colors.accent, fontWeight: 700 }}>{sv.visitDate} @ {sv.visitTime}</span>
+                    <span style={{ fontSize: '0.68rem', color: colors.accent, fontWeight: 700, whiteSpace: 'nowrap' }}>{sv.visitDate} @ {sv.visitTime}</span>
                   </div>
-                  <div style={{ fontSize: '0.7rem', color: colors.textMuted }}>Layout: {sv.projectName} | Agent: {sv.assignedAgent || 'Unassigned'}</div>
+                  <div style={{ fontSize: '0.68rem', color: colors.textMuted, marginTop: '2px', wordBreak: 'break-word' }}>Layout: {sv.projectName} | Agent: {sv.assignedAgent || 'Unassigned'}</div>
                 </div>
               ))}
               {localSiteVisits.length === 0 && (
@@ -1292,36 +1292,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {hasScreenAccess('wallets') && wallets && wallets.length > 0 && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <WalletIcon size={16} style={{ color: colors.accent }} /> Cash & Bank Accounts
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem', gap: '8px' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <WalletIcon size={16} style={{ color: colors.accent, flexShrink: 0 }} /> Cash & Bank Accounts
               </h3>
               <button 
                 onClick={() => onSetTab('wallets')} 
-                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, whiteSpace: 'nowrap' }}
               >
                 Manage <ArrowUpRight size={10} />
               </button>
             </div>
-            <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                 <thead>
                   <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Account Name</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Type</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', color: colors.textMain }}>Balance</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Account Name</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Type</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'right', color: colors.textMain }}>Balance</th>
                   </tr>
                 </thead>
                 <tbody>
                   {wallets.map(w => (
                     <tr key={w.id} style={{ borderBottom: colors.border }}>
-                      <td style={{ padding: '6px 8px' }}>
-                        <strong style={{ color: colors.textMain }}>{w.name}</strong>
+                      <td style={{ padding: '5px 6px' }}>
+                        <strong style={{ color: colors.textMain, display: 'block', wordBreak: 'break-word' }}>{w.name}</strong>
                       </td>
-                      <td style={{ padding: '6px 8px', color: colors.textMuted }}>
+                      <td style={{ padding: '5px 6px', color: colors.textMuted }}>
                         {w.type}
                       </td>
-                      <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: w.currentBalance < 0 ? '#ef4444' : '#10b981' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: w.currentBalance < 0 ? '#ef4444' : '#10b981', whiteSpace: 'nowrap' }}>
                         {fmt(w.currentBalance)}
                       </td>
                     </tr>
@@ -1334,25 +1334,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {hasScreenAccess('wallets') && latestTransactions.length > 0 && (
           <div style={{ ...panelCardStyle, backgroundColor: colors.cardBg, border: colors.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <WalletIcon size={16} style={{ color: colors.accent }} /> Account Ledger: Last Transactions
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: colors.border, paddingBottom: '0.5rem', marginBottom: '0.75rem', gap: '8px' }}>
+              <h3 style={{ fontSize: '0.82rem', fontWeight: 800, margin: 0, fontFamily: colors.fontTitle, color: colors.textMain, display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <WalletIcon size={16} style={{ color: colors.accent, flexShrink: 0 }} /> Account Ledger: Last Transactions
               </h3>
               <button 
                 onClick={() => onSetTab('wallets')} 
-                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                style={{ background: 'none', border: 'none', color: colors.accent, fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0, whiteSpace: 'nowrap' }}
               >
                 View Ledger <ArrowUpRight size={10} />
               </button>
             </div>
-            <div style={{ maxHeight: '160px', overflowY: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+            <div style={{ maxHeight: '160px', overflowY: 'auto', overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                 <thead>
                   <tr style={{ background: colors.accentLight, borderBottom: colors.border }}>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Date</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Account / Details</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'left', color: colors.textMain }}>Type</th>
-                    <th style={{ padding: '6px 8px', textAlign: 'right', color: colors.textMain }}>Amount</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Date</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Account / Details</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'left', color: colors.textMain }}>Type</th>
+                    <th style={{ padding: '5px 6px', textAlign: 'right', color: colors.textMain }}>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1384,24 +1384,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     
                     return (
                       <tr key={tx.id} style={{ borderBottom: colors.border }}>
-                        <td style={{ padding: '6px 8px', color: colors.textMuted }}>
+                        <td style={{ padding: '5px 6px', color: colors.textMuted, whiteSpace: 'nowrap' }}>
                           {tx.date ? new Date(tx.date).toLocaleDateString('en-IN') : '-'}
                         </td>
-                        <td style={{ padding: '6px 8px' }}>
+                        <td style={{ padding: '5px 6px' }}>
                           <div style={{ color: colors.textMain, fontWeight: 600 }}>{walletName}</div>
                           {targetName && (
                             <div style={{ fontSize: '0.65rem', color: colors.textMuted }}>to: {targetName}</div>
                           )}
                           {tx.description && !targetName && (
-                            <div style={{ fontSize: '0.65rem', color: colors.textMuted, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '120px' }}>{tx.description}</div>
+                            <div style={{ fontSize: '0.65rem', color: colors.textMuted, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100px' }}>{tx.description}</div>
                           )}
                         </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: typeColor }}>
+                        <td style={{ padding: '5px 6px' }}>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: typeColor }}>
                             {typeLabel}
                           </span>
                         </td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700, color: amountColor }}>
+                        <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: amountColor, whiteSpace: 'nowrap' }}>
                           {amountPrefix} {fmt(tx.amount)}
                         </td>
                       </tr>
@@ -1473,8 +1473,12 @@ const kpiFooterStyle = {
 
 const panelCardStyle = {
   borderRadius: '12px',
-  padding: '1.25rem',
-  boxShadow: '0 2px 10px rgba(0,0,0,0.01)'
+  padding: '1rem',
+  boxShadow: '0 2px 10px rgba(0,0,0,0.01)',
+  boxSizing: 'border-box' as const,
+  maxWidth: '100%',
+  width: '100%',
+  overflow: 'hidden'
 };
 
 const panelTitleStyle = {
