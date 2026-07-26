@@ -592,10 +592,10 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         @media (max-width: 868px) {
           .hero-slider-section { 
             position: relative !important;
-            min-height: calc(100vh - 59px) !important;
+            min-height: calc(100dvh - 65px) !important;
             height: auto !important; 
-            padding-top: 1rem !important;
-            padding-bottom: 1.5rem !important;
+            padding-top: 0.75rem !important;
+            padding-bottom: 0.75rem !important;
             background-color: #0f2b46 !important;
             display: flex !important;
             flex-direction: column !important;
@@ -615,32 +615,32 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           .hero-slide-content {
             position: relative !important;
             z-index: 5 !important;
-            padding-top: 1.25rem !important;
+            padding-top: 1rem !important;
             padding-bottom: 0.5rem !important;
             text-align: left !important;
             width: 100% !important;
           }
           .hero-title { 
-            font-size: 1.6rem !important; 
+            font-size: 1.55rem !important; 
             margin-bottom: 0.25rem !important;
             line-height: 1.25 !important;
             color: #ffffff !important;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.85) !important;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.95) !important;
           }
           .hero-location {
             margin-bottom: 0.25rem !important;
-            font-size: 0.9rem !important;
+            font-size: 0.88rem !important;
             color: rgba(255, 255, 255, 0.95) !important;
-            text-shadow: 0 1px 6px rgba(0,0,0,0.85) !important;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.95) !important;
           }
           .hero-price-tag {
             margin-bottom: 0.5rem !important;
-            font-size: 0.9rem !important;
+            font-size: 0.88rem !important;
             color: #ffffff !important;
-            text-shadow: 0 1px 6px rgba(0,0,0,0.85) !important;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.95) !important;
           }
           .hero-price-tag .price {
-            font-size: 1.4rem !important;
+            font-size: 1.35rem !important;
             color: var(--secondary) !important;
           }
           .hero-action-bar-container {
@@ -648,18 +648,18 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             z-index: 10 !important;
             margin-top: auto !important;
             margin-bottom: 0.5rem !important;
-            padding: 0 3.25rem 0 1rem !important;
+            padding: 0 2.8rem 0 0.5rem !important;
             width: 100% !important;
             box-sizing: border-box !important;
           }
           .hero-unified-card { 
             flex-direction: column !important; 
             align-items: stretch !important;
-            gap: 0.5rem !important; 
+            gap: 0.35rem !important; 
             background: #ffffff !important;
-            padding: 0.85rem 0.9rem !important;
+            padding: 0.65rem 0.75rem !important;
             border-radius: 12px !important;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22) !important;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
             border: 1px solid #e2e8f0 !important;
             width: 100% !important;
             max-width: 100% !important;
@@ -670,31 +670,34 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           }
           .search-field label {
             font-size: 0.62rem !important;
-            margin-bottom: 0.15rem !important;
+            margin-bottom: 0.1rem !important;
           }
           .search-actions-group {
-            flex-direction: column !important;
+            flex-direction: row !important;
             width: 100% !important;
             gap: 0.4rem !important;
             align-self: stretch !important;
+            margin-top: 0.2rem !important;
           }
           .search-field input, .search-field select {
             width: 100% !important;
-            height: 36px !important;
+            height: 35px !important;
             font-size: 0.82rem !important;
-            padding: 0.35rem 0.6rem !important;
+            padding: 0.3rem 0.55rem !important;
           }
           .search-submit-btn, .btn-explore-slide { 
-            width: 100% !important; 
-            height: 36px !important;
-            font-size: 0.82rem !important;
+            flex: 1 !important;
+            width: 50% !important; 
+            height: 35px !important;
+            font-size: 0.78rem !important;
             justify-content: center !important;
+            padding: 0 0.5rem !important;
           }
           .quick-categories {
             display: block !important;
             position: relative !important;
             z-index: 1 !important;
-            padding-top: 2.5rem !important;
+            padding-top: 1.75rem !important;
             padding-bottom: 2.5rem !important;
             margin-top: 0 !important;
             clear: both !important;

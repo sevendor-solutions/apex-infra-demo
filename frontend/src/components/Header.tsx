@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Send, Phone, Mail } from 'lucide-react';
 import type { ProjectCategory } from '../types';
 import iconLogoImg from '../assets/jk-icon.png';
@@ -21,6 +21,21 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+
+  // Lock background body scroll when mobile drawer menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [mobileMenuOpen]);
 
   const toggleDropdown = (name: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -479,10 +494,12 @@ export const Header: React.FC<HeaderProps> = ({
           top: var(--header-height);
           left: 0;
           width: 100vw;
-          height: calc(100vh - var(--header-height));
+          height: calc(100dvh - var(--header-height));
           background: rgba(0, 0, 0, 0.45);
           z-index: 98;
           cursor: pointer;
+          touch-action: none;
+          overscroll-behavior: contain;
         }
         .mobile-drawer {
           position: fixed;
@@ -490,13 +507,15 @@ export const Header: React.FC<HeaderProps> = ({
           left: 0;
           width: 70%;
           max-width: 310px;
-          height: calc(100vh - var(--header-height));
+          height: calc(100dvh - var(--header-height));
           background: var(--primary);
           color: var(--white);
           z-index: 99;
           transform: translateX(-100%);
           transition: var(--transition-normal);
-          overflow-y: auto;
+          overflow-y: hidden;
+          visibility: hidden;
+          pointer-events: none;
           display: flex;
           flex-direction: column;
           box-shadow: none;
@@ -504,6 +523,12 @@ export const Header: React.FC<HeaderProps> = ({
         .mobile-drawer.open {
           transform: translateX(0);
           box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+          overflow-y: auto;
+          visibility: visible;
+          pointer-events: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          touch-action: pan-y;
         }
         .mobile-nav-list {
           list-style: none;
@@ -563,13 +588,14 @@ export const Header: React.FC<HeaderProps> = ({
           .desktop-nav { display: none; }
           .mobile-menu-btn { display: block; }
           .hide-mobile { display: none !important; }
-          .header-logo-icon { height: 42px; }
-          .header-logo-text { height: 26px; }
+          .header-logo-icon { height: 48px; }
+          .header-logo-text { height: 30px; }
+          .header-logo-container { gap: 0.25rem; }
         }
         @media (max-width: 480px) {
-          .header-logo-icon { height: 36px; }
-          .header-logo-text { height: 21px; }
-          .header-logo-container { gap: 0.35rem; }
+          .header-logo-icon { height: 44px; }
+          .header-logo-text { height: 27px; }
+          .header-logo-container { gap: 0.2rem; }
         }
       `}</style>
     </header>
