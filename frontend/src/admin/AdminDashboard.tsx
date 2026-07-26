@@ -1534,12 +1534,12 @@ const formLabelStyle = (color: string) => ({
   color: color
 });
 
-const formInputStyle = (isLuxury: boolean, border: string, color: string) => ({
+const formInputStyle = (_isLuxury: boolean, border: string, color: string) => ({
   height: '30px',
   padding: '0 8px',
   borderRadius: '5px',
   border: border,
-  backgroundColor: isLuxury ? '#ffffff' : '#0f172a',
+  backgroundColor: '#ffffff',
   color: color,
   fontSize: '0.75rem',
   outline: 'none',
