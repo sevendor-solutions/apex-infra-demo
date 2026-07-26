@@ -210,16 +210,16 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
   }, [wallets]);
 
   return (
-    <div className="admin-page-container">
+    <div className="admin-page-container admin-wallets-view">
       {/* 💳 Page Header 💳 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+      <div className="admin-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <WalletIcon size={20} className="text-secondary" /> Cash & Bank Registry
           </h2>
           <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Manage cash boxes, bank checking accounts, and record transactions</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="admin-header-actions" style={{ display: 'flex', gap: '8px' }}>
           <button 
             onClick={() => { setTxType('Add'); setTxWalletId(selectedWalletId); setShowTxModal(true); }}
             className="btn btn-secondary flex align-center justify-center gap-1 font-bold"
@@ -238,7 +238,7 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
       </div>
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-3 gap-2 mb-3">
+      <div className="grid grid-3 gap-2 mb-3 admin-kpi-grid">
         <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--secondary)' }}>
           <div className="stat-icon-wrapper secondary-soft">
             <WalletIcon size={22} className="text-secondary" />
@@ -332,7 +332,7 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
       {/* Wallet Modal */}
       {showWalletModal && (
         <div className="modal-overlay" onClick={() => setShowWalletModal(false)}>
-          <form className="modal-content" onSubmit={handleCreateWallet} onClick={e => e.stopPropagation()} style={{ width: '450px' }}>
+          <form className="modal-content" onSubmit={handleCreateWallet} onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', width: '95vw' }}>
             <div className="modal-header">
               <h3>Create New Account</h3>
               <button type="button" onClick={() => setShowWalletModal(false)} className="close-btn"><X size={20} /></button>
@@ -384,7 +384,7 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
       {/* Transaction Modal */}
       {showTxModal && (
         <div className="modal-overlay" onClick={() => setShowTxModal(false)}>
-          <form className="modal-content" onSubmit={handleTransaction} onClick={e => e.stopPropagation()} style={{ width: '480px' }}>
+          <form className="modal-content" onSubmit={handleTransaction} onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '95vw' }}>
             <div className="modal-header">
               <h3>{txType === 'Add' ? 'Add Deposit Money' : txType === 'Withdraw' ? 'Record Withdrawal / Expense Payment' : 'Internal Account Transfer'}</h3>
               <button type="button" onClick={() => setShowTxModal(false)} className="close-btn"><X size={20} /></button>

@@ -23,7 +23,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   isMarketing = false,
   showMap = false
 }) => {
-  const project = projects.find(p => p.id === projectId);
+  const project = projects.find(p => String(p.id) === String(projectId));
   
   if (!project) {
     return (
@@ -419,10 +419,32 @@ Email: jkfutureinfra@gmail.com
       {/* Header breadcrumb */}
       <div className="detail-breadcrumb py-1" style={{ backgroundColor: 'var(--light-soft)', borderBottom: '1px solid var(--border-color)' }}>
         <div className="container flex justify-between align-center text-sm">
-          <button onClick={onBack} className="flex align-center gap-1 font-semibold text-primary">
+          <button 
+            type="button" 
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBack();
+            }} 
+            className="flex align-center gap-1 font-semibold text-primary"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
             <ArrowLeft size={16} /> Back to Listings
           </button>
-          <span>Projects / {project.category} / {project.name}</span>
+          <span>
+            <button 
+              type="button" 
+              onClick={(e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                onBack();
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'var(--primary)', fontWeight: 600 }}
+            >
+              Projects
+            </button>
+            {' / '}{project.category}{' / '}{project.name}
+          </span>
         </div>
       </div>
 
@@ -608,170 +630,90 @@ Email: jkfutureinfra@gmail.com
                 </tbody>
               </table>
             </div>
-          </div>
-
-          {/* Side-by-side grid for Configurations & Availability and Key Highlights */}
+          </div>          {/* Side-by-side grid for Configurations & Availability and Key Highlights */}
           {(project.availabilityDetails || (project.highlights && project.highlights.length > 0)) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
               {/* Configurations & Availability */}
               {project.availabilityDetails ? (
                 <div className="detail-card admin-card" style={{ marginBottom: 0 }}>
                   <h3 className="border-bottom-title mb-2">Configurations &amp; Availability</h3>
-                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '0.75rem' }}>
                     {(() => {
                       const rawParts = project.availabilityDetails.split(',').map(s => s.trim()).filter(Boolean);
-                      const hasSftCol = rawParts.some(p => {
-                        const parts = p.split(':').map(s => s.trim());
-                        if (parts.length >= 4 && parts[2]) return true;
-                        if (parts.length === 3 && parts[2] && (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft'))) return true;
-                        return false;
-                      });
-                      const hasUdsCol = rawParts.some(p => {
-                        const parts = p.split(':').map(s => s.trim());
-                        if (parts.length >= 4 && parts[3]) return true;
-                        if (parts.length === 3 && parts[2] && !parts[2].toLowerCase().includes('sft') && !parts[2].toLowerCase().includes('sq.ft')) return true;
-                        return false;
-                      });
+                      return rawParts.map((part, idx) => {
+                        const parts = part.split(':').map(s => s.trim());
+                        const type = parts[0];
+                        const qty = parts[1];
+                        let sftVal = '';
+                        let udsVal = '';
+                        if (parts.length >= 4) {
+                          sftVal = parts[2];
+                          udsVal = parts[3];
+                        } else if (parts.length === 3) {
+                          if (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft')) {
+                            sftVal = parts[2];
+                          } else {
+                            udsVal = parts[2];
+                          }
+                        }
+                        const countNum = parseInt(qty || '0', 10);
+                        const isAvailable = !isNaN(countNum) && countNum > 0;
 
-                      return (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                          <thead>
-                            <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                              <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Type</th>
-                              <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Available Units</th>
-                              {hasSftCol && (
-                                <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Area (SFT)</th>
-                              )}
-                              {hasUdsCol && (
-                                <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>UDS (Sq.Yds)</th>
-                              )}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {rawParts.map((part, idx) => {
-                              const parts = part.split(':').map(s => s.trim());
-                              const type = parts[0];
-                              const qty = parts[1];
-                              let sftVal = '';
-                              let udsVal = '';
-                              if (parts.length >= 4) {
-                                sftVal = parts[2];
-                                udsVal = parts[3];
-                              } else if (parts.length === 3) {
-                                if (parts[2].toLowerCase().includes('sft') || parts[2].toLowerCase().includes('sq.ft')) {
-                                  sftVal = parts[2];
-                                } else {
-                                  udsVal = parts[2];
-                                }
-                              }
-                              const countNum = parseInt(qty || '0', 10);
-                              const isAvailable = !isNaN(countNum) && countNum > 0;
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: idx < rawParts.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                                  <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>{type}</td>
-                                  <td style={{ padding: '0.65rem 1rem' }}>
-                                    <span 
-                                      className="badge" 
-                                      style={{
-                                        backgroundColor: isAvailable ? '#e1f4e9' : '#fce8e6',
-                                        color: isAvailable ? '#1e7e34' : '#c5221f',
-                                        border: `1px solid ${isAvailable ? '#c3edd5' : '#fad2cf'}`,
-                                        padding: '0.25rem 0.6rem',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 700
-                                      }}
-                                    >
-                                      {isAvailable ? `${qty} UNITS` : '0 UNITS'}
-                                    </span>
-                                  </td>
-                                  {hasSftCol && (
-                                    <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
-                                      {sftVal ? (sftVal.toLowerCase().includes('sft') || sftVal.toLowerCase().includes('sq.ft') ? sftVal : `${sftVal} SFT`) : '-'}
-                                    </td>
-                                  )}
-                                  {hasUdsCol && (
-                                    <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: '#475569' }}>
-                                      {udsVal ? (udsVal.toLowerCase().includes('sq.yds') || udsVal.toLowerCase().includes('yds') ? udsVal : `${udsVal} Sq.Yds`) : '-'}
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      );
+                        return (
+                          <div key={idx} style={{ background: isAvailable ? '#f0fdf4' : '#fef2f2', border: `1px solid ${isAvailable ? '#bbf7d0' : '#fecaca'}`, borderRadius: '10px', padding: '0.85rem 1rem' }}>
+                            <div className="flex justify-between align-center mb-1" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span className="font-bold text-primary" style={{ fontSize: '0.95rem' }}>{type}</span>
+                              <span style={{ backgroundColor: isAvailable ? '#16a34a' : '#dc2626', color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase' }}>
+                                {isAvailable ? `${qty} Units` : 'Sold Out'}
+                              </span>
+                            </div>
+                            {sftVal && <div className="text-xs text-muted font-semibold mt-0.5">Area: {sftVal.toLowerCase().includes('sft') ? sftVal : `${sftVal} SFT`}</div>}
+                            {udsVal && <div className="text-xs text-muted font-semibold mt-0.5">UDS: {udsVal.toLowerCase().includes('yds') ? udsVal : `${udsVal} Sq.Yds`}</div>}
+                          </div>
+                        );
+                      });
                     })()}
                   </div>
                 </div>
               ) : <div />}
 
-              {/* Key Highlights Table */}
+              {/* Key Highlights Feature List */}
               {project.highlights && project.highlights.length > 0 ? (
                 <div className="detail-card admin-card" style={{ marginBottom: 0 }}>
                   <h3 className="border-bottom-title mb-2">Key Highlights</h3>
-                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '50px', textAlign: 'center' }}>#</th>
-                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Highlight Details</th>
-                          <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '90px', textAlign: 'center' }}>Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {project.highlights.map((hl, i) => (
-                          <tr key={i} style={{ borderBottom: i < project.highlights.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                            <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
-                            <td style={{ padding: '0.65rem 1rem', fontWeight: 600, color: 'var(--primary)' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle2 size={16} style={{ color: 'var(--secondary)' }} />
-                                {hl}
-                              </span>
-                            </td>
-                            <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
-                              <span style={{ backgroundColor: '#e1f4e9', color: '#1e7e34', border: '1px solid #c3edd5', padding: '0.2rem 0.4rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Included</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="flex flex-col gap-1.5" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {project.highlights.map((hl, i) => (
+                      <div key={i} className="flex align-center justify-between" style={{ backgroundColor: i % 2 === 0 ? '#f8fafc' : '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.65rem 0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div className="flex align-center gap-1" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle2 size={16} style={{ color: 'var(--secondary)', flexShrink: 0 }} />
+                          <span className="font-semibold text-primary" style={{ fontSize: '0.88rem', lineHeight: '1.4' }}>{hl}</span>
+                        </div>
+                        <span style={{ backgroundColor: '#e1f4e9', color: '#1e7e34', border: '1px solid #c3edd5', padding: '0.15rem 0.45rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 }}>
+                          Included
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : <div />}
             </div>
           )}
 
-          {/* Amenities Table */}
+          {/* Modern Amenities Card Grid */}
           {project.amenities && project.amenities.length > 0 && (
             <div className="detail-card admin-card mb-3">
               <h3 className="border-bottom-title mb-2">Modern Amenities</h3>
-              <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1', textAlign: 'left' }}>
-                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '80px', textAlign: 'center' }}>#</th>
-                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700 }}>Amenity Name</th>
-                      <th style={{ padding: '0.65rem 1rem', color: 'var(--primary)', fontWeight: 700, width: '140px', textAlign: 'center' }}>Availability</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {project.amenities.map((am, i) => (
-                      <tr key={i} style={{ borderBottom: i < project.amenities.length - 1 ? '1px solid #e2e8f0' : 'none', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: '#64748b', textAlign: 'center' }}>{i + 1}</td>
-                        <td style={{ padding: '0.65rem 1rem', fontWeight: 700, color: 'var(--primary)' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                            <CheckCircle2 size={16} style={{ color: '#16a34a' }} />
-                            {am}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.65rem 1rem', textAlign: 'center' }}>
-                          <span style={{ backgroundColor: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>Available</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                {project.amenities.map((am, i) => (
+                  <div key={i} className="flex align-center justify-between" style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '0.65rem 0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <span className="flex align-center font-bold text-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                      <CheckCircle2 size={15} style={{ color: '#0284c7', flexShrink: 0 }} /> {am}
+                    </span>
+                    <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '0.15rem 0.45rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 700, flexShrink: 0 }}>
+                      Available
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -831,18 +773,32 @@ Email: jkfutureinfra@gmail.com
           </div>
 
           {/* Dynamic Payment plan structure */}
-          {project.paymentPlans && project.paymentPlans.length > 0 && (
-            <div className="sidebar-card admin-card mb-2">
-              <h4 className="border-bottom-title mb-1">Standard Payment Plan</h4>
-              <ul className="payment-plans-list" style={{ listStyle: 'none', paddingLeft: 0 }}>
-                {project.paymentPlans.map((plan, i) => (
-                  <li key={i} className="text-sm py-0.5" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem', paddingTop: '0.4rem' }}>
-                    <span className="text-secondary font-bold">Step {i+1}:</span> {plan}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {(() => {
+            const defaultPlan = ['Booking Advance: 2%', 'Agreement: 25%', 'Registration: 73%'];
+            const rawPlans = (project.paymentPlans && project.paymentPlans.length > 0)
+              ? project.paymentPlans
+              : defaultPlan;
+
+            const plansToDisplay = rawPlans.map(plan => {
+              if (plan === 'Booking Advance: 10%') return 'Booking Advance: 2%';
+              if (plan === 'Milestones: 60%' || plan === 'Installments: 80%') return 'Agreement: 25%';
+              if (plan === 'Registration: 30%' || plan === 'Handover: 10%') return 'Registration: 73%';
+              return plan;
+            });
+
+            return (
+              <div className="sidebar-card admin-card mb-2">
+                <h4 className="border-bottom-title mb-1">Standard Payment Plan</h4>
+                <ul className="payment-plans-list" style={{ listStyle: 'none', paddingLeft: 0 }}>
+                  {plansToDisplay.map((plan, i) => (
+                    <li key={i} className="text-sm py-0.5" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem', paddingTop: '0.4rem' }}>
+                      <span className="text-secondary font-bold">Step {i+1}:</span> {plan}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
           {/* Enquiry Form card */}
           <div className="sidebar-card admin-card sticky-sidebar">

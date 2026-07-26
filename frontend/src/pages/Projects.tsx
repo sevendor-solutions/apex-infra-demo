@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
+import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
 import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing, City, LocationMaster } from '../types';
 import { getProjectMainImage } from '../utils/image';
 import L from 'leaflet';
@@ -39,20 +39,29 @@ export const Projects: React.FC<ProjectsProps> = ({
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   
-  // Mobile Filters Drawer Toggle
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const filterNavRef = useRef<HTMLDivElement>(null);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
 
-  // Collapsible Filters Panel State
-  const [panelOpen, setPanelOpen] = useState({
-    propertyType: true,
-    facing: true,
-    city: true,
-    location: true
-  });
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const inFilterNav = filterNavRef.current && filterNavRef.current.contains(e.target as Node);
+      const inHeroSearch = heroSearchRef.current && heroSearchRef.current.contains(e.target as Node);
+      if (!inFilterNav && !inHeroSearch) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const togglePanel = (key: 'propertyType' | 'facing' | 'city' | 'location') => {
-    setPanelOpen(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  useEffect(() => {
+    if (initialParams) {
+      if (initialParams.search !== undefined) setSearch(initialParams.search || '');
+      if (initialParams.status !== undefined) setStatusFilter(initialParams.status || 'All');
+      if (initialParams.category !== undefined) setCategoryFilter(initialParams.category || 'All');
+    }
+  }, [initialParams]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -421,203 +430,441 @@ export const Projects: React.FC<ProjectsProps> = ({
     setCurrentPage(1);
   };
 
-  // Reusable checkbox panel renderer matching reference mock colors
-  const renderFilterPanel = (
-    title: string,
-    key: 'propertyType' | 'facing' | 'city' | 'location',
-    options: string[],
-    selectedValues: string[],
-    onToggle: (val: string) => void,
-    onClear: () => void,
-    headerColor: string
-  ) => {
-    const isOpen = panelOpen[key];
-    return (
-      <div className="filter-card-panel mb-3 shadow-sm" style={{ border: `1px solid ${headerColor}`, borderRadius: '8px', overflow: 'hidden' }}>
-        <div 
-          className="filter-card-header flex justify-between align-center px-2 py-1.5 cursor-pointer text-white"
-          style={{ backgroundColor: headerColor }}
-          onClick={() => togglePanel(key)}
-        >
-          <div className="flex align-center gap-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <ChevronDown 
-              size={18} 
-              style={{ 
-                transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', 
-                transition: 'transform 0.2s ease' 
-              }} 
-            />
-            <span className="font-bold text-sm uppercase tracking-wider" style={{ fontSize: '0.8rem', letterSpacing: '0.5px' }}>{title}</span>
-          </div>
-          {selectedValues.length > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onClear(); }} 
-              className="clear-panel-btn text-xs font-semibold text-white"
-              style={{ background: 'transparent', border: 'none', textDecoration: 'underline', cursor: 'pointer', outline: 'none' }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-        
-        {isOpen && (
-          <div className="filter-card-body p-2 scrollable-filter-list" style={{ maxHeight: '180px', overflowY: 'auto', borderTop: 'none', backgroundColor: 'var(--white)', padding: '0.75rem' }}>
-            {options.map((opt, idx) => {
-              const isChecked = selectedValues.includes(opt);
-              return (
-                <label key={idx} className="filter-checkbox-row flex align-center gap-0.5 py-0.5 text-sm cursor-pointer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0', userSelect: 'none' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isChecked}
-                    onChange={() => onToggle(opt)}
-                    style={{ cursor: 'pointer', accentColor: headerColor, width: '16px', height: '16px' }}
-                  />
-                  <span className={isChecked ? 'font-bold text-primary' : 'text-text-primary'} style={{ fontSize: '0.9rem', color: isChecked ? 'var(--primary)' : 'var(--text-primary)' }}>{opt}</span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="projects-page">
-      {/* Header Banner */}
-      <section className="page-header py-4 text-center text-white" style={{ background: 'linear-gradient(rgba(11,25,44,0.65), rgba(11,25,44,0.65)), url(/page_header_hd.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div className="container">
-          <h1 className="text-white text-4xl">Properties Portfolio</h1>
-          <p className="text-muted" style={{ color: 'rgba(255,255,255,0.75)' }}>Explore our ongoing, upcoming, and successfully completed premium ventures</p>
-        </div>
-      </section>
+      {/* 1. HERO BANNER WITH EMBEDDED MAGICBRICKS FLOATING SEARCH CARD */}
+      <section 
+        className="page-header relative text-center text-white" 
+        style={{ 
+          background: 'linear-gradient(rgba(11,25,44,0.7), rgba(11,25,44,0.75)), url(/page_header_hd.png)', 
+          backgroundSize: 'cover', 
+          backgroundPosition: 'center',
+          paddingTop: '1.5rem',
+          paddingBottom: '1.5rem'
+        }}
+      >
+        <div className="container flex flex-col align-center justify-center">
+          <h1 className="text-white text-4xl font-extrabold mb-1" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)', fontSize: '2rem', marginBottom: '0.35rem' }}>Properties Portfolio</h1>
+          <p className="text-muted" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', maxWidth: '600px', marginBottom: '1rem' }}>
+            Explore our ongoing, upcoming, and successfully completed premium ventures
+          </p>
 
-      {/* Top Filter Bar Block */}
-      <section className="filter-section container py-3">
-        <div className="filter-wrapper glass-card py-2 px-2 flex flex-col gap-2">
-          {/* Row 1: Search, Sorting, Status, Mobile Toggle */}
-          <div className="flex gap-2 justify-between flex-wrap align-center w-full">
-            <div className="search-bar-wrapper flex-1 min-w-300">
-              <Search className="search-bar-icon" size={18} />
+          {/* Hero Floating Search Widget Card */}
+          <div 
+            ref={heroSearchRef}
+            className="hero-search-widget-card"
+            style={{
+              width: '100%',
+              maxWidth: '1120px',
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '0.4rem 0.6rem',
+              boxShadow: '0 12px 35px rgba(0,0,0,0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              flexWrap: 'wrap',
+              margin: '0 auto',
+              border: '2px solid var(--secondary)'
+            }}
+          >
+            {/* 1. 🔍 Search Projects Input */}
+            <div style={{ flex: '2 1 200px', minWidth: '180px', display: 'flex', alignItems: 'center', padding: '0 0.5rem', position: 'relative' }}>
+              <Search size={18} style={{ color: 'var(--primary)', marginRight: '0.5rem' }} />
               <input 
                 type="text" 
-                placeholder="Search by name, location, keyword..." 
-                className="search-bar-input"
+                placeholder="Search Projects..." 
                 value={search}
                 onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  backgroundColor: 'transparent'
+                }}
               />
+              {search && (
+                <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+              )}
             </div>
-            
-            <div className="flex gap-1.5 align-center flex-wrap">
-              {/* Status Select inside Top Bar */}
-              <select 
-                className="form-control" 
-                style={{ width: '160px', marginBottom: 0, padding: '0.45rem 0.75rem', fontSize: '0.85rem' }} 
-                value={statusFilter} 
-                onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Upcoming">Upcoming</option>
-                <option value="Completed">Completed</option>
-              </select>
 
-              {/* Sorting Select inside Top Bar */}
-              <select 
-                className="form-control" 
-                style={{ width: '160px', marginBottom: 0, padding: '0.45rem 0.75rem', fontSize: '0.85rem' }} 
-                value={priceSort} 
-                onChange={e => { setPriceSort(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="default">Sort Properties</option>
-                <option value="low-high">Price: Low to High</option>
-                <option value="high-low">Price: High to Low</option>
-                <option value="alphabetical">Name: A to Z</option>
-              </select>
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
 
-              {/* Mobile Filter Toggle Button */}
+            {/* 2. 📍 City Dropdown */}
+            <div className="relative" style={{ flex: '1 1 120px', minWidth: '120px', position: 'relative' }}>
               <button 
-                className="btn btn-outline btn-sm mobile-filters-btn flex align-center gap-0.5"
-                style={{ padding: '0.5rem 0.8rem', borderRadius: '8px' }}
-                onClick={() => setMobileFiltersOpen(true)}
+                onClick={() => setActiveDropdown(activeDropdown === 'city' ? null : 'city')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedCities.length > 0 ? '#0b2c5c' : '#475569',
+                  background: selectedCities.length > 0 ? '#e6f0fa' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
               >
-                <SlidersHorizontal size={16} /> Filters
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <MapPin size={15} style={{ color: '#0284c7' }} /> 
+                  {selectedCities.length > 0 ? selectedCities.join(', ') : 'City'}
+                </span>
+                <ChevronDown size={14} />
               </button>
 
-              {/* Grid/List/Map Toggles */}
-              <div className="layout-toggle-btns flex gap-1 bg-light-soft p-0.5" style={{ padding: '0.25rem', borderRadius: '8px' }}>
-                <button 
-                  className={`toggle-btn ${!showMap && viewMode === 'grid' ? 'active' : ''}`}
-                  onClick={() => { setShowMap(false); setViewMode('grid'); }}
-                  title="Grid View"
-                >
-                  <LayoutGrid size={18} />
-                </button>
-                <button 
-                  className={`toggle-btn ${!showMap && viewMode === 'list' ? 'active' : ''}`}
-                  onClick={() => { setShowMap(false); setViewMode('list'); }}
-                  title="List View"
-                >
-                  <List size={18} />
-                </button>
-                <button 
-                  className={`toggle-btn ${showMap ? 'active' : ''}`}
-                  onClick={() => setShowMap(true)}
-                  title="Interactive Map View"
-                >
-                  <Map size={18} /> Map View
-                </button>
-              </div>
+              {activeDropdown === 'city' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>City</span>
+                    {selectedCities.length > 0 && <button onClick={clearCities} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {citiesList.map((city, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedCities.includes(city)} onChange={() => toggleCity(city)} style={{ accentColor: '#0284c7' }} /> {city}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 3. 📍 Location Dropdown */}
+            <div className="relative" style={{ flex: '1 1 130px', minWidth: '130px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'location' ? null : 'location')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedLocations.length > 0 ? '#0b2c5c' : '#475569',
+                  background: selectedLocations.length > 0 ? '#fef3c7' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <MapPin size={15} style={{ color: '#d97706' }} /> 
+                  {selectedLocations.length > 0 ? selectedLocations.join(', ') : 'Location'}
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'location' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1', maxHeight: '220px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>Location</span>
+                    {selectedLocations.length > 0 && <button onClick={clearLocations} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {locationsList.map((loc, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedLocations.includes(loc)} onChange={() => toggleLocation(loc)} style={{ accentColor: '#d97706' }} /> {loc}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 4. 🏠 Property Type Dropdown */}
+            <div className="relative" style={{ flex: '1 1 140px', minWidth: '140px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'propertyType' ? null : 'propertyType')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedPropertyTypes.length > 0 ? '#00a884' : '#475569',
+                  background: selectedPropertyTypes.length > 0 ? '#e6f4f1' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Home size={15} style={{ color: '#00a884' }} /> 
+                  {selectedPropertyTypes.length > 0 ? `${selectedPropertyTypes.length} Types` : 'Property Type'}
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'propertyType' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#00a884', textTransform: 'uppercase' }}>Property Type</span>
+                    {selectedPropertyTypes.length > 0 && <button onClick={clearPropertyTypes} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {propertyTypesOptions.map((type, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedPropertyTypes.includes(type)} onChange={() => togglePropertyType(type)} style={{ accentColor: '#00a884' }} /> {type}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 5. Status Select Dropdown */}
+            <div style={{ flex: '1 1 110px', minWidth: '110px' }}>
+              <select 
+                value={statusFilter}
+                onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.5rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: '#475569',
+                  background: 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                <option value="All" style={{ color: '#000' }}>All Status</option>
+                <option value="Ongoing" style={{ color: '#000' }}>Ongoing</option>
+                <option value="Upcoming" style={{ color: '#000' }}>Upcoming</option>
+                <option value="Completed" style={{ color: '#000' }}>Completed</option>
+              </select>
+            </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 6. More Filters Popover (Facing + Sorting) */}
+            <div className="relative" style={{ flex: '1 1 130px', minWidth: '120px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'moreFilters' ? null : 'moreFilters')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedFacings.length > 0 || priceSort !== 'default' ? '#8d5da9' : '#475569',
+                  background: selectedFacings.length > 0 || priceSort !== 'default' ? '#f3e8ff' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <SlidersHorizontal size={14} style={{ color: '#8d5da9' }} /> 
+                  More Filters
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'moreFilters' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', right: 0, width: '250px', background: '#ffffff', borderRadius: '12px', padding: '0.85rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  
+                  {/* Facings Section */}
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#8d5da9', textTransform: 'uppercase' }}>Facings</span>
+                      {selectedFacings.length > 0 && <button onClick={clearFacings} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                    </div>
+                    <div style={{ maxHeight: '140px', overflowY: 'auto' }}>
+                      {facingsOptions.map((facing, idx) => (
+                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0', fontSize: '0.82rem', color: '#1e293b', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={selectedFacings.includes(facing)} onChange={() => toggleFacing(facing)} style={{ accentColor: '#8d5da9' }} /> {facing}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price / Name Sort Section */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0b192c', textTransform: 'uppercase', display: 'block', marginBottom: '0.35rem' }}>Sort Properties</span>
+                    <select 
+                      value={priceSort} 
+                      onChange={e => { setPriceSort(e.target.value); setCurrentPage(1); }}
+                      style={{ width: '100%', padding: '0.4rem', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    >
+                      <option value="default">Default Sorting</option>
+                      <option value="low-high">Price: Low to High</option>
+                      <option value="high-low">Price: High to Low</option>
+                      <option value="alphabetical">Name: A to Z</option>
+                    </select>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* 7. [ Search ] Primary Action Button */}
+            <button 
+              onClick={() => {
+                setActiveDropdown(null);
+                const elem = document.querySelector('.projects-main-layout');
+                if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+              }}
+              style={{
+                backgroundColor: 'steelblue',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '0.55rem 1.4rem',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(70, 130, 180, 0.4)',
+                transition: 'all 0.2s ease',
+                marginLeft: 'auto'
+              }}
+            >
+              <Search size={16} /> Search
+            </button>
+
           </div>
 
-          {/* Applied filters feedback */}
-          <div className="flex justify-between align-center text-sm text-muted w-full mt-1">
-            <span>Showing {filteredProjects.length} matching properties</span>
-            {(search || statusFilter !== 'All' || categoryFilter !== 'All' || priceSort !== 'default' || selectedPropertyTypes.length > 0 || selectedFacings.length > 0 || selectedCities.length > 0 || selectedLocations.length > 0) && (
-              <button onClick={handleResetFilters} className="font-semibold text-secondary" style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', textDecoration: 'underline' }}>Clear All Filters</button>
-            )}
-          </div>
         </div>
       </section>
 
-      {/* Main Split Layout: Sidebar + Content */}
-      <section className="container py-2 pb-6">
-        <div className="projects-split-layout flex gap-4" style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', position: 'relative' }}>
+      {/* 2. SLEEK LIGHT STICKY RESULTS BAR (Pinned under header when scrolling) */}
+      <div 
+        ref={filterNavRef}
+        className="sticky-light-filter-navbar"
+        style={{
+          position: 'sticky',
+          top: 'var(--header-height, 62px)',
+          zIndex: 90,
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+          padding: '0.3rem 0',
+          transition: 'all 0.25s ease'
+        }}
+      >
+        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           
-          {/* Backdrop overlay for mobile filters */}
-          {mobileFiltersOpen && (
-            <div 
-              className="mobile-filters-backdrop" 
-              onClick={() => setMobileFiltersOpen(false)}
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                backgroundColor: 'rgba(15, 43, 70, 0.4)',
-                backdropFilter: 'blur(4px)',
-                zIndex: 140
-              }}
-            />
-          )}
+          {/* Left: Results Count + Active Filters Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+              Showing <strong style={{ color: 'var(--primary)', fontWeight: 800 }}>{filteredProjects.length}</strong> Properties
+            </span>
+            {(selectedCities.length > 0 || selectedLocations.length > 0 || selectedPropertyTypes.length > 0 || selectedFacings.length > 0) && (
+              <span style={{ backgroundColor: '#e6f0fa', color: '#0b2c5c', border: '1px solid #cbd5e1', fontSize: '0.73rem', padding: '0.18rem 0.55rem', borderRadius: '12px', fontWeight: 700 }}>
+                {selectedCities.length + selectedLocations.length + selectedPropertyTypes.length + selectedFacings.length} Active Filters
+              </span>
+            )}
+          </div>
 
-          {/* Sidebar Checkbox Filters */}
-          <aside className={`filters-sidebar ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
-            <div className="sidebar-header flex justify-between align-center mb-2 hide-desktop" style={{ paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="text-primary font-bold">Filter Options</h3>
-              <button onClick={() => setMobileFiltersOpen(false)} className="close-filters-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={24} className="text-primary" />
+          {/* Right: View Mode Toggles + Clear Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            
+            {/* Layout Mode Toggles */}
+            <div style={{ display: 'flex', gap: '2px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <button 
+                onClick={() => { setShowMap(false); setViewMode('grid'); }}
+                style={{
+                  padding: '0.28rem 0.6rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: !showMap && viewMode === 'grid' ? 'var(--primary)' : 'transparent',
+                  color: !showMap && viewMode === 'grid' ? '#ffffff' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+                title="Grid View"
+              >
+                <LayoutGrid size={14} /> Grid
+              </button>
+              <button 
+                onClick={() => { setShowMap(false); setViewMode('list'); }}
+                style={{
+                  padding: '0.28rem 0.6rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: !showMap && viewMode === 'list' ? 'var(--primary)' : 'transparent',
+                  color: !showMap && viewMode === 'list' ? '#ffffff' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+                title="List View"
+              >
+                <List size={14} /> List
+              </button>
+              <button 
+                onClick={() => setShowMap(true)}
+                style={{
+                  padding: '0.28rem 0.6rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: showMap ? 'var(--primary)' : 'transparent',
+                  color: showMap ? '#ffffff' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+                title="Map View"
+              >
+                <Map size={14} /> Map
               </button>
             </div>
 
-            {renderFilterPanel('Property Type', 'propertyType', propertyTypesOptions, selectedPropertyTypes, togglePropertyType, clearPropertyTypes, '#00a884')}
-            {renderFilterPanel('Facings', 'facing', facingsOptions, selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
-            {renderFilterPanel('Cities', 'city', citiesList, selectedCities, toggleCity, clearCities, '#3a9ad9')}
-            {renderFilterPanel('Locations', 'location', locationsList, selectedLocations, toggleLocation, clearLocations, '#e68a00')}
-          </aside>
+            {/* Clear Filters Button */}
+            {(search || statusFilter !== 'All' || priceSort !== 'default' || selectedPropertyTypes.length > 0 || selectedFacings.length > 0 || selectedCities.length > 0 || selectedLocations.length > 0) && (
+              <button 
+                onClick={handleResetFilters}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#dc2626',
+                  cursor: 'pointer',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textDecoration: 'underline'
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
 
+          </div>
+
+        </div>
+      </div>
+
+      {/* Main Full-Width Content Container */}
+      <section className="container py-4 pb-6">
+        <div className="projects-main-layout" style={{ width: '100%' }}>
           {/* Main Results Column */}
           <div className="projects-main-content flex-1" style={{ width: '100%' }}>
             {showMap ? (
@@ -1067,11 +1314,12 @@ export const Projects: React.FC<ProjectsProps> = ({
             position: fixed;
             top: 0;
             left: 0;
-            width: 290px;
+            width: 85vw;
+            max-width: 320px;
             height: 100vh;
             z-index: 150;
             background: var(--white);
-            padding: 1.5rem;
+            padding: 1.25rem 1rem;
             box-shadow: var(--shadow-xl);
             overflow-y: auto;
             transform: translateX(-100%);
@@ -1084,11 +1332,54 @@ export const Projects: React.FC<ProjectsProps> = ({
         }
 
         @media (max-width: 768px) {
+          .min-w-300 {
+            min-width: 100% !important;
+          }
+          .search-bar-wrapper {
+            width: 100% !important;
+          }
+          .search-bar-input {
+            font-size: 0.85rem !important;
+            padding: 0.6rem 0.75rem 0.6rem 2.4rem !important;
+          }
+          .search-bar-icon {
+            left: 0.75rem !important;
+          }
+          .layout-toggle-btns {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+          }
+          .layout-toggle-btns .toggle-btn {
+            flex: 1 !important;
+            justify-content: center !important;
+            font-size: 0.78rem !important;
+            padding: 0.4rem 0.2rem !important;
+          }
           .premium-spec-card {
             flex-direction: column !important;
+            border-radius: 12px !important;
           }
           .card-visual-images {
             min-width: 100% !important;
+            flex-direction: column !important;
+          }
+          .visual-img-box {
+            height: 170px !important;
+            border-left: none !important;
+            border-top: 1px solid var(--white) !important;
+          }
+          .card-details-content {
+            padding: 1rem !important;
+          }
+          .highlights-row span {
+            font-size: 0.75rem !important;
+            padding: 0.2rem 0.4rem !important;
+          }
+          .availability-badges-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.35rem !important;
           }
         }
       `}</style>

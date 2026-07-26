@@ -203,103 +203,107 @@ export const AdminBlogs: React.FC<AdminBlogsProps> = ({
 
       {modalOpen && (
         <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
-            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0, flexShrink: 0 }}>
               {editingBlog ? `Edit Article: ${editingBlog.title}` : 'Publish New Blog Post'}
             </h3>
             
-            <form onSubmit={handleSubmit} className="p-3">
-              <div className="form-group">
-                <label className="form-label">Article Title *</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="grid grid-2 gap-2">
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+              {/* Scrollable form fields */}
+              <div style={{ overflowY: 'auto', flex: 1, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Category *</label>
-                  <select 
-                    className="form-control" 
-                    value={category}
-                    onChange={e => setCategory(e.target.value as BlogCategory)}
-                  >
-                    <option value="Real Estate News">Real Estate News</option>
-                    <option value="Property Updates">Property Updates</option>
-                    <option value="Investment Guides">Investment Guides</option>
-                    <option value="Company News">Company News</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Author Name *</label>
+                  <label className="form-label">Article Title *</label>
                   <input 
                     type="text" 
                     className="form-control" 
-                    value={author}
-                    onChange={e => setAuthor(e.target.value)}
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-2 gap-2">
+                  <div className="form-group">
+                    <label className="form-label">Category *</label>
+                    <select 
+                      className="form-control" 
+                      value={category}
+                      onChange={e => setCategory(e.target.value as BlogCategory)}
+                    >
+                      <option value="Real Estate News">Real Estate News</option>
+                      <option value="Property Updates">Property Updates</option>
+                      <option value="Investment Guides">Investment Guides</option>
+                      <option value="Company News">Company News</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Author Name *</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={author}
+                      onChange={e => setAuthor(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Cover Image</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="https://... or upload local file"
+                      value={image}
+                      onChange={e => setImage(e.target.value)}
+                      style={{ marginBottom: 0, flex: 1 }}
+                    />
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {uploadingImage ? 'Uploading...' : 'Upload'}
+                      <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImage} />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Tags (Comma-separated)</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    placeholder="e.g. Vizag, Investment, VMRDA" 
+                    value={tagsText}
+                    onChange={e => setTagsText(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Summary / Short Pitch *</label>
+                  <textarea 
+                    className="form-control" 
+                    rows={2} 
+                    value={summary}
+                    onChange={e => setSummary(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Body Content * (Markdown elements supported)</label>
+                  <textarea 
+                    className="form-control" 
+                    rows={8} 
+                    placeholder="Use ### for subheadings and paragraphs for spaces..." 
+                    value={content}
+                    onChange={e => setContent(e.target.value)}
                     required
                   />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Cover Image</label>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    placeholder="https://... or upload local file"
-                    value={image}
-                    onChange={e => setImage(e.target.value)}
-                    style={{ marginBottom: 0, flex: 1 }}
-                  />
-                  <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                    {uploadingImage ? 'Uploading...' : 'Upload'}
-                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadingImage} />
-                  </label>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Tags (Comma-separated)</label>
-                <input 
-                  type="text" 
-                  className="form-control" 
-                  placeholder="e.g. Vizag, Investment, VMRDA" 
-                  value={tagsText}
-                  onChange={e => setTagsText(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Summary / Short Pitch *</label>
-                <textarea 
-                  className="form-control" 
-                  rows={2} 
-                  value={summary}
-                  onChange={e => setSummary(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Body Content * (Markdown elements supported)</label>
-                <textarea 
-                  className="form-control" 
-                  rows={8} 
-                  placeholder="Use ### for subheadings and paragraphs for spaces..." 
-                  value={content}
-                  onChange={e => setContent(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end mt-2">
+              {/* Sticky Footer Buttons - always visible */}
+              <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
                 <button type="button" onClick={() => setModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-secondary btn-sm">Publish Article</button>
               </div>

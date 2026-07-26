@@ -1186,6 +1186,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <div className={`admin-layout ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+      {/* Mobile Backdrop Overlay for Sidebar */}
+      {adminMenuOpen && (
+        <div 
+          className="admin-mobile-backdrop" 
+          onClick={() => setAdminMenuOpen(false)} 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 998
+          }}
+        />
+      )}
       
       {/* Collapsible Left Sidebar */}
       <aside className={`admin-sidebar ${adminMenuOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>

@@ -206,9 +206,9 @@ export const AdminAuditorReports: React.FC = () => {
   };
 
   return (
-    <div className="admin-page-container">
+    <div className="admin-page-container admin-auditor-reports-view">
       {/* Date Filtering Bar */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div className="admin-report-filter-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Calendar size={18} className="text-muted" />
           <span className="font-semibold text-sm">Period:</span>
@@ -229,7 +229,7 @@ export const AdminAuditorReports: React.FC = () => {
           style={{ width: '150px', marginBottom: 0, padding: '4px 8px' }} 
         />
         
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+        <div className="admin-report-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
           <button 
             onClick={handlePrint}
             className="btn btn-sm btn-outline flex align-center gap-0.5"
@@ -248,7 +248,7 @@ export const AdminAuditorReports: React.FC = () => {
       </div>
 
       {/* Reports tab buttons */}
-      <div style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: '1.5rem', gap: '4px' }}>
+      <div className="admin-report-tab-buttons" style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: '1.5rem', gap: '4px' }}>
         <button 
           onClick={() => setActiveReport('BS')}
           className={`btn btn-sm ${activeReport === 'BS' ? 'btn-secondary' : 'btn-outline'}`}
@@ -282,7 +282,7 @@ export const AdminAuditorReports: React.FC = () => {
               <p className="text-muted">As on Date Period: {startDate} to {endDate}</p>
             </div>
 
-            <div className="grid grid-2 gap-4">
+            <div className="grid grid-2 gap-4 admin-report-grid">
               {/* Assets Column */}
               <div>
                 <h3 className="border-bottom-title mb-2 text-primary" style={{ borderBottomColor: 'var(--primary)' }}>ASSETS (Receivables & Valuations)</h3>

@@ -15,9 +15,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
     <footer className="site-footer">
       <div className="container footer-content py-6">
-        <div className="grid grid-4 gap-4">
+        <div className="footer-grid">
           {/* Company Info */}
-          <div className="footer-col">
+          <div className="footer-col company-col">
             <h3 className="footer-logo-text mb-2">JK FUTURE INFRA</h3>
             <p className="footer-about-text mb-3">
               Your vision is our mission for a happy living. We are a premier ISO 9001:2015 certified real estate development firm in Andhra Pradesh, committed to building exceptional residential spaces.
@@ -38,37 +38,40 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="footer-col">
-            <h4 className="footer-col-title">Quick Links</h4>
-            <ul className="footer-links">
-              <li><button onClick={() => handleLinkClick('home')}>Home</button></li>
-              <li><button onClick={() => handleLinkClick('about')}>About Us</button></li>
-              <li><button onClick={() => handleLinkClick('projects-ongoing')}>Ongoing Projects</button></li>
-              <li><button onClick={() => handleLinkClick('gallery')}>Gallery Photos & Videos</button></li>
-              <li><button onClick={() => handleLinkClick('blog')}>Latest Blogs & News</button></li>
-              <li><button onClick={() => handleLinkClick('contact')}>Contact Us</button></li>
-            </ul>
-          </div>
+          {/* Our Verticals (Left) & Quick Links (Right) */}
+          <div className="footer-links-group">
+            {/* Categories / Our Verticals */}
+            <div className="footer-col">
+              <h4 className="footer-col-title">Our Verticals</h4>
+              <ul className="footer-links">
+                <li><button onClick={() => handleLinkClick('marketing', 'Flats')}>Premium Flats</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Villas')}>Luxury Villas</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Individual Houses')}>Houses</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA / VMRDA Approved Sites')}>VMRDA Plots</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>Panchayati Sites</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>Venture Layouts</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>Agri Lands</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>Non-Agri Lands</button></li>
+                <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Industrial Sites')}>Industrial Sites</button></li>
+              </ul>
+            </div>
 
-          {/* Categories */}
-          <div className="footer-col">
-            <h4 className="footer-col-title">Our Verticals</h4>
-            <ul className="footer-links">
-              <li><button onClick={() => handleLinkClick('marketing', 'Flats')}>Premium Flats</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Villas')}>Luxury Gated Villas</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Individual Houses')}>Independent Houses</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA Approved Sites')}>VUDA Approved Plots</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>Panchayati Approved Sites</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>Venture Layouts</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>Agriculture Lands</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>Non-Agri Lands</button></li>
-              <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Industrial Sites')}>Industrial Sites</button></li>
-            </ul>
+            {/* Quick Links */}
+            <div className="footer-col">
+              <h4 className="footer-col-title">Quick Links</h4>
+              <ul className="footer-links">
+                <li><button onClick={() => handleLinkClick('home')}>Home</button></li>
+                <li><button onClick={() => handleLinkClick('about')}>About Us</button></li>
+                <li><button onClick={() => handleLinkClick('projects-ongoing')}>Ongoing Projects</button></li>
+                <li><button onClick={() => handleLinkClick('gallery')}>Gallery Photos</button></li>
+                <li><button onClick={() => handleLinkClick('blog')}>Latest Blogs</button></li>
+                <li><button onClick={() => handleLinkClick('contact')}>Contact Us</button></li>
+              </ul>
+            </div>
           </div>
 
           {/* Contact Details */}
-          <div className="footer-col">
+          <div className="footer-col contact-col">
             <h4 className="footer-col-title">Registered Office</h4>
             <ul className="footer-contact-info">
               <li className="flex gap-2 align-center">
@@ -96,8 +99,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="container flex justify-between align-center py-2 text-sm">
           <span>&copy; {currentYear} JK Future Infra Projects Pvt. Ltd. All rights reserved.</span>
           <div className="flex gap-2">
-            {/* <button onClick={() => handleLinkClick('admin')} className="admin-portal-link">Admin Portal</button> */}
-            {/* <span>|</span> */}
             <span>Privacy Policy</span>
           </div>
         </div>
@@ -107,11 +108,21 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         .site-footer {
           background-color: #060e19;
           color: rgba(255, 255, 255, 0.7);
-          border-top: 4px solid var(--secondary);
+          border-top: 1.5px solid var(--secondary);
           margin-top: auto;
         }
         .footer-content {
           border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 2fr 1.2fr;
+          gap: 2.5rem;
+        }
+        .footer-links-group {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2rem;
         }
         .footer-logo-text {
           font-size: 1.5rem;
@@ -185,7 +196,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         .footer-icon-badge {
           width: 32px;
           height: 32px;
-          border-radius: 9px;
+          border-radius: 99px;
           color: #ffffff;
           display: flex;
           align-items: center;
@@ -213,18 +224,29 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           background-color: #030810;
           color: rgba(255, 255, 255, 0.45);
         }
-        .admin-portal-link {
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 600;
+
+        @media (max-width: 868px) {
+          .footer-grid {
+            grid-template-columns: 1fr !important;
+            gap: 2rem !important;
+          }
+          .footer-links-group {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 1.25rem !important;
+            width: 100% !important;
+          }
+          .footer-col-title {
+            font-size: 1.05rem !important;
+            margin-bottom: 1rem !important;
+          }
+          .footer-links {
+            gap: 0.6rem !important;
+          }
+          .footer-links button {
+            font-size: 0.85rem !important;
+          }
         }
-        .admin-portal-link:hover {
-          color: var(--secondary);
-        }
-        .shrink-0 {
-          flex-shrink: 0;
-        }
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-3 { margin-bottom: 1rem; }
       `}</style>
     </footer>
   );

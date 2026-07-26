@@ -232,12 +232,12 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
     <div className="admin-mail-config-view">
       <form onSubmit={handleSave}>
         {/* Screen Header Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+        <div className="mail-config-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
           <div>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--sap-fiori-blue)', margin: 0 }}>System Settings & Configurations</h2>
             <p style={{ fontSize: '0.8rem', color: '#666', margin: '2px 0 0' }}>Configure connected social media redirection channels, automated reminders, and SMTP mail servers.</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="mail-config-actions" style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               type="button" 
               className="btn btn-outline"
@@ -289,7 +289,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
         </div>
 
 
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+        <div className="mail-config-layout" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
           {/* Forms Column: 65% width */}
           <div style={{ flex: '1 1 65%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
@@ -301,114 +301,94 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {/* Facebook Connection */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.85rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '70%' }}>
-                    <FacebookIcon size={18} style={{ color: '#1877f2', flexShrink: 0 }} />
-                    <div style={{ width: '100%' }}>
-                      {isEditingFb ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
-                          <input 
-                            type="text" 
-                            value={fbInputVal} 
-                            onChange={e => setFbInputVal(e.target.value)} 
-                            style={{ fontSize: '0.75rem', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', flex: 1, minWidth: 0 }}
-                            placeholder="Facebook page link..."
-                          />
-                          <button type="button" onClick={saveFbUrl} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#0f5132', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Save</button>
-                          <button type="button" onClick={() => { setIsEditingFb(false); setFbInputVal(facebookPageUrl); }} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <a 
-                              href={facebookPageUrl} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              style={{ 
-                                fontWeight: 700, 
-                                fontSize: '0.82rem', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px', 
-                                color: '#0854a0', 
-                                textDecoration: 'none' 
-                              }}
-                              onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                              onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
-                            >
-                              JK Future Infra Page <ExternalLink size={11} style={{ color: '#64748b' }} />
-                            </a>
-                            <button 
-                              type="button"
-                              onClick={() => setIsEditingFb(true)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#64748b', display: 'inline-flex', alignItems: 'center' }}
-                              title="Edit Link"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                          </div>
-                          <a href={facebookPageUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#64748b', textDecoration: 'none', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {facebookPageUrl}
+                <div className="social-channel-row" style={{ display: 'flex', alignItems: 'center', padding: '0.6rem 0.85rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', gap: '10px' }}>
+                  <FacebookIcon size={18} style={{ color: '#1877f2', flexShrink: 0 }} />
+                  <div className="social-channel-inner" style={{ flex: 1, minWidth: 0 }}>
+                    {isEditingFb ? (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
+                        <input 
+                          type="text" 
+                          value={fbInputVal} 
+                          onChange={e => setFbInputVal(e.target.value)} 
+                          style={{ fontSize: '0.75rem', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', flex: 1, minWidth: 0 }}
+                          placeholder="Facebook page link..."
+                        />
+                        <button type="button" onClick={saveFbUrl} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#0f5132', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Save</button>
+                        <button type="button" onClick={() => { setIsEditingFb(false); setFbInputVal(facebookPageUrl); }} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <a 
+                            href={facebookPageUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            style={{ fontWeight: 700, fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0854a0', textDecoration: 'none' }}
+                            onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
+                          >
+                            JK Future Infra Page <ExternalLink size={11} style={{ color: '#64748b' }} />
                           </a>
-                        </>
-                      )}
-                    </div>
+                          <button 
+                            type="button"
+                            onClick={() => setIsEditingFb(true)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#64748b', display: 'inline-flex', alignItems: 'center' }}
+                            title="Edit Link"
+                          >
+                            <Edit2 size={11} />
+                          </button>
+                        </div>
+                        <a href={facebookPageUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#64748b', textDecoration: 'none', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                          {facebookPageUrl}
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Instagram Connection */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.85rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '70%' }}>
-                    <InstagramIcon size={18} style={{ color: '#e1306c', flexShrink: 0 }} />
-                    <div style={{ width: '100%' }}>
-                      {isEditingIg ? (
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
-                          <input 
-                            type="text" 
-                            value={igInputVal} 
-                            onChange={e => setIgInputVal(e.target.value)} 
-                            style={{ fontSize: '0.75rem', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', flex: 1, minWidth: 0 }}
-                            placeholder="Instagram profile link..."
-                          />
-                          <button type="button" onClick={saveIgUrl} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#0f5132', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Save</button>
-                          <button type="button" onClick={() => { setIsEditingIg(false); setIgInputVal(instagramPageUrl); }} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <a 
-                              href={instagramPageUrl} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              style={{ 
-                                fontWeight: 700, 
-                                fontSize: '0.82rem', 
-                                display: 'inline-flex', 
-                                alignItems: 'center', 
-                                gap: '4px', 
-                                color: '#0854a0', 
-                                textDecoration: 'none' 
-                              }}
-                              onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                              onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
-                            >
-                              jk_future_infra Profile <ExternalLink size={11} style={{ color: '#64748b' }} />
-                            </a>
-                            <button 
-                              type="button"
-                              onClick={() => setIsEditingIg(true)}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#64748b', display: 'inline-flex', alignItems: 'center' }}
-                              title="Edit Link"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                          </div>
-                          <a href={instagramPageUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#64748b', textDecoration: 'none', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {instagramPageUrl}
+                <div className="social-channel-row" style={{ display: 'flex', alignItems: 'center', padding: '0.6rem 0.85rem', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', gap: '10px' }}>
+                  <InstagramIcon size={18} style={{ color: '#e1306c', flexShrink: 0 }} />
+                  <div className="social-channel-inner" style={{ flex: 1, minWidth: 0 }}>
+                    {isEditingIg ? (
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', width: '100%' }}>
+                        <input 
+                          type="text" 
+                          value={igInputVal} 
+                          onChange={e => setIgInputVal(e.target.value)} 
+                          style={{ fontSize: '0.75rem', padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', flex: 1, minWidth: 0 }}
+                          placeholder="Instagram profile link..."
+                        />
+                        <button type="button" onClick={saveIgUrl} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#0f5132', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Save</button>
+                        <button type="button" onClick={() => { setIsEditingIg(false); setIgInputVal(instagramPageUrl); }} style={{ padding: '4px 8px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}>Cancel</button>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <a 
+                            href={instagramPageUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            style={{ fontWeight: 700, fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0854a0', textDecoration: 'none' }}
+                            onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
+                          >
+                            jk_future_infra Profile <ExternalLink size={11} style={{ color: '#64748b' }} />
                           </a>
-                        </>
-                      )}
-                    </div>
+                          <button 
+                            type="button"
+                            onClick={() => setIsEditingIg(true)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#64748b', display: 'inline-flex', alignItems: 'center' }}
+                            title="Edit Link"
+                          >
+                            <Edit2 size={11} />
+                          </button>
+                        </div>
+                        <a href={instagramPageUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.7rem', color: '#64748b', textDecoration: 'none', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                          {instagramPageUrl}
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -528,7 +508,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
 
               <div className="form-group" style={{ marginBottom: '1.25rem' }}>
                 <label className="form-label">Delivery Mode</label>
-                <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
+                <div className="mail-config-delivery-row" style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', cursor: 'pointer', fontWeight: 'normal' }}>
                     <input 
                       type="radio" 
@@ -566,7 +546,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
               </div>
 
               {/* Row 2: Port + Sender Email */}
-              <div className="grid grid-2 gap-2" style={{ marginBottom: '1rem' }}>
+              <div className="grid grid-2 gap-2 mobile-stack" style={{ marginBottom: '1rem' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">SMTP Port</label>
                   <input 
@@ -690,7 +670,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
           </div>
 
           {/* Preview Sidebar: 35% width */}
-          <div style={{ flex: '0 0 320px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div className="mail-config-preview" style={{ flex: '0 0 320px', minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={{ position: 'sticky', top: '1rem' }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', marginBottom: '0.75rem' }}>
                 <Eye size={16} /> Live Rendering Preview

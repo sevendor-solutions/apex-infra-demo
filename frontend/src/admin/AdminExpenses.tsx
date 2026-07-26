@@ -335,16 +335,16 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
+    <div className="admin-expenses-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
       {/* ── Page Header ──────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--sap-border-color)', paddingBottom: '1rem' }}>
+      <div className="admin-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--sap-border-color)', paddingBottom: '1rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--sap-fiori-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Receipt size={20} /> Expenses Ledger
           </h2>
           <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>Track, manage and analyze all business expenditures</p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div className="admin-header-actions" style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={exportCSV}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, border: '1.5px solid var(--sap-border-color)', borderRadius: '6px', background: 'transparent', color: '#374151', cursor: 'pointer' }}
@@ -361,7 +361,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       </div>
 
       {/* ── KPI Summary Tiles ─────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+      <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
         {[
           { label: 'Total Expenditure', value: fmtK(kpiStats.total), sub: `${kpiStats.bills} bills`, icon: <IndianRupee size={16} />, color: '#7c3aed', bg: '#f5f3ff' },
           { label: 'This Month', value: fmtK(kpiStats.thisMonth), sub: 'Current month spend', icon: <Calendar size={16} />, color: '#0891b2', bg: '#ecfeff' },
@@ -382,7 +382,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       </div>
 
       {/* ── Search & Filters Bar ──────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '8px', padding: '0.45rem 0.85rem' }}>
+      <div className="admin-filter-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '8px', padding: '0.45rem 0.85rem' }}>
         <Search size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
         <input
           value={searchTerm}
@@ -561,7 +561,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
               {/* Section: Bill Information */}
               <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem', margin: 0 }}>
                 <legend style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--sap-fiori-blue)', textTransform: 'uppercase', letterSpacing: '0.5px', padding: '0 6px' }}>Bill Information</legend>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div style={{ position: 'relative' }}>
                     <label style={labelStyle}>Vendor / Party <span style={{ color: '#ef4444' }}>*</span></label>
                     <input

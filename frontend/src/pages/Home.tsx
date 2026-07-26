@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Building2, Home as HomeIcon, KeyRound, Compass, Send } from 'lucide-react';
+import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Building2, Home as HomeIcon, KeyRound, Compass, Send, Search } from 'lucide-react';
 import type { Project, Blog, ProjectCategory, SiteCategory } from '../types';
 import { getProjectMainImage } from '../utils/image';
 
@@ -14,23 +14,52 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
   const [heroIndex, setHeroIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   
   const featuredProjects = projects.filter(p => p.featured && p.isActive !== false);
   const displayProjects = featuredProjects.length > 0 ? featuredProjects : projects.slice(0, 1);
   const latestBlogs = blogs.slice(0, 3);
+  const currentProject = displayProjects[heroIndex] || displayProjects[0];
 
-  // Auto-play hero slider
+  // Auto-play hero slider (pauses when user is typing in search input)
   useEffect(() => {
-    if (displayProjects.length === 0) return;
+    if (displayProjects.length === 0 || isSearchFocused) return;
     const interval = setInterval(() => {
       setHeroIndex(prev => (prev + 1) % displayProjects.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, [displayProjects.length]);
+  }, [displayProjects.length, isSearchFocused]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onNavigate('projects', null, null, { search: searchQuery, category: searchCategory });
+    const query = searchQuery.trim();
+
+    const marketingCategories = [
+      'Flats', 'Villas', 'Individual Houses', 'Sites', 
+      'VUDA / VMRDA Approved Sites', 'Panchayati Approved Sites', 'Ventures'
+    ];
+
+    if (marketingCategories.includes(searchCategory)) {
+      let mainCat: ProjectCategory = 'Flats';
+      let subCat: string | null = null;
+
+      if (searchCategory === 'Flats') mainCat = 'Flats';
+      else if (searchCategory === 'Villas') mainCat = 'Villas';
+      else if (searchCategory === 'Individual Houses') mainCat = 'Individual Houses';
+      else if (searchCategory === 'Sites') mainCat = 'Sites';
+      else if (['VUDA / VMRDA Approved Sites', 'Panchayati Approved Sites', 'Ventures'].includes(searchCategory)) {
+        mainCat = 'Sites';
+        subCat = searchCategory;
+      }
+
+      onNavigate('marketing', mainCat, subCat as SiteCategory | null, { initialFilters: { search: query } });
+    } else if (['Ongoing', 'Upcoming', 'Completed'].includes(searchCategory)) {
+      const status = searchCategory;
+      onNavigate('projects', null, null, { search: query, status });
+    } else {
+      // General All search
+      onNavigate('projects', null, null, { search: query });
+    }
   };
 
   return (
@@ -43,7 +72,10 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
             className={`hero-slide ${idx === heroIndex ? 'active' : ''}`}
             style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${getProjectMainImage(project)})` }}
           >
-            <div className="container hero-slide-content">
+            <div 
+              className="container hero-slide-content"
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+            >
               <div className="flex gap-1 align-center">
                 <span className={`badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
                 <span className="badge badge-ongoing" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>{project.category}</span>
@@ -53,42 +85,68 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
               <div className="hero-price-tag">
                 Starting from <span className="price">{project.priceRange.split('-')[0]}</span>
               </div>
-              <div className="hero-actions-row">
-                <button 
-                  onClick={() => onNavigate('project_details', undefined, undefined, { id: project.id })} 
-                  className="btn btn-secondary btn-lg hero-explore-btn"
-                >
-                  Explore Project
-                </button>
-
-                <form onSubmit={handleSearchSubmit} className="hero-search-form glass-card">
-                  <div className="search-field keyword-field">
-                    <label>Search Property</label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter location or project name..." 
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <div className="search-field category-field">
-                    <label>Category</label>
-                    <select value={searchCategory} onChange={e => setSearchCategory(e.target.value)}>
-                      <option value="All">All Property Types</option>
-                      <option value="Flats">Premium Flats</option>
-                      <option value="Villas">Luxury Villas</option>
-                      <option value="Individual Houses">Individual Houses</option>
-                      <option value="Sites">Residential Sites / Plots</option>
-                    </select>
-                  </div>
-                  <button type="submit" className="btn btn-secondary search-btn">
-                    Search Property
-                  </button>
-                </form>
-              </div>
             </div>
           </div>
         ))}
+
+        {/* Persistent Unified Hero Action Bar (Mounted ONCE outside slide loop to prevent soft keyboard dismissal) */}
+        <div className="container hero-action-bar-container">
+          <div className="hero-action-bar-wrapper">
+            <form onSubmit={handleSearchSubmit} className="hero-unified-card">
+              <div className="search-field keyword-field">
+                <label><MapPin size={12} color="var(--primary)" /> SEARCH PROPERTY</label>
+                <input 
+                  type="text" 
+                  placeholder="Enter location or project..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                />
+              </div>
+
+              <div className="search-field category-field">
+                <label><Building2 size={12} color="var(--primary)" /> CATEGORY</label>
+                <select 
+                  value={searchCategory} 
+                  onChange={e => setSearchCategory(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                >
+                  <option value="All">All Property Types</option>
+                  <option value="Flats">Premium Flats</option>
+                  <option value="Villas">Luxury Villas</option>
+                  <option value="Individual Houses">Individual Houses</option>
+                  <option value="Sites">Residential Plots / Sites</option>
+                  <option value="VUDA / VMRDA Approved Sites">VUDA / VMRDA Approved Plots</option>
+                  <option value="Panchayati Approved Sites">Panchayati Approved Plots</option>
+                  <option value="Ventures">Venture Layouts</option>
+                  <option value="Ongoing">Ongoing Projects</option>
+                  <option value="Upcoming">Upcoming Projects</option>
+                  <option value="Completed">Completed Projects</option>
+                </select>
+              </div>
+
+              <div className="search-actions-group">
+                <button type="submit" className="btn btn-secondary search-submit-btn">
+                  <Search size={15} />
+                  <span>Search</span>
+                </button>
+
+                {currentProject && (
+                  <button 
+                    type="button"
+                    onClick={() => onNavigate('project-details', null, null, { id: currentProject.id })} 
+                    className="btn btn-explore-slide"
+                  >
+                    <span>Explore Project</span>
+                    <ArrowRight size={14} />
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </div>
       </section>
 
       {/* Quick Categories */}
@@ -125,15 +183,16 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
                 shadowColor: 'rgba(0, 186, 242, 0.35)'
               },
               { 
-                title: 'VMRDA/VUDA Sites', 
+                title: 'VUDA / VMRDA Sites', 
                 cat: 'Sites' as ProjectCategory, 
+                siteCat: 'VUDA / VMRDA Approved Sites',
                 desc: 'Premium plotting layouts inside high appreciation zones.', 
                 icon: <Compass size={25} color="#ffffff" />,
                 bgGradient: 'linear-gradient(135deg, #00baf2 0%, #002970 100%)',
                 shadowColor: 'rgba(0, 186, 242, 0.35)'
               }
             ].map((item, idx) => (
-              <div key={idx} className="category-card text-center" onClick={() => onNavigate('marketing', item.cat)}>
+              <div key={idx} className="category-card text-center" onClick={() => onNavigate('marketing', item.cat, (item as any).siteCat || null)}>
                 <div 
                   className="cat-icon-box"
                   style={{ 
@@ -326,9 +385,12 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         /* Hero Slider */
         .hero-slider-section {
           position: relative;
-          height: clamp(560px, 70vh, 680px);
+          height: clamp(560px, 70vh, 660px);
           min-height: 560px;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
         }
         .hero-slide {
           position: absolute;
@@ -339,7 +401,7 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           background-size: cover;
           background-position: center 25%;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           opacity: 0;
           visibility: hidden;
           z-index: 1;
@@ -357,10 +419,13 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           transition: opacity 0.25s ease-in-out;
         }
         .hero-slide-content {
-          padding-bottom: 0;
+          padding-top: 3.5rem;
+          padding-bottom: 1rem;
           display: flex;
           flex-direction: column;
-          justify-content: center;
+          justify-content: flex-start;
+          user-select: none;
+          -webkit-user-select: none;
         }
         .hero-badge {
           background-color: rgba(240, 90, 40, 0.2);
@@ -373,6 +438,8 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           font-size: 0.85rem;
           margin-bottom: 1rem;
           border: 1px solid rgba(240, 90, 40, 0.3);
+          user-select: none;
+          -webkit-user-select: none;
         }
         .hero-title {
           font-size: 3.2rem;
@@ -381,19 +448,25 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           margin-bottom: 0.5rem;
           line-height: 1.15;
           text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+          user-select: none;
+          -webkit-user-select: none;
         }
         .hero-location {
           color: rgba(255, 255, 255, 0.9);
           font-size: 1.15rem;
           font-weight: 500;
-          margin-bottom: 1.25rem;
+          margin-bottom: 1rem;
           text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+          user-select: none;
+          -webkit-user-select: none;
         }
         .hero-price-tag {
           font-size: 1.1rem;
           color: var(--white);
-          margin-bottom: 1.5rem;
+          margin-bottom: 1.25rem;
           text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+          user-select: none;
+          -webkit-user-select: none;
         }
         .hero-price-tag .price {
           color: var(--secondary);
@@ -403,59 +476,53 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           vertical-align: middle;
         }
 
-        /* Hero Actions Row & Decreased Width Search Property Card */
-        .hero-actions-row {
+        /* Unified Single Hero Action Card */
+        .hero-action-bar-container {
+          position: relative;
+          z-index: 10;
+          margin-top: auto;
+          margin-bottom: 2rem;
+          width: 100%;
+        }
+        .hero-action-bar-wrapper {
+          width: 100%;
+        }
+        .hero-unified-card {
           display: flex;
           align-items: center;
-          gap: 1.25rem;
-          flex-wrap: wrap;
-          margin-top: 0.5rem;
-        }
-        .hero-explore-btn {
-          height: 52px;
-          padding: 0 1.75rem;
-          font-size: 1rem;
-          font-weight: 700;
-          border-radius: 12px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          white-space: nowrap;
-          box-shadow: 0 4px 14px rgba(240, 90, 40, 0.35);
-          flex-shrink: 0;
-        }
-        .hero-search-form {
-          display: flex;
-          align-items: center;
-          padding: 0.45rem 0.65rem 0.45rem 1rem;
-          gap: 0.75rem;
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+          gap: 0.85rem;
           background: rgba(255, 255, 255, 0.96);
           backdrop-filter: blur(12px);
-          border-radius: 14px;
-          border: 1px solid rgba(255, 255, 255, 0.8);
-          max-width: 580px;
+          padding: 0.75rem 1rem;
+          border-radius: 16px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28);
+          border: 1px solid rgba(255, 255, 255, 0.95);
+          max-width: 760px;
+          width: 100%;
         }
         .search-field {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 0.25rem;
         }
         .keyword-field {
-          width: 210px;
+          flex: 1.3;
         }
         .category-field {
-          width: 160px;
+          flex: 1;
         }
         .search-field label {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
           font-size: 0.68rem;
           font-weight: 800;
           text-transform: uppercase;
-          color: #64748b;
-          letter-spacing: 0.5px;
+          color: #0b2c5c;
+          letter-spacing: 0.4px;
         }
         .search-field input, .search-field select {
-          padding: 0.4rem 0.6rem;
+          padding: 0.4rem 0.65rem;
           border: 1px solid #cbd5e1;
           border-radius: 8px;
           font-size: 0.85rem;
@@ -463,99 +530,175 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
           color: #0f172a;
           height: 38px;
           outline: none;
+          transition: all 0.2s ease;
+          width: 100%;
         }
         .search-field input:focus, .search-field select:focus {
           border-color: var(--secondary);
-          box-shadow: 0 0 0 2px rgba(240, 90, 40, 0.15);
+          box-shadow: 0 0 0 2px rgba(240, 90, 40, 0.18);
         }
-        .search-btn {
+        .search-actions-group {
+          display: flex;
+          align-items: flex-end;
+          gap: 0.5rem;
+          flex-shrink: 0;
           align-self: flex-end;
+        }
+        .search-submit-btn {
           height: 38px;
-          padding: 0 1rem;
+          padding: 0 1.1rem;
           font-size: 0.85rem;
           font-weight: 700;
           border-radius: 8px;
           white-space: nowrap;
-          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          box-shadow: 0 4px 14px rgba(240, 90, 40, 0.35);
+          transition: all 0.2s ease;
         }
-        @media (max-width: 992px) {
-          .hero-search-form {
-            max-width: 100%;
-          }
-          .keyword-field {
-            width: 180px;
-          }
-          .category-field {
-            width: 140px;
-          }
+        .search-submit-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(240, 90, 40, 0.45);
         }
-        @media (max-width: 768px) {
+        .btn-explore-slide {
+          height: 38px;
+          padding: 0 1.1rem;
+          font-size: 0.85rem;
+          font-weight: 700;
+          border-radius: 8px;
+          background: #0b2c5c;
+          color: #ffffff;
+          border: none;
+          white-space: nowrap;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(11, 44, 92, 0.35);
+        }
+        .btn-explore-slide:hover {
+          background: #103b7a;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(11, 44, 92, 0.45);
+        }
+
+        .quick-categories {
+          padding-top: 3.5rem !important;
+          clear: both;
+        }
+
+        @media (max-width: 868px) {
           .hero-slider-section { 
+            position: relative !important;
+            min-height: calc(100vh - 59px) !important;
             height: auto !important; 
-            min-height: 480px !important; 
-            position: relative;
-            overflow: hidden;
+            padding-top: 1rem !important;
+            padding-bottom: 1.5rem !important;
+            background-color: #0f2b46 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            overflow: hidden !important;
           }
           .hero-slide {
+            position: absolute !important;
+            top: 0;
+            left: 0;
+            width: 100% !important;
             height: 100% !important;
-            align-items: center !important;
-            background-position: center center !important;
+            background-size: cover !important;
+            background-position: center top !important;
+            z-index: 1 !important;
           }
           .hero-slide-content {
-            padding-top: 2rem !important;
-            padding-bottom: 2rem !important;
+            position: relative !important;
+            z-index: 5 !important;
+            padding-top: 1.25rem !important;
+            padding-bottom: 0.5rem !important;
             text-align: left !important;
+            width: 100% !important;
           }
           .hero-title { 
-            font-size: 1.85rem !important; 
-            margin-bottom: 0.3rem !important;
-            line-height: 1.2 !important;
+            font-size: 1.6rem !important; 
+            margin-bottom: 0.25rem !important;
+            line-height: 1.25 !important;
+            color: #ffffff !important;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.85) !important;
           }
           .hero-location {
-            margin-bottom: 0.4rem !important;
-            font-size: 0.95rem !important;
+            margin-bottom: 0.25rem !important;
+            font-size: 0.9rem !important;
+            color: rgba(255, 255, 255, 0.95) !important;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.85) !important;
           }
           .hero-price-tag {
-            margin-bottom: 0.75rem !important;
-            font-size: 0.95rem !important;
+            margin-bottom: 0.5rem !important;
+            font-size: 0.9rem !important;
+            color: #ffffff !important;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.85) !important;
           }
           .hero-price-tag .price {
-            font-size: 1.5rem !important;
+            font-size: 1.4rem !important;
+            color: var(--secondary) !important;
           }
-          .hero-actions-row {
-            flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 0.75rem !important;
-            margin-top: 0.75rem !important;
-          }
-          .hero-explore-btn {
+          .hero-action-bar-container {
+            position: relative !important;
+            z-index: 10 !important;
+            margin-top: auto !important;
+            margin-bottom: 0.5rem !important;
+            padding: 0 3.25rem 0 1rem !important;
             width: 100% !important;
-            height: 46px !important;
+            box-sizing: border-box !important;
           }
-          .hero-search-form { 
+          .hero-unified-card { 
             flex-direction: column !important; 
-            gap: 0.75rem !important; 
+            align-items: stretch !important;
+            gap: 0.5rem !important; 
             background: #ffffff !important;
-            padding: 1rem !important;
-            border-radius: 14px !important;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12) !important;
+            padding: 0.85rem 0.9rem !important;
+            border-radius: 12px !important;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22) !important;
             border: 1px solid #e2e8f0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            box-sizing: border-box !important;
           }
           .keyword-field, .category-field {
             width: 100% !important;
           }
+          .search-field label {
+            font-size: 0.62rem !important;
+            margin-bottom: 0.15rem !important;
+          }
+          .search-actions-group {
+            flex-direction: column !important;
+            width: 100% !important;
+            gap: 0.4rem !important;
+            align-self: stretch !important;
+          }
           .search-field input, .search-field select {
             width: 100% !important;
-            height: 42px !important;
-            font-size: 0.9rem !important;
+            height: 36px !important;
+            font-size: 0.82rem !important;
+            padding: 0.35rem 0.6rem !important;
           }
-          .search-btn { 
+          .search-submit-btn, .btn-explore-slide { 
             width: 100% !important; 
-            height: 44px !important;
-            align-self: auto !important;
-            margin-top: 0.2rem !important;
+            height: 36px !important;
+            font-size: 0.82rem !important;
+            justify-content: center !important;
+          }
+          .quick-categories {
+            display: block !important;
+            position: relative !important;
+            z-index: 1 !important;
+            padding-top: 2.5rem !important;
+            padding-bottom: 2.5rem !important;
+            margin-top: 0 !important;
+            clear: both !important;
+            background-color: var(--light) !important;
           }
         }
 

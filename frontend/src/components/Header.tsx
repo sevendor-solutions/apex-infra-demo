@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Menu, X, ChevronDown, Send, Phone, Mail } from 'lucide-react';
 import type { ProjectCategory } from '../types';
-import logoImg from '../assets/logo.png';
+import iconLogoImg from '../assets/jk-icon.png';
+import textLogoImg from '../assets/jk-text-logo.png';
 
 interface HeaderProps {
   activePage: string;
@@ -54,33 +55,32 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="header-main">
         <div className="container flex justify-between align-center">
-          {/* Logo Image */}
-          <div className="logo-wrapper" onClick={() => handleLinkClick('home')} style={{ cursor: 'pointer', alignSelf: 'flex-start', marginTop: '4px', zIndex: 10 }}>
-            <img 
-              src={logoImg} 
-              alt="JK Future Infra Logo" 
-              className="logo-img"
-              style={{ height: '128px', width: 'auto', display: 'block', objectFit: 'contain', filter: 'drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.1))' }} 
-            />
+          {/* Separate Logo Container with Independent Elements */}
+          <div className="header-logo-container" onClick={() => handleLinkClick('home')} title="JK Future Infra - Home">
+            <div className="header-icon-box">
+              <img 
+                src={iconLogoImg} 
+                alt="JK Future Infra Icon" 
+                className="header-logo-icon" 
+              />
+            </div>
+            <div className="header-text-box">
+              <img 
+                src={textLogoImg} 
+                alt="JK Future Infra Text Logo" 
+                className="header-logo-text" 
+              />
+            </div>
           </div>
 
           {/* Desktop Nav */}
           <nav className="desktop-nav">
             <ul className="nav-list flex align-center">
-              <li>
-                <button 
-                  onClick={() => handleLinkClick('about')} 
-                  className={`nav-link ${activePage === 'about' ? 'active' : ''}`}
-                >
-                  About Us
-                </button>
-              </li>
-              
               {/* Projects Dropdown */}
               <li className="dropdown-parent">
                 <button 
                   onClick={(e) => toggleDropdown('projects', e)}
-                  className={`nav-link flex align-center gap-1 ${activePage === 'projects' ? 'active' : ''}`}
+                  className={`nav-link flex align-center gap-1 ${activePage === 'projects' || activePage.startsWith('projects-') ? 'active' : ''}`}
                 >
                   Projects <ChevronDown size={16} />
                 </button>
@@ -127,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>Panchayati Approved</button>
                       </li>
                       <li>
-                        <button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA Approved Sites')}>VUDA Approved</button>
+                        <button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA / VMRDA Approved Sites')}>VUDA / VMRDA Approved</button>
                       </li>
                       <li>
                         <button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>Ventures</button>
@@ -158,11 +158,21 @@ export const Header: React.FC<HeaderProps> = ({
               <li>
                 <button 
                   onClick={() => handleLinkClick('blog')} 
-                  className={`nav-link ${activePage === 'blog' ? 'active' : ''}`}
+                  className={`nav-link ${activePage === 'blog' || activePage === 'blog-details' ? 'active' : ''}`}
                 >
                   Blog
                 </button>
               </li>
+
+              <li>
+                <button 
+                  onClick={() => handleLinkClick('about')} 
+                  className={`nav-link ${activePage === 'about' ? 'active' : ''}`}
+                >
+                  About Us
+                </button>
+              </li>
+
               <li>
                 <button 
                   onClick={() => handleLinkClick('contact')} 
@@ -176,14 +186,52 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* CTAs */}
           <div className="header-ctas flex align-center gap-2">
-            <a href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." target="_blank" rel="noreferrer" className="btn btn-sm btn-accent hide-mobile" style={{ background: '#25d366', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <a 
+              href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." 
+              target="_blank" 
+              rel="noreferrer" 
+              className="btn hide-mobile" 
+              style={{ 
+                height: '34px', 
+                padding: '0 0.95rem', 
+                fontSize: '0.82rem', 
+                fontWeight: 700, 
+                borderRadius: '8px', 
+                background: '#25d366', 
+                color: '#ffffff', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '0.35rem', 
+                boxSizing: 'border-box',
+                lineHeight: 1,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                 <path d="M12.031 2C6.446 2 1.922 6.524 1.922 12.109c0 1.782.463 3.522 1.34 5.06l-1.424 5.201 5.322-1.396a10.05 10.05 0 0 0 4.871 1.246h.004c5.581 0 10.105-4.524 10.105-10.109C22.14 6.524 17.616 2 12.031 2zm0 18.528h-.002c-1.579 0-3.125-.424-4.473-1.226l-.32-.19-3.32.87.886-3.235-.208-.33a8.178 8.178 0 0 1-1.252-4.321c0-4.516 3.673-8.19 8.192-8.19 2.186 0 4.243.852 5.79 2.401a8.134 8.134 0 0 1 2.398 5.791c0 4.516-3.673 8.19-8.191 8.19zm4.502-6.149c-.247-.123-1.46-.72-1.685-.802-.227-.082-.392-.123-.556.123-.164.247-.638.802-.782.967-.144.164-.288.185-.535.062-.247-.123-1.04-.383-1.98-1.222-.731-.652-1.225-1.459-1.369-1.706-.144-.247-.015-.38.109-.502.112-.11.247-.288.371-.432.124-.144.165-.247.247-.412.082-.164.041-.309-.02-.432-.062-.123-.556-1.338-.762-1.833-.2-.484-.422-.412-.576-.42-.149-.008-.32-.01-.493-.01-.173 0-.456.065-.694.325-.238.26-1.002.979-1.002 2.387 0 1.408 1.025 2.766 1.168 2.955.144.189 2.016 3.078 4.885 4.316.682.295 1.215.47 1.63.603.687.218 1.312.187 1.806.114.55-.082 1.685-.688 1.921-1.353.236-.665.236-1.235.165-1.353-.07-.119-.247-.185-.494-.308z"/>
               </svg>
               WhatsApp
             </a>
-            <button onClick={onOpenEnquiry} className="btn btn-sm btn-secondary hide-mobile">
-              <Send size={16} /> Quick Enquiry
+            <button 
+              onClick={onOpenEnquiry} 
+              className="btn btn-secondary hide-mobile"
+              style={{ 
+                height: '34px', 
+                padding: '0 0.95rem', 
+                fontSize: '0.82rem', 
+                fontWeight: 700, 
+                borderRadius: '8px', 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '0.35rem', 
+                boxSizing: 'border-box',
+                lineHeight: 1,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <Send size={14} /> Quick Enquiry
             </button>
             <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               {mobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
@@ -192,13 +240,17 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Drawer Backdrop Overlay (Click 30% area to close menu) */}
+      {mobileMenuOpen && (
+        <div 
+          className="mobile-drawer-overlay" 
+          onClick={() => setMobileMenuOpen(false)} 
+        />
+      )}
+
+      {/* Mobile Menu Drawer (Occupies 70% width) */}
       <div className={`mobile-drawer ${mobileMenuOpen ? 'open' : ''}`}>
         <ul className="mobile-nav-list">
-          <li>
-            <button onClick={() => handleLinkClick('about')}>About Us</button>
-          </li>
-          
           <li className="mobile-dropdown-section">
             <div className="mobile-dropdown-title">Projects</div>
             <ul className="mobile-dropdown-submenu">
@@ -215,11 +267,11 @@ export const Header: React.FC<HeaderProps> = ({
               <li><button onClick={() => handleLinkClick('marketing', 'Villas')}>Villas</button></li>
               <li><button onClick={() => handleLinkClick('marketing', 'Individual Houses')}>Individual Houses</button></li>
               <li>
-                <div style={{ padding: '0.4rem 0.5rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>SITES CATEGORIES</div>
-                <ul style={{ listStyle: 'none', paddingLeft: '0.5rem' }}>
+                <div style={{ padding: '0.2rem 0.4rem', fontWeight: 600, color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>SITES CATEGORIES</div>
+                <ul style={{ listStyle: 'none', paddingLeft: '0.4rem' }}>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Development Sites')}>- Development Sites</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Panchayati Approved Sites')}>- Panchayati Approved</button></li>
-                  <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA Approved Sites')}>- VUDA Approved</button></li>
+                  <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'VUDA / VMRDA Approved Sites')}>- VUDA / VMRDA Approved</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Ventures')}>- Ventures</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Agriculture Lands')}>- Agriculture Lands</button></li>
                   <li><button onClick={() => handleLinkClick('marketing', 'Sites', 'Non-Agri Lands')}>- Non-Agri Lands</button></li>
@@ -236,19 +288,24 @@ export const Header: React.FC<HeaderProps> = ({
           <li>
             <button onClick={() => handleLinkClick('blog')}>Blog</button>
           </li>
+          
+          <li>
+            <button onClick={() => handleLinkClick('about')}>About Us</button>
+          </li>
+          
           <li>
             <button onClick={() => handleLinkClick('contact')}>Contact Us</button>
           </li>
         </ul>
-        <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', gap: '0.75rem', textAlign: 'center' }}>
-          <button onClick={() => { setMobileMenuOpen(false); onOpenEnquiry(); }} className="btn btn-secondary w-full" style={{ width: '100%' }}>
-            <Send size={16} /> Quick Enquiry
+        <div style={{ padding: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'center' }}>
+          <button onClick={() => { setMobileMenuOpen(false); onOpenEnquiry(); }} className="btn btn-secondary w-full" style={{ width: '100%', height: '36px', fontSize: '0.85rem' }}>
+            <Send size={14} /> Quick Enquiry
           </button>
-          <a href="tel:+919000553832" style={{ color: '#fff', fontSize: '1rem', fontWeight: 700, padding: '0.5rem', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-sm)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-            <Phone size={16} /> Call Us: 9000553832
+          <a href="tel:+919000553832" style={{ color: '#fff', fontSize: '0.85rem', fontWeight: 700, padding: '0.4rem', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-sm)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+            <Phone size={14} /> Call Us: 9000553832
           </a>
-          <a href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." target="_blank" rel="noreferrer" className="btn btn-sm" style={{ background: '#25d366', color: '#fff', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontWeight: 'bold' }}>
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <a href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." target="_blank" rel="noreferrer" className="btn btn-sm" style={{ background: '#25d366', color: '#fff', width: '100%', height: '36px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontWeight: 'bold' }}>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
               <path d="M12.031 2C6.446 2 1.922 6.524 1.922 12.109c0 1.782.463 3.522 1.34 5.06l-1.424 5.201 5.322-1.396a10.05 10.05 0 0 0 4.871 1.246h.004c5.581 0 10.105-4.524 10.105-10.109C22.14 6.524 17.616 2 12.031 2zm0 18.528h-.002c-1.579 0-3.125-.424-4.473-1.226l-.32-.19-3.32.87.886-3.235-.208-.33a8.178 8.178 0 0 1-1.252-4.321c0-4.516 3.673-8.19 8.192-8.19 2.186 0 4.243.852 5.79 2.401a8.134 8.134 0 0 1 2.398 5.791c0 4.516-3.673 8.19-8.191 8.19zm4.502-6.149c-.247-.123-1.46-.72-1.685-.802-.227-.082-.392-.123-.556.123-.164.247-.638.802-.782.967-.144.164-.288.185-.535.062-.247-.123-1.04-.383-1.98-1.222-.731-.652-1.225-1.459-1.369-1.706-.144-.247-.015-.38.109-.502.112-.11.247-.288.371-.432.124-.144.165-.247.247-.412.082-.164.041-.309-.02-.432-.062-.123-.556-1.338-.762-1.833-.2-.484-.422-.412-.576-.42-.149-.008-.32-.01-.493-.01-.173 0-.456.065-.694.325-.238.26-1.002.979-1.002 2.387 0 1.408 1.025 2.766 1.168 2.955.144.189 2.016 3.078 4.885 4.316.682.295 1.215.47 1.63.603.687.218 1.312.187 1.806.114.55-.082 1.685-.688 1.921-1.353.236-.665.236-1.235.165-1.353-.07-.119-.247-.185-.494-.308z"/>
             </svg>
             WhatsApp
@@ -280,6 +337,55 @@ export const Header: React.FC<HeaderProps> = ({
           display: flex;
           align-items: center;
         }
+        .header-logo-container {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          cursor: pointer;
+          z-index: 10;
+        }
+
+        /* 1. Independent Icon Component Styling */
+        .header-icon-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .header-logo-icon {
+          height: 50px;
+          width: auto;
+          object-fit: contain;
+          filter: drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.12));
+          transition: transform 0.25s ease, filter 0.25s ease;
+          pointer-events: none;
+          flex-shrink: 0;
+        }
+        .header-icon-box:hover .header-logo-icon,
+        .header-logo-container:hover .header-logo-icon {
+          transform: scale(1.05);
+          filter: drop-shadow(0px 4px 8px rgba(0, 0, 0, 0.18));
+        }
+
+        /* 2. Independent Text Logo Component Styling */
+        .header-text-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .header-logo-text {
+          height: 32px;
+          width: auto;
+          object-fit: contain;
+          filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.08));
+          transition: transform 0.25s ease, filter 0.25s ease;
+          pointer-events: none;
+          flex-shrink: 0;
+        }
+        .header-text-box:hover .header-logo-text,
+        .header-logo-container:hover .header-logo-text {
+          transform: scale(1.02);
+          filter: drop-shadow(0px 3px 6px rgba(0, 0, 0, 0.12));
+        }
         .desktop-nav {
           display: block;
         }
@@ -294,10 +400,11 @@ export const Header: React.FC<HeaderProps> = ({
           color: var(--primary);
           border-radius: var(--radius-sm);
           position: relative;
+          background: transparent;
         }
         .nav-link:hover, .nav-link.active {
           color: var(--secondary);
-          background-color: var(--light-soft);
+          background-color: transparent;
         }
         .dropdown-parent {
           position: relative;
@@ -366,12 +473,23 @@ export const Header: React.FC<HeaderProps> = ({
           color: var(--primary);
         }
         
-        /* Drawer styling */
+        /* Mobile Drawer & Overlay styling */
+        .mobile-drawer-overlay {
+          position: fixed;
+          top: var(--header-height);
+          left: 0;
+          width: 100vw;
+          height: calc(100vh - var(--header-height));
+          background: rgba(0, 0, 0, 0.45);
+          z-index: 98;
+          cursor: pointer;
+        }
         .mobile-drawer {
           position: fixed;
           top: var(--header-height);
           left: 0;
-          width: 100%;
+          width: 70%;
+          max-width: 310px;
           height: calc(100vh - var(--header-height));
           background: var(--primary);
           color: var(--white);
@@ -381,51 +499,56 @@ export const Header: React.FC<HeaderProps> = ({
           overflow-y: auto;
           display: flex;
           flex-direction: column;
+          box-shadow: none;
         }
         .mobile-drawer.open {
           transform: translateX(0);
+          box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
         }
         .mobile-nav-list {
           list-style: none;
-          padding: 2rem 1.5rem;
+          padding: 1rem 1rem;
           display: flex;
           flex-direction: column;
-          gap: 1.25rem;
+          gap: 0.5rem;
         }
         .mobile-nav-list button {
-          color: rgba(255, 255, 255, 0.85);
+          color: rgba(255, 255, 255, 0.9);
           font-family: var(--font-title);
-          font-size: 1.2rem;
+          font-size: 0.95rem;
           font-weight: 600;
           text-align: left;
           width: 100%;
+          padding: 0.2rem 0;
         }
         .mobile-nav-list button:hover {
           color: var(--secondary);
         }
         .mobile-dropdown-section {
-          padding-left: 0.75rem;
-          border-left: 2px solid rgba(255, 255, 255, 0.15);
+          padding-left: 0.5rem;
+          border-left: 2px solid rgba(240, 90, 40, 0.5);
+          margin-bottom: 0.2rem;
         }
         .mobile-dropdown-title {
           font-family: var(--font-title);
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 0.88rem;
           text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.4);
-          margin-bottom: 0.5rem;
+          color: var(--secondary);
+          margin-bottom: 0.25rem;
         }
         .mobile-dropdown-submenu {
           list-style: none;
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
-          padding-left: 0.5rem;
+          gap: 0.3rem;
+          padding-left: 0.25rem;
         }
         .mobile-dropdown-submenu button {
-          font-size: 1rem;
+          font-size: 0.85rem;
           font-weight: 500;
-          color: rgba(255, 255, 255, 0.75);
+          color: rgba(255, 255, 255, 0.8);
+          padding: 0.15rem 0;
         }
         .admin-login-btn-mobile {
           background-color: rgba(255, 255, 255, 0.1);
@@ -440,6 +563,13 @@ export const Header: React.FC<HeaderProps> = ({
           .desktop-nav { display: none; }
           .mobile-menu-btn { display: block; }
           .hide-mobile { display: none !important; }
+          .header-logo-icon { height: 42px; }
+          .header-logo-text { height: 26px; }
+        }
+        @media (max-width: 480px) {
+          .header-logo-icon { height: 36px; }
+          .header-logo-text { height: 21px; }
+          .header-logo-container { gap: 0.35rem; }
         }
       `}</style>
     </header>

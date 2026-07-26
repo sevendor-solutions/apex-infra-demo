@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Project, ProjectCategory, PropertyType, Facing, City, LocationMaster } from '../types';
-import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, X, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
+import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
 import { getProjectMainImage } from '../utils/image';
 
 interface MarketingProps {
@@ -18,6 +18,7 @@ interface MarketingProps {
     facing?: string | null;
     propertyType?: string | null;
     agent?: string | null;
+    search?: string | null;
   };
 }
 
@@ -33,7 +34,7 @@ export const Marketing: React.FC<MarketingProps> = ({
   initialFilters
 }) => {
   // Filter States
-  const [search, setSearch] = useState<string>('');
+  const [search, setSearch] = useState<string>(() => initialFilters?.search || '');
   const [priceSort, setPriceSort] = useState<string>('default');
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<string[]>(() =>
     initialFilters?.propertyType ? [initialFilters.propertyType] : []
@@ -52,8 +53,25 @@ export const Marketing: React.FC<MarketingProps> = ({
     initialFilters?.agent ? initialFilters.agent : ''
   );
 
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const filterNavRef = useRef<HTMLDivElement>(null);
+  const heroSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const inFilterNav = filterNavRef.current && filterNavRef.current.contains(e.target as Node);
+      const inHeroSearch = heroSearchRef.current && heroSearchRef.current.contains(e.target as Node);
+      if (!inFilterNav && !inHeroSearch) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   useEffect(() => {
     if (initialFilters) {
+      if (initialFilters.search !== undefined) setSearch(initialFilters.search || '');
       if (initialFilters.propertyType) setSelectedPropertyTypes([initialFilters.propertyType]);
       if (initialFilters.facing) setSelectedFacings([initialFilters.facing]);
       if (initialFilters.city) setSelectedCities([initialFilters.city]);
@@ -62,8 +80,7 @@ export const Marketing: React.FC<MarketingProps> = ({
     }
   }, [initialFilters]);
   
-  // Mobile drawer controls
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
+  // View mode controls
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // Dynamic filter options from master database
@@ -79,18 +96,7 @@ export const Marketing: React.FC<MarketingProps> = ({
       : ['North', 'East', 'West', 'South', 'North East', 'North West'];
   }, [facings]);
 
-  // Collapsible Filters Panel State
-  const [panelOpen, setPanelOpen] = useState({
-    propertyType: true,
-    siteCategory: true,
-    facing: true,
-    city: true,
-    location: true
-  });
 
-  const togglePanel = (key: 'propertyType' | 'siteCategory' | 'facing' | 'city' | 'location') => {
-    setPanelOpen(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   // Helper toggle selections
   const togglePropertyType = (val: string) => {
@@ -133,6 +139,9 @@ export const Marketing: React.FC<MarketingProps> = ({
       if (p.isActive === false) return false;
       if (p.category !== category) return false;
       if (category === 'Sites' && siteCategory) {
+        if (siteCategory.includes('VUDA')) {
+          return p.subCategory?.includes('VUDA') || p.subCategory === siteCategory;
+        }
         return p.subCategory === siteCategory;
       }
       return true;
@@ -207,7 +216,8 @@ export const Marketing: React.FC<MarketingProps> = ({
         (p.facing && p.facing.split(',').map(f => f.trim()).some(f => selectedFacings.includes(f)));
       
       // 5. Site Classification (SubCategory) Checkbox
-      const matchesSubCategory = selectedSubCategories.length === 0 || (p.subCategory && selectedSubCategories.includes(p.subCategory));
+      const matchesSubCategory = selectedSubCategories.length === 0 || 
+        selectedSubCategories.some(sub => p.subCategory === sub || (sub.includes('VUDA') && p.subCategory?.includes('VUDA')));
 
       // 6. Property Type Checkbox
       let matchesPropertyTypes = true;
@@ -287,7 +297,7 @@ export const Marketing: React.FC<MarketingProps> = ({
         'High return-on-investment potential in growth paths'
       ];
 
-      if (siteCategory === 'VUDA Approved Sites') {
+      if (siteCategory && siteCategory.includes('VUDA')) {
         subTitle = 'VUDA / VMRDA Approved Plot Ventures';
         desc = 'Plots fully approved by the Visakhapatnam Metropolitan Region Development Authority (VMRDA). These layouts guarantee perfect zoning compliance, bank loan access, and planned infrastructure.';
       } else if (siteCategory === 'Panchayati Approved Sites') {
@@ -319,250 +329,415 @@ export const Marketing: React.FC<MarketingProps> = ({
     }
   }, [category, siteCategory]);
 
-  const renderFilterPanel = (
-    title: string,
-    key: 'propertyType' | 'siteCategory' | 'facing' | 'city' | 'location',
-    options: string[],
-    selectedValues: string[],
-    onToggle: (val: string) => void,
-    onClear: () => void,
-    headerColor: string
-  ) => {
-    const isOpen = panelOpen[key];
-    return (
-      <div className="filter-card-panel mb-3 shadow-sm" style={{ border: `1px solid ${headerColor}`, borderRadius: '8px', overflow: 'hidden' }}>
-        <div 
-          className="filter-card-header flex justify-between align-center px-2 py-1.5 cursor-pointer text-white"
-          style={{ backgroundColor: headerColor, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-          onClick={() => togglePanel(key)}
-        >
-          <div className="flex align-center gap-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <ChevronDown 
-              size={18} 
-              style={{ 
-                transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', 
-                transition: 'transform 0.2s ease' 
-              }} 
-            />
-            <span className="font-bold text-sm uppercase tracking-wider" style={{ fontSize: '0.8rem', letterSpacing: '0.5px' }}>{title}</span>
-          </div>
-          {selectedValues.length > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onClear(); }} 
-              className="clear-panel-btn text-xs font-semibold text-white"
-              style={{ background: 'transparent', border: 'none', textDecoration: 'underline', cursor: 'pointer', outline: 'none' }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-        
-        {isOpen && (
-          <div className="filter-card-body p-2 scrollable-filter-list" style={{ maxHeight: '180px', overflowY: 'auto', borderTop: 'none', backgroundColor: 'var(--white)', padding: '0.75rem' }}>
-            {options.map((opt, idx) => {
-              const isChecked = selectedValues.includes(opt);
-              return (
-                <label key={idx} className="filter-checkbox-row flex align-center gap-0.5 py-0.5 text-sm cursor-pointer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.25rem 0', userSelect: 'none' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isChecked}
-                    onChange={() => onToggle(opt)}
-                    style={{ cursor: 'pointer', accentColor: headerColor, width: '16px', height: '16px' }}
-                  />
-                  <span className={isChecked ? 'font-bold text-primary' : 'text-text-primary'} style={{ fontSize: '0.9rem', color: isChecked ? 'var(--primary)' : 'var(--text-primary)' }}>{opt}</span>
-                </label>
-              );
-            })}
-            {options.length === 0 && <div className="text-xs text-muted text-center py-1">No options available</div>}
-          </div>
-        )}
-      </div>
-    );
-  };
+
 
   return (
     <div className="marketing-page">
-      {/* Hero Banner */}
-      <section className="marketing-hero py-6 text-white text-center" style={{ background: 'linear-gradient(rgba(11,25,44,0.7), rgba(11,25,44,0.7)), url(/marketing_banner_hd.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-        <div className="container">
-          <span className="text-secondary font-bold text-sm uppercase tracking-widest">JK Marketing Showcase</span>
-          <h1 className="text-white text-4xl my-1">{marketingInfo.title}</h1>
-          <p className="text-lg text-muted" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>{marketingInfo.sub}</p>
-        </div>
-      </section>
+      {/* 1. HERO BANNER WITH EMBEDDED MAGICBRICKS FLOATING SEARCH CARD */}
+      <section 
+        className="page-header relative text-center text-white" 
+        style={{ 
+          background: 'linear-gradient(rgba(11,25,44,0.7), rgba(11,25,44,0.75)), url(/marketing_banner_hd.png)', 
+          backgroundSize: 'cover', 
+          backgroundPosition: 'center',
+          paddingTop: '1.5rem',
+          paddingBottom: '1.5rem'
+        }}
+      >
+        <div className="container flex flex-col align-center justify-center">
+          <span className="text-secondary font-bold text-xs uppercase tracking-widest mb-1">JK Marketing Showcase</span>
+          <h1 className="text-white font-extrabold mb-1" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)', fontSize: '2rem', marginBottom: '0.35rem' }}>{marketingInfo.title}</h1>
+          <p className="text-muted" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', maxWidth: '600px', marginBottom: '1rem' }}>
+            {marketingInfo.sub}
+          </p>
 
-      {/* Copy and Selling Points */}
-      <section className="marketing-overview py-6">
-        <div className="container grid grid-2 gap-4 align-center">
-          <div>
-            <h2 className="section-title mb-2">Value Proposition</h2>
-            <p className="text-muted mb-2">{marketingInfo.desc}</p>
-            
-            <div className="bullets-grid flex flex-col gap-2 my-2">
-              {marketingInfo.bullets.map((bullet, i) => (
-                <div key={i} className="flex gap-2 align-center">
-                  <span className="bullet-icon-box flex align-center justify-center">✓</span>
-                  <span className="font-semibold text-sm">{bullet}</span>
-                </div>
-              ))}
-            </div>
-
-            <button 
-              onClick={() => onNavigate('contact')} 
-              className="btn btn-secondary mt-2"
-            >
-              Book Site Visit Now
-            </button>
-          </div>
-
-          <div className="marketing-features-box grid grid-2 gap-2">
-            {[
-              { icon: <ShieldCheck size={28} />, title: 'RERA Compliant', desc: 'All layouts verified and approved legally.' },
-              { icon: <TrendingUp size={28} />, title: 'High ROI Growth', desc: 'Situated in fast-developing urban corridors.' },
-              { icon: <Sparkles size={28} />, title: 'Premium Finish', desc: 'World-class materials and planning checks.' },
-              { icon: <Key size={28} />, title: 'Clear Registration', desc: 'Immediate execution and clear document titles.' }
-            ].map((feat, i) => (
-              <div key={i} className="glass-card py-2 px-2 text-center" style={{ border: '1px solid var(--border-color)' }}>
-                <div className="feat-icon text-secondary mb-1" style={{ display: 'inline-block' }}>{feat.icon}</div>
-                <h4 className="text-md">{feat.title}</h4>
-                <p className="text-xs text-muted mt-0.5">{feat.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Top Filter Bar Block */}
-      <section className="filter-section container py-3">
-        <div className="filter-wrapper glass-card py-2 px-2 flex flex-col gap-2" style={{ backgroundColor: 'var(--white)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
-          {/* Row 1: Search, Sort, Mobile button */}
-          <div className="flex gap-2 justify-between flex-wrap align-center w-full" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '1rem', flexWrap: 'wrap' }}>
-            <div className="search-bar-wrapper flex-1 min-w-300" style={{ position: 'relative', flex: 1, minWidth: '280px' }}>
-              <Search className="search-bar-icon" size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          {/* Hero Floating Search Widget Card */}
+          <div 
+            ref={heroSearchRef}
+            className="hero-search-widget-card"
+            style={{
+              width: '100%',
+              maxWidth: '1120px',
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              padding: '0.4rem 0.6rem',
+              boxShadow: '0 12px 35px rgba(0,0,0,0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              flexWrap: 'wrap',
+              margin: '0 auto',
+              border: '2px solid var(--secondary)'
+            }}
+          >
+            {/* 1. 🔍 Search Projects Input */}
+            <div style={{ flex: '2 1 200px', minWidth: '180px', display: 'flex', alignItems: 'center', padding: '0 0.5rem', position: 'relative' }}>
+              <Search size={18} style={{ color: 'var(--primary)', marginRight: '0.5rem' }} />
               <input 
                 type="text" 
                 placeholder="Search matching properties..." 
-                className="search-bar-input"
-                style={{ width: '100%', padding: '0.65rem 1rem 0.65rem 2.5rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', fontSize: '0.9rem' }}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                style={{
+                  width: '100%',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: '0.9rem',
+                  fontWeight: 600,
+                  color: '#0f172a',
+                  backgroundColor: 'transparent'
+                }}
               />
+              {search && (
+                <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontWeight: 700 }}>✕</button>
+              )}
             </div>
-            
-            <div className="flex gap-1.5 align-center flex-wrap" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {/* Sorting Select */}
-              <select 
-                className="form-control" 
-                style={{ width: '160px', marginBottom: 0, padding: '0.55rem 0.75rem', fontSize: '0.85rem' }} 
-                value={priceSort} 
-                onChange={e => setPriceSort(e.target.value)}
-              >
-                <option value="default">Sort Properties</option>
-                <option value="low-high">Price: Low to High</option>
-                <option value="high-low">Price: High to Low</option>
-                <option value="alphabetical">Name: A to Z</option>
-              </select>
 
-              {/* View Toggle Buttons */}
-              <div className="sap-mkt-view-toggle" style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
-                <button 
-                  className={viewMode === 'grid' ? 'active' : ''} 
-                  onClick={() => setViewMode('grid')} 
-                  title="Grid View"
-                  style={{
-                    padding: '0.55rem 0.75rem', border: 'none', background: viewMode === 'grid' ? '#0b2c5c' : '#fff',
-                    color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
-                  }}
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button 
-                  className={viewMode === 'list' ? 'active' : ''} 
-                  onClick={() => setViewMode('list')} 
-                  title="List View"
-                  style={{
-                    padding: '0.55rem 0.75rem', border: 'none', background: viewMode === 'list' ? '#0b2c5c' : '#fff',
-                    color: viewMode === 'list' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center'
-                  }}
-                >
-                  <List size={15} />
-                </button>
-              </div>
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
 
-              {/* Mobile Filter Toggle Button */}
+            {/* 2. 📍 City Dropdown */}
+            <div className="relative" style={{ flex: '1 1 120px', minWidth: '120px', position: 'relative' }}>
               <button 
-                className="btn btn-outline btn-sm mobile-filters-btn flex align-center gap-0.5"
-                style={{ padding: '0.55rem 0.8rem', borderRadius: '8px' }}
-                onClick={() => setMobileFiltersOpen(true)}
+                onClick={() => setActiveDropdown(activeDropdown === 'city' ? null : 'city')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedCities.length > 0 ? '#0b2c5c' : '#475569',
+                  background: selectedCities.length > 0 ? '#e6f0fa' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
               >
-                <SlidersHorizontal size={16} /> Filters
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <MapPin size={15} style={{ color: '#0284c7' }} /> 
+                  {selectedCities.length > 0 ? selectedCities.join(', ') : 'City'}
+                </span>
+                <ChevronDown size={14} />
               </button>
+
+              {activeDropdown === 'city' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>City</span>
+                    {selectedCities.length > 0 && <button onClick={clearCities} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {citiesList.map((city, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedCities.includes(city)} onChange={() => toggleCity(city)} style={{ accentColor: '#0284c7' }} /> {city}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 3. 📍 Location Dropdown */}
+            <div className="relative" style={{ flex: '1 1 130px', minWidth: '130px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'location' ? null : 'location')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedLocations.length > 0 ? '#0b2c5c' : '#475569',
+                  background: selectedLocations.length > 0 ? '#fef3c7' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <MapPin size={15} style={{ color: '#d97706' }} /> 
+                  {selectedLocations.length > 0 ? selectedLocations.join(', ') : 'Location'}
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'location' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1', maxHeight: '220px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>Location</span>
+                    {selectedLocations.length > 0 && <button onClick={clearLocations} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {locationsList.map((loc, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedLocations.includes(loc)} onChange={() => toggleLocation(loc)} style={{ accentColor: '#d97706' }} /> {loc}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 4. 🏠 Property Type Dropdown */}
+            <div className="relative" style={{ flex: '1 1 140px', minWidth: '140px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'propertyType' ? null : 'propertyType')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedPropertyTypes.length > 0 ? '#00a884' : '#475569',
+                  background: selectedPropertyTypes.length > 0 ? '#e6f4f1' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5 text-ellipsis overflow-hidden whitespace-nowrap" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Home size={15} style={{ color: '#00a884' }} /> 
+                  {selectedPropertyTypes.length > 0 ? `${selectedPropertyTypes.length} Types` : 'Property Type'}
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'propertyType' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', left: 0, width: '220px', background: '#ffffff', borderRadius: '12px', padding: '0.75rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.35rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#00a884', textTransform: 'uppercase' }}>Property Type</span>
+                    {selectedPropertyTypes.length > 0 && <button onClick={clearPropertyTypes} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                  </div>
+                  {propertyTypesOptions.map((type, idx) => (
+                    <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0', fontSize: '0.85rem', color: '#1e293b', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={selectedPropertyTypes.includes(type)} onChange={() => togglePropertyType(type)} style={{ accentColor: '#00a884' }} /> {type}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ width: '1px', height: '32px', backgroundColor: '#e2e8f0' }} />
+
+            {/* 5. ⚙️ More Filters Dropdown (Facings + Classification + Sort) */}
+            <div className="relative" style={{ flex: '1 1 130px', minWidth: '120px', position: 'relative' }}>
+              <button 
+                onClick={() => setActiveDropdown(activeDropdown === 'moreFilters' ? null : 'moreFilters')}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.6rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: selectedFacings.length > 0 || selectedSubCategories.length > 0 || priceSort !== 'default' ? '#8d5da9' : '#475569',
+                  background: selectedFacings.length > 0 || selectedSubCategories.length > 0 || priceSort !== 'default' ? '#f3e8ff' : 'transparent',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span className="flex align-center gap-0.5" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <SlidersHorizontal size={14} style={{ color: '#8d5da9' }} /> 
+                  More Filters
+                </span>
+                <ChevronDown size={14} />
+              </button>
+
+              {activeDropdown === 'moreFilters' && (
+                <div className="filter-popover shadow-lg" style={{ position: 'absolute', top: '130%', right: 0, width: '250px', background: '#ffffff', borderRadius: '12px', padding: '0.85rem', zIndex: 100, boxShadow: '0 10px 25px rgba(0,0,0,0.3)', border: '1px solid #cbd5e1' }}>
+                  
+                  {/* Facings Section */}
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#8d5da9', textTransform: 'uppercase' }}>Facings</span>
+                      {selectedFacings.length > 0 && <button onClick={clearFacings} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                    </div>
+                    <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                      {facingsOptions.map((facing, idx) => (
+                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0', fontSize: '0.82rem', color: '#1e293b', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={selectedFacings.includes(facing)} onChange={() => toggleFacing(facing)} style={{ accentColor: '#8d5da9' }} /> {facing}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sites Classification Section if Sites category */}
+                  {category === 'Sites' && !siteCategory && (
+                    <div style={{ marginBottom: '0.75rem', borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.25rem' }}>
+                        <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#00a884', textTransform: 'uppercase' }}>Classification</span>
+                        {selectedSubCategories.length > 0 && <button onClick={clearSubCategories} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700 }}>Clear</button>}
+                      </div>
+                      <div style={{ maxHeight: '120px', overflowY: 'auto' }}>
+                        {['VUDA / VMRDA Approved Sites', 'Panchayati Approved Sites', 'Development Sites', 'Ventures', 'Agriculture Lands', 'Non-Agri Lands', 'Industrial Sites'].map((sub, idx) => (
+                          <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.2rem 0', fontSize: '0.82rem', color: '#1e293b', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={selectedSubCategories.includes(sub)} onChange={() => toggleSubCategory(sub)} style={{ accentColor: '#00a884' }} /> {sub}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price / Name Sort Section */}
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0b192c', textTransform: 'uppercase', display: 'block', marginBottom: '0.35rem' }}>Sort Properties</span>
+                    <select 
+                      value={priceSort} 
+                      onChange={e => setPriceSort(e.target.value)}
+                      style={{ width: '100%', padding: '0.4rem', fontSize: '0.82rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    >
+                      <option value="default">Default Sorting</option>
+                      <option value="low-high">Price: Low to High</option>
+                      <option value="high-low">Price: High to Low</option>
+                      <option value="alphabetical">Name: A to Z</option>
+                    </select>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* 6. [ Search ] Primary Action Button */}
+            <button 
+              onClick={() => {
+                setActiveDropdown(null);
+                const elem = document.querySelector('.marketing-main-layout');
+                if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+              }}
+              style={{
+                backgroundColor: 'steelblue',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '0.55rem 1.4rem',
+                fontSize: '0.88rem',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(70, 130, 180, 0.4)',
+                transition: 'all 0.25s ease',
+                marginLeft: 'auto'
+              }}
+            >
+              <Search size={16} /> Search
+            </button>
+
           </div>
 
-          {/* Applied filters feedback */}
-          <div className="flex justify-between align-center text-sm text-muted w-full mt-1" style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <span>Showing {finalFilteredProjects.length} matching showcase properties</span>
-            {(search || priceSort !== 'default' || selectedPropertyTypes.length > 0 || selectedFacings.length > 0 || selectedCities.length > 0 || selectedLocations.length > 0 || selectedSubCategories.length > 0) && (
-              <button onClick={handleResetFilters} className="font-semibold text-secondary" style={{ background: 'none', border: 'none', color: 'var(--secondary)', cursor: 'pointer', textDecoration: 'underline', outline: 'none' }}>Clear All Filters</button>
-            )}
-          </div>
         </div>
       </section>
 
-      {/* Main Split Layout: Sidebar + Grid */}
-      <section className="container py-2 pb-6">
-        <div className="projects-split-layout flex gap-4">
+      {/* 2. SLEEK LIGHT STICKY RESULTS BAR (Pinned under header when scrolling) */}
+      <div 
+        ref={filterNavRef}
+        className="sticky-light-filter-navbar"
+        style={{
+          position: 'sticky',
+          top: 'var(--header-height, 62px)',
+          zIndex: 90,
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+          padding: '0.3rem 0',
+          transition: 'all 0.25s ease'
+        }}
+      >
+        <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
           
-          {/* Backdrop overlay for mobile filters */}
-          {mobileFiltersOpen && (
-            <div 
-              className="mobile-filters-backdrop" 
-              onClick={() => setMobileFiltersOpen(false)}
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                backgroundColor: 'rgba(15, 43, 70, 0.4)',
-                backdropFilter: 'blur(4px)',
-                zIndex: 140
-              }}
-            />
-          )}
+          {/* Left: Results Count + Active Filters Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+              Showing <strong style={{ color: 'var(--primary)', fontWeight: 800 }}>{finalFilteredProjects.length}</strong> matching showcase properties
+            </span>
+            {(selectedCities.length > 0 || selectedLocations.length > 0 || selectedPropertyTypes.length > 0 || selectedFacings.length > 0 || selectedSubCategories.length > 0) && (
+              <span style={{ backgroundColor: '#e6f0fa', color: '#0b2c5c', border: '1px solid #cbd5e1', fontSize: '0.73rem', padding: '0.18rem 0.55rem', borderRadius: '12px', fontWeight: 700 }}>
+                {selectedCities.length + selectedLocations.length + selectedPropertyTypes.length + selectedFacings.length + selectedSubCategories.length} Active Filters
+              </span>
+            )}
+          </div>
 
-          {/* Sidebar Checkbox Filters */}
-          <aside className={`filters-sidebar ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
-            <div className="sidebar-header flex justify-between align-center mb-2 hide-desktop" style={{ paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="text-primary font-bold">Filter Options</h3>
-              <button onClick={() => setMobileFiltersOpen(false)} className="close-filters-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={24} className="text-primary" />
-              </button>
-            </div>
-
-            {/* Property Types */}
-            {renderFilterPanel('Property Types', 'propertyType', propertyTypesOptions, selectedPropertyTypes, togglePropertyType, clearPropertyTypes, '#d9534f')}
-
-            {/* SubCategory Filter for Sites general view */}
-            {category === 'Sites' && !siteCategory && renderFilterPanel('Site Classification', 'siteCategory', ['VUDA Approved Sites', 'Panchayati Approved Sites', 'Development Sites', 'Ventures', 'Agriculture Lands', 'Non-Agri Lands', 'Industrial Sites'], selectedSubCategories, toggleSubCategory, clearSubCategories, '#00a884')}
-            {renderFilterPanel('Facings', 'facing', facingsOptions, selectedFacings, toggleFacing, clearFacings, '#8d5da9')}
-            {renderFilterPanel('Cities', 'city', citiesList, selectedCities, toggleCity, clearCities, '#3a9ad9')}
-            {renderFilterPanel('Locations', 'location', locationsList, selectedLocations, toggleLocation, clearLocations, '#e68a00')}
+          {/* Right: View Mode Toggles + Clear Filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1.25rem', padding: '0.25rem' }}>
+            {/* Layout Mode Toggles */}
+            <div style={{ display: 'flex', gap: '2px', backgroundColor: '#f1f5f9', padding: '2px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <button 
-                onClick={handleResetFilters} 
-                className="btn btn-outline flex align-center justify-center gap-0.5" 
-                style={{ fontSize: '0.85rem', padding: '0.5rem', width: '100%', borderColor: '#cbd5e1', color: '#475569' }}
+                onClick={() => setViewMode('grid')}
+                style={{
+                  padding: '0.28rem 0.6rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: viewMode === 'grid' ? 'var(--primary)' : 'transparent',
+                  color: viewMode === 'grid' ? '#ffffff' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+                title="Grid View"
               >
-                Reset Filters
+                <LayoutGrid size={14} /> Grid
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                style={{
+                  padding: '0.28rem 0.6rem',
+                  border: 'none',
+                  borderRadius: '6px',
+                  backgroundColor: viewMode === 'list' ? 'var(--primary)' : 'transparent',
+                  color: viewMode === 'list' ? '#ffffff' : '#64748b',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700
+                }}
+                title="List View"
+              >
+                <List size={14} /> List
               </button>
             </div>
-          </aside>
 
-          {/* Main Results Column */}
-          <div className="projects-main-content flex-1" style={{ width: '100%', flex: 1 }}>
+            {/* Clear Filters Button */}
+            {(search || priceSort !== 'default' || selectedPropertyTypes.length > 0 || selectedFacings.length > 0 || selectedCities.length > 0 || selectedLocations.length > 0 || selectedSubCategories.length > 0) && (
+              <button 
+                onClick={handleResetFilters}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#dc2626',
+                  cursor: 'pointer',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textDecoration: 'underline'
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+
+          </div>
+
+        </div>
+      </div>
+
+      {/* Main Full-Width Content Container */}
+      <section className="container py-2 pb-6 marketing-main-layout">
+        <div className="projects-main-content flex-1" style={{ width: '100%' }}>
             {finalFilteredProjects.length === 0 ? (
               <div className="text-center py-6 glass-card" style={{ background: '#fff', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 <p className="text-lg font-bold text-muted mb-2">No projects matching your current filters</p>
@@ -571,9 +746,10 @@ export const Marketing: React.FC<MarketingProps> = ({
               </div>            ) : viewMode === 'grid' ? (
               <div className="grid grid-3 gap-3">
                 {finalFilteredProjects.map(project => {
+                  const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
                   return (
                     <div key={project.id} className="property-card flex flex-col" style={{ height: '100%', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
-                      <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>
+                      <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>
                         <img 
                           src={getProjectMainImage(project)} 
                           alt={project.name || 'Project'} 
@@ -616,7 +792,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                               </div>
                             )}
                           </div>
-                          <h3 className="property-card-title my-0.5" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ cursor: 'pointer', fontSize: '1.15rem', lineHeight: 'tight' }}>{project.name}</h3>
+                          <h3 className="property-card-title my-0.5" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ cursor: 'pointer', fontSize: '1.15rem', lineHeight: 'tight' }}>{project.name}</h3>
                         <p className="property-card-location flex align-center gap-0.5 text-xs text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}><MapPin size={12} className="text-secondary" /> {project.location}</p>
                         
                         {/* Specs stats inline */}
@@ -638,7 +814,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                           )}
                           {project.category === 'Sites' && project.uds && (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                              <Sparkles size={13} className="text-secondary" /> Total Yards: {project.uds} Sq.Yds
+                              <ShieldCheck size={13} className="text-secondary" /> UDS: {project.uds} Sq.Yds
                             </span>
                           )}
                           {project.width && project.length && (
@@ -648,17 +824,21 @@ export const Marketing: React.FC<MarketingProps> = ({
                           )}
                         </div>
 
-                        <p className="text-sm text-muted line-clamp-3 mb-2" style={{ fontSize: '0.85rem' }}>{project.description}</p>
+                        <p className="text-xs text-muted mb-2 line-clamp-2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{project.description}</p>
                       </div>
 
                       <div>
-                        <button 
-                          onClick={() => onNavigate('project-details', null, null, { id: project.id })} 
-                          className="btn btn-sm btn-primary w-full"
-                          style={{ width: '100%' }}
-                        >
-                          Explore Project <ArrowRight size={14} />
-                        </button>
+                        {/* Quick action media row */}
+                        <div className="mkt-card-media-bar flex" style={{ borderTop: '1px solid var(--border-color)', marginTop: '0.5rem', paddingTop: '0.5rem', gap: '4px' }}>
+                          <button onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} className="btn btn-xs btn-primary flex-1 flex align-center justify-center gap-0.5" style={{ fontSize: '0.75rem', padding: '0.35rem' }}>
+                            View Details <ArrowRight size={12} />
+                          </button>
+                          {specPlanImage && (
+                            <button onClick={() => window.open(specPlanImage, '_blank')} className="btn btn-xs btn-outline flex align-center justify-center gap-0.5" title="Specs Sheet" style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}>
+                              <FileText size={12} /> Specs
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -667,28 +847,22 @@ export const Marketing: React.FC<MarketingProps> = ({
               </div>
             ) : (
               /* ── LIST VIEW ── */
-              <div className="mkt-list-col" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="flex flex-col gap-3">
                 {finalFilteredProjects.map(project => {
                   const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
-                  const elevationImage = getProjectMainImage(project);
                   return (
-                    <div key={project.id} className="mkt-list-card" style={{ display: 'flex', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                    <div key={project.id} className="mkt-list-card glass-card flex" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--white)' }}>
                       {/* Left: Image Column */}
-                      <div className="mkt-list-img-col" style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                        <div className="mkt-list-img-wrap" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ position: 'relative', height: '180px', cursor: 'pointer', overflow: 'hidden' }}>
-                          <img 
-                            src={elevationImage || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&auto=format&fit=crop&q=60'} 
-                            alt={project.name} 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                          />
-                          <span className={`mkt-list-status-badge badge-${project.status ? project.status.toLowerCase() : 'ongoing'}`} style={{ position: 'absolute', top: 10, left: 10, padding: '3px 8px', borderRadius: '12px', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: '#fff', background: project.status === 'Completed' ? '#059669' : '#3b82f6' }}>
-                            {project.status}
-                          </span>
+                      <div className="mkt-list-img-col relative" style={{ width: '280px', flexShrink: 0, position: 'relative' }}>
+                        <div className="mkt-list-img-wrap" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ cursor: 'pointer', height: '100%', minHeight: '180px', position: 'relative' }}>
+                          <img src={getProjectMainImage(project)} alt={project.name || 'Project'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <span className={`badge badge-${project.status ? project.status.toLowerCase() : 'ongoing'}`} style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 2 }}>{project.status || 'Ongoing'}</span>
                         </div>
-                        {/* Media Action Buttons */}
-                        <div className="mkt-list-media-btns" style={{ display: 'flex', borderTop: '1px solid var(--border-color)' }}>
-                          <button className="mkt-media-btn" onClick={() => elevationImage && window.open(elevationImage, '_blank')} style={{ flex: 1, padding: '0.45rem', fontSize: '0.68rem', fontWeight: 700, border: 'none', background: '#0b2c5c', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                            <Eye size={11} /> Render
+                        
+                        {/* Overlay quick actions on bottom of image */}
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(11,25,44,0.85)', backdropFilter: 'blur(4px)', display: 'flex', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                          <button className="mkt-media-btn" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ flex: 1, padding: '0.45rem', fontSize: '0.68rem', fontWeight: 700, border: 'none', background: 'transparent', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                            <Eye size={11} /> Quick View
                           </button>
                           <button className="mkt-media-btn" onClick={() => specPlanImage && window.open(specPlanImage, '_blank')} style={{ flex: 1, padding: '0.45rem', fontSize: '0.68rem', fontWeight: 700, border: 'none', borderLeft: '1px solid rgba(255,255,255,0.15)', background: '#0b2c5c', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                             <FileText size={11} /> Specs Sheet
@@ -704,7 +878,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                           </span>
                           <span style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--secondary)' }}>{project.priceRange || 'Contact Us'}</span>
                         </div>
-                <h3 className="mkt-list-title" onClick={() => onNavigate('project-details', null, null, { id: project.id })} style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', margin: 0 }}>{project.name}</h3>
+                <h3 className="mkt-list-title" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--primary)', cursor: 'pointer', margin: 0 }}>{project.name}</h3>
                         <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} className="text-secondary" /> {project.location}</p>
                         
                         <div className="mkt-list-specs-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-primary)', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)', padding: '0.35rem 0', margin: '0.2rem 0' }}>
@@ -716,7 +890,7 @@ export const Marketing: React.FC<MarketingProps> = ({
                         <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4 }}>{project.description}</p>
                         
                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', paddingTop: '0.25rem' }}>
-                          <button onClick={() => onNavigate('project-details', null, null, { id: project.id })} className="btn btn-xs btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}>Explore Project <ArrowRight size={13} /></button>
+                          <button onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} className="btn btn-xs btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.35rem 0.75rem', fontSize: '0.78rem' }}>Explore Project <ArrowRight size={13} /></button>
                         </div>
                       </div>
                     </div>
@@ -724,6 +898,46 @@ export const Marketing: React.FC<MarketingProps> = ({
                 })}
               </div>
             )}
+          </div>
+      </section>
+
+      {/* Value Proposition Overview Section (Replaced below the marketing showcase listings) */}
+      <section className="marketing-overview py-6" style={{ borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-light, #f8fafc)' }}>
+        <div className="container grid grid-2 gap-4 align-center">
+          <div>
+            <h2 className="section-title mb-2">Value Proposition</h2>
+            <p className="text-muted mb-2">{marketingInfo.desc}</p>
+            
+            <div className="bullets-grid flex flex-col gap-2 my-2">
+              {marketingInfo.bullets.map((bullet, i) => (
+                <div key={i} className="flex gap-2 align-center">
+                  <span className="bullet-icon-box flex align-center justify-center">✓</span>
+                  <span className="font-semibold text-sm">{bullet}</span>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => onNavigate('contact')} 
+              className="btn btn-secondary mt-2"
+            >
+              Book Site Visit Now
+            </button>
+          </div>
+
+          <div className="marketing-features-box grid grid-2 gap-2">
+            {[
+              { icon: <ShieldCheck size={28} />, title: 'RERA Compliant', desc: 'All layouts verified and approved legally.' },
+              { icon: <TrendingUp size={28} />, title: 'High ROI Growth', desc: 'Situated in fast-developing urban corridors.' },
+              { icon: <Sparkles size={28} />, title: 'Premium Finish', desc: 'World-class materials and planning checks.' },
+              { icon: <Key size={28} />, title: 'Clear Registration', desc: 'Immediate execution and clear document titles.' }
+            ].map((feat, i) => (
+              <div key={i} className="glass-card py-2 px-2 text-center" style={{ border: '1px solid var(--border-color)' }}>
+                <div className="feat-icon text-secondary mb-1" style={{ display: 'inline-block' }}>{feat.icon}</div>
+                <h4 className="text-md">{feat.title}</h4>
+                <p className="text-xs text-muted mt-0.5">{feat.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -776,11 +990,12 @@ export const Marketing: React.FC<MarketingProps> = ({
             position: fixed;
             top: 0;
             left: 0;
-            width: 290px;
+            width: 85vw;
+            max-width: 320px;
             height: 100vh;
             z-index: 150;
             background: var(--white);
-            padding: 1.5rem;
+            padding: 1.25rem 1rem;
             box-shadow: var(--shadow-xl);
             overflow-y: auto;
             transform: translateX(-100%);
@@ -789,6 +1004,45 @@ export const Marketing: React.FC<MarketingProps> = ({
           }
           .filters-sidebar.mobile-open {
             transform: translateX(0);
+          }
+        }
+
+        @media (max-width: 768px) {
+          .search-bar-wrapper {
+            width: 100% !important;
+          }
+          .search-bar-input {
+            font-size: 0.85rem !important;
+            padding: 0.6rem 0.75rem 0.6rem 2.4rem !important;
+          }
+          .search-bar-icon {
+            left: 0.75rem !important;
+          }
+          .layout-toggle-btns {
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+          }
+          .layout-toggle-btns .toggle-btn {
+            flex: 1 !important;
+            justify-content: center !important;
+            font-size: 0.78rem !important;
+            padding: 0.4rem 0.2rem !important;
+          }
+          .grid-3 {
+            grid-template-columns: 1fr !important;
+          }
+          .mkt-list-card {
+            flex-direction: column !important;
+          }
+          .mkt-list-img-col {
+            width: 100% !important;
+          }
+          .mkt-list-img-wrap {
+            height: 200px !important;
+          }
+          .mkt-list-details {
+            padding: 1rem !important;
           }
         }
       `}</style>

@@ -14,7 +14,7 @@ import { Contact } from './pages/Contact';
 import { AdminPanel } from './admin/AdminPanel';
 import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings, getCities, getLocations } from './utils/db';
 import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing, City, LocationMaster } from './types';
-import { X, Send, User, Mail, Phone, MessageSquare, ShieldCheck } from 'lucide-react';
+import { X, Send, User, Mail, Phone, MessageSquare, ShieldCheck, ChevronUp } from 'lucide-react';
 interface Toast {
   id: string;
   message: string;
@@ -27,6 +27,19 @@ function App() {
   const [activeCategory, setActiveCategory] = useState<ProjectCategory | null>(null);
   const [activeSiteCategory, setActiveSiteCategory] = useState<string | null>(null);
   const [activeParams, setActiveParams] = useState<any>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 200) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Quick Enquiry Modal States
   const [enquiryModalOpen, setEnquiryModalOpen] = useState(false);
@@ -58,44 +71,93 @@ function App() {
   const [cities, setCities] = useState<City[]>([]);
   const [locations, setLocations] = useState<LocationMaster[]>([]);
 
-  // Seed and fetch data & Handle URL hash routing (e.g. #/admin)
+
+  // Seed and fetch data & Handle Clean HTML5 Path Routing
   useEffect(() => {
     initDB();
     refreshData();
 
-    // Check query params for shared project link or filtered marketing link
-    const urlParams = new URLSearchParams(window.location.search);
-    const projectId = urlParams.get('project');
-    const pageParam = urlParams.get('page');
-    const showMapParam = urlParams.get('showMap') === 'true';
-    const isMarketingParam = urlParams.get('isMarketing') === 'true';
-    if (projectId) {
-      handleNavigate('project-details', null, null, { id: projectId, showMap: showMapParam, isMarketing: isMarketingParam });
-    } else if (pageParam === 'marketing') {
-      const cat = (urlParams.get('category') || 'Flats') as ProjectCategory;
-      const siteCat = urlParams.get('siteCategory') || null;
-      const initialFilters = {
-        city: urlParams.get('city'),
-        location: urlParams.get('location'),
-        facing: urlParams.get('facing'),
-        propertyType: urlParams.get('propertyType'),
-        agent: urlParams.get('agent'),
-      };
-      handleNavigate('marketing', cat, siteCat, { initialFilters });
-    }
+    const parseCleanRoute = () => {
+      let pathname = window.location.pathname || '/';
+      let search = window.location.search || '';
+      const hash = window.location.hash || '';
 
-    const handleHashChange = () => {
-      const hash = window.location.hash;
-      if (hash === '#/admin' || hash === '#admin') {
+      // Clean up legacy hash if someone visits with #/ (e.g. #/blog -> /blog)
+      if (hash && hash.startsWith('#/')) {
+        const raw = hash.replace(/^#\//, '');
+        const parts = raw.split('?');
+        pathname = '/' + parts[0];
+        search = parts[1] ? '?' + parts[1] : search;
+        window.history.replaceState({}, '', pathname + search);
+      }
+
+      const params = new URLSearchParams(search);
+
+      if (pathname === '/project-details') {
+        const id = params.get('id');
+        const showMap = params.get('showMap') === 'true';
+        const isMarketing = params.get('isMarketing') === 'true';
+        setActivePage('project-details');
+        setActiveParams({ id, showMap, isMarketing });
+      } else if (pathname === '/marketing') {
+        const category = (params.get('category') || 'Flats') as ProjectCategory;
+        const siteCategory = params.get('siteCategory') || null;
+        setActivePage('marketing');
+        setActiveCategory(category);
+        setActiveSiteCategory(siteCategory);
+      } else if (pathname === '/projects-ongoing') {
+        setActivePage('projects-ongoing');
+        setActiveParams({ status: 'Ongoing' });
+      } else if (pathname === '/projects-upcoming') {
+        setActivePage('projects-upcoming');
+        setActiveParams({ status: 'Upcoming' });
+      } else if (pathname === '/projects-completed') {
+        setActivePage('projects-completed');
+        setActiveParams({ status: 'Completed' });
+      } else if (pathname === '/projects') {
+        setActivePage('projects');
+      } else if (pathname === '/about') {
+        setActivePage('about');
+      } else if (pathname === '/gallery') {
+        setActivePage('gallery');
+      } else if (pathname === '/blog-details') {
+        setActivePage('blog-details');
+        setActiveParams({ slug: params.get('slug') });
+      } else if (pathname === '/blog') {
+        setActivePage('blog');
+      } else if (pathname === '/contact') {
+        setActivePage('contact');
+      } else if (pathname === '/jk-control-panel-99') {
+        // 🔒 Secret Hidden Admin Route
         setActivePage('admin');
-      } else if (hash === '#/home' || hash === '#home') {
+      } else if (pathname === '/admin' || hash.includes('admin')) {
+        // 🚫 Block public guessing of /admin — Redirect to Home page!
+        window.history.replaceState({}, '', '/');
         setActivePage('home');
+      } else {
+        // Fallback for legacy query params
+        const projectId = params.get('project');
+        const pageParam = params.get('page');
+        if (projectId) {
+          setActivePage('project-details');
+          setActiveParams({ id: projectId });
+        } else if (pageParam === 'marketing') {
+          const cat = (params.get('category') || 'Flats') as ProjectCategory;
+          const siteCat = params.get('siteCategory') || null;
+          setActivePage('marketing');
+          setActiveCategory(cat);
+          setActiveSiteCategory(siteCat);
+        } else {
+          setActivePage('home');
+        }
       }
     };
 
-    handleHashChange(); // Check hash on load
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    parseCleanRoute(); // Check route on initial load
+    window.addEventListener('popstate', parseCleanRoute);
+    return () => {
+      window.removeEventListener('popstate', parseCleanRoute);
+    };
   }, []);
 
   // Manage body scrolling layout for admin portal session
@@ -149,20 +211,44 @@ function App() {
 
   const handleNavigate = (page: string, category: ProjectCategory | null = null, siteCategory: string | null = null, params: any = null) => {
     const wasAdmin = activePage === 'admin';
+
     setActivePage(page);
     setActiveCategory(category);
     setActiveSiteCategory(siteCategory);
     setActiveParams(params);
-    if (page === 'admin') {
-      window.location.hash = '#/admin';
-    } else if (page === 'home') {
-      window.location.hash = '#/home';
+
+    // Build clean URL pathname & query string (No # symbol!)
+    let newPath = '/';
+    if (page === 'project-details' && params?.id) {
+      newPath = `/project-details?id=${params.id}${params.showMap ? '&showMap=true' : ''}${params.isMarketing ? '&isMarketing=true' : ''}`;
+    } else if (page === 'marketing') {
+      newPath = `/marketing?category=${encodeURIComponent(category || 'Flats')}${siteCategory ? '&siteCategory=' + encodeURIComponent(siteCategory) : ''}`;
+    } else if (page === 'projects-ongoing') {
+      newPath = '/projects-ongoing';
+    } else if (page === 'projects-upcoming') {
+      newPath = '/projects-upcoming';
+    } else if (page === 'projects-completed') {
+      newPath = '/projects-completed';
+    } else if (page === 'projects') {
+      newPath = '/projects';
+    } else if (page === 'about') {
+      newPath = '/about';
+    } else if (page === 'gallery') {
+      newPath = '/gallery';
+    } else if (page === 'blog') {
+      newPath = '/blog';
+    } else if (page === 'blog-details' && params?.slug) {
+      newPath = `/blog-details?slug=${encodeURIComponent(params.slug)}`;
+    } else if (page === 'contact') {
+      newPath = '/contact';
+    } else if (page === 'admin') {
+      newPath = '/jk-control-panel-99';
     } else {
-      // Clear hash for subpages to avoid confusing the user
-      if (window.location.hash === '#/admin' || window.location.hash === '#admin') {
-        window.location.hash = '';
-      }
+      newPath = '/';
     }
+
+    window.history.pushState({}, '', newPath);
+
     // Only refresh data if transitioning from the admin panel (where data could be updated)
     // or if projects state is empty (initial load didn't complete).
     if (wasAdmin || projects.length === 0) {
@@ -283,7 +369,7 @@ function App() {
 
         {activePage === 'projects' && (
           <Projects 
-            projects={projects}
+            projects={[...projects, ...marketing]}
             initialParams={activeParams}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -297,7 +383,7 @@ function App() {
         {/* Dynamic status listings */}
         {activePage === 'projects-ongoing' && (
           <Projects 
-            projects={projects}
+            projects={[...projects, ...marketing]}
             initialParams={{ status: 'Ongoing' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -309,7 +395,7 @@ function App() {
         )}
         {activePage === 'projects-upcoming' && (
           <Projects 
-            projects={projects}
+            projects={[...projects, ...marketing]}
             initialParams={{ status: 'Upcoming' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -321,7 +407,7 @@ function App() {
         )}
         {activePage === 'projects-completed' && (
           <Projects 
-            projects={projects}
+            projects={[...projects, ...marketing]}
             initialParams={{ status: 'Completed' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -336,24 +422,32 @@ function App() {
           <ProjectDetails 
             projectId={activeParams?.id}
             projects={[...projects, ...marketing]}
-            isMarketing={activeParams?.isMarketing === true || marketing.some(m => m.id === activeParams?.id)}
+            isMarketing={activeParams?.isMarketing === true || marketing.some(m => String(m.id) === String(activeParams?.id))}
             showMap={activeParams?.showMap === true}
             onBack={() => {
-              const isMarketing = marketing.some(m => m.id === activeParams?.id);
-              if (isMarketing) {
-                const item = marketing.find(m => m.id === activeParams?.id);
-                handleNavigate('marketing', item?.category, item?.subCategory);
+              const projId = activeParams?.id;
+              const currentProj = [...projects, ...marketing].find(p => String(p.id) === String(projId));
+              const isMktFromParams = activeParams?.isMarketing === true;
+
+              if (isMktFromParams) {
+                const cat = currentProj?.category || activeCategory || 'Flats';
+                const subCat = currentProj?.subCategory || activeSiteCategory || null;
+                handleNavigate('marketing', cat, subCat);
+              } else if (currentProj?.status === 'Upcoming') {
+                handleNavigate('projects-upcoming', null, null, { status: 'Upcoming' });
+              } else if (currentProj?.status === 'Completed') {
+                handleNavigate('projects-completed', null, null, { status: 'Completed' });
               } else {
-                handleNavigate('projects');
+                handleNavigate('projects-ongoing', null, null, { status: 'Ongoing' });
               }
             }}
             onAddToast={addToast}
           />
         )}
 
-        {activePage === 'marketing' && activeCategory && (
+        {activePage === 'marketing' && (
           <Marketing 
-            category={activeCategory}
+            category={activeCategory || 'Flats'}
             siteCategory={activeSiteCategory}
             projects={marketing}
             onNavigate={handleNavigate}
@@ -432,6 +526,14 @@ function App() {
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
             </svg>
           </a>
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+            className={`float-btn float-scroll-top ${showScrollTop ? 'visible' : ''}`}
+            aria-label="Scroll to Top"
+            title="Scroll to Top"
+          >
+            <ChevronUp size={22} strokeWidth={2.5} />
+          </button>
         </div>
       )}
 

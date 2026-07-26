@@ -14,7 +14,7 @@ const handleResponse = async (res: Response) => {
       sessionStorage.removeItem('jk_infra_logged_user');
       sessionStorage.removeItem('jk_infra_logged_user_token');
       if (typeof window !== 'undefined') {
-        window.location.hash = '#/admin';
+        window.location.pathname = '/jk-control-panel-99';
         window.location.reload();
       }
     }

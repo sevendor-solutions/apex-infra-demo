@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity, MarketingAgent } from '../types';
 import { Edit2, Trash2, CheckCircle2, XCircle, X, Share2, ChevronDown } from 'lucide-react';
-import { addMarketing, updateMarketing, deleteMarketing, uploadImage, uploadMultipleImages } from '../utils/db';
+import { addMarketing, updateMarketing, deleteMarketing, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { SocialSharePreview } from './SocialSharePreview';
@@ -204,21 +204,55 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [sharingFilteredLink, setSharingFilteredLink] = useState(false);
   const [filterShareMapEnabled, setFilterShareMapEnabled] = useState(false);
 
+  const [shareImagesEnabled, setShareImagesEnabled] = useState(true);
+
   // Upload states
   const [uploadingElevation, setUploadingElevation] = useState(false);
   const [uploadingSpecImages, setUploadingSpecImages] = useState(false);
 
   const handleElevationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+
+    const currentUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean);
+    const duplicates: string[] = [];
+    const validFiles: File[] = [];
+
+    for (const file of Array.from(e.target.files)) {
+      const dotIndex = file.name.lastIndexOf('.');
+      const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
+      
+      const isDuplicate = currentUrls.some(url => {
+        const decodedUrl = decodeURIComponent(url);
+        const urlFile = decodedUrl.split('/').pop() || '';
+        return urlFile.toLowerCase().includes(baseName.toLowerCase());
+      });
+
+      if (isDuplicate) {
+        duplicates.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (duplicates.length > 0) {
+      onAddToast(`Image(s) already uploaded: ${duplicates.join(', ')}`, 'error');
+      if (validFiles.length === 0) {
+        e.target.value = '';
+        return;
+      }
+    }
+
     setUploadingElevation(true);
     try {
-      const url = await uploadImage(e.target.files[0], 'MMS');
-      setImageUrl(url);
-      onAddToast('Elevation render image uploaded successfully!', 'success');
+      const urls = await uploadMultipleImages(validFiles, 'MMS');
+      const combined = [...currentUrls, ...urls].join(', ');
+      setImageUrl(combined);
+      onAddToast('Property image(s) uploaded successfully!', 'success');
     } catch (err: any) {
-      onAddToast(err.message || 'Elevation image upload failed', 'error');
+      onAddToast(err.message || 'Images upload failed', 'error');
     } finally {
       setUploadingElevation(false);
+      e.target.value = '';
     }
   };
 
@@ -589,7 +623,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       })(),
       priceRange,
       priceValue: Number(priceValue) || 0,
-      paymentPlans: editingProperty ? editingProperty.paymentPlans : ['Booking Advance: 10%', 'Milestones: 60%', 'Registration: 30%'],
+      paymentPlans: editingProperty ? editingProperty.paymentPlans : ['Booking Advance: 2%', 'Agreement: 25%', 'Registration: 73%'],
       mapCoordinates: { lat: Number(lat) || 17.7, lng: Number(lng) || 83.3 },
       brochureUrl: '#',
       featured,
@@ -1015,7 +1049,7 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                         <option value="">Select subCategory</option>
                         <option value="Development Sites">Development Sites</option>
                         <option value="Panchayati Approved Sites">Panchayati Approved Sites</option>
-                        <option value="VUDA Approved Sites">VUDA Approved Sites</option>
+                        <option value="VUDA / VMRDA Approved Sites">VUDA / VMRDA Approved Sites</option>
                         <option value="Ventures">Ventures</option>
                         <option value="Agriculture Lands">Agriculture Lands</option>
                         <option value="Non-Agri Lands">Non-Agri Lands</option>
@@ -1369,44 +1403,51 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     {/* Section 4: Media & Details */}
                     <div className="modal-section-title">Media &amp; Details</div>
 
-                {/* Elevation Render Image */}
+                {/* Property Images (Comma-separated URLs) */}
                 <div className="form-group">
-                  <label className="form-label">Elevation Render Image</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="text"
+                  <label className="form-label font-bold">Property Images (Comma-separated URLs)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <textarea
                       className="form-control"
-                      placeholder="https://images.unsplash.com/... or upload"
+                      rows={2}
+                      placeholder="URL1, URL2... or upload photos below"
                       value={imageUrl}
                       onChange={e => setImageUrl(e.target.value)}
-                      style={{ marginBottom: 0, flex: 1 }}
+                      style={{ marginBottom: 0 }}
                     />
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      {uploadingElevation ? 'Uploading...' : 'Upload'}
-                      <input type="file" accept="image/*" onChange={handleElevationUpload} style={{ display: 'none' }} disabled={uploadingElevation} />
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {uploadingElevation ? 'Uploading Images...' : 'Upload Photos'}
+                      <input type="file" accept="image/*" multiple onChange={handleElevationUpload} style={{ display: 'none' }} disabled={uploadingElevation} />
                     </label>
                   </div>
-                  {/* Elevation preview */}
-                  {imageUrl && (
-                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', position: 'relative' }}>
-                      <img
-                        src={imageUrl}
-                        alt="Elevation preview"
-                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl('')}
-                        title="Remove"
-                        style={{
-                          position: 'absolute', top: '-6px', right: '-6px',
-                          background: '#dc2626', color: '#fff', border: 'none',
-                          borderRadius: '50%', width: '18px', height: '18px',
-                          cursor: 'pointer', fontSize: '10px', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', lineHeight: 1
-                        }}
-                      >✕</button>
+                  {/* Property images preview grid */}
+                  {imageUrl && imageUrl.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {imageUrl.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
+                        <div key={idx} style={{ position: 'relative', display: 'inline-flex' }}>
+                          <img
+                            src={url}
+                            alt={`Property image ${idx + 1}`}
+                            style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
+                              setImageUrl(newUrls);
+                            }}
+                            title="Remove"
+                            style={{
+                              position: 'absolute', top: '-6px', right: '-6px',
+                              background: '#dc2626', color: '#fff', border: 'none',
+                              borderRadius: '50%', width: '18px', height: '18px',
+                              cursor: 'pointer', fontSize: '10px', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                            }}
+                          >✕</button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1647,78 +1688,105 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
         </div>
       )}
 
-      {sharingProperty && (
-        <div className="modal-overlay" onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-            <div className="modal-header border-bottom p-3 flex justify-between align-center">
-              <h3 style={{ margin: 0 }}>Share Property Link</h3>
-              <button onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <XCircle size={20} className="text-muted" />
-              </button>
-            </div>
-            <div className="p-3" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
-                Share the public showcase page of <strong>{sharingProperty.name}</strong> with clients or partners.
-              </p>
+      {sharingProperty && (() => {
+        const propImgs = (sharingProperty.images && sharingProperty.images.length > 0)
+          ? sharingProperty.images
+          : (sharingProperty.specImage ? sharingProperty.specImage.split(',').map(u => u.trim()).filter(Boolean) : []);
 
-              {/* Google Maps toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <input
-                  type="checkbox"
-                  id="chkShareMap"
-                  checked={shareMapEnabled}
-                  onChange={e => setShareMapEnabled(e.target.checked)}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <label htmlFor="chkShareMap" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
-                  Include Google Map Location in shared link
-                </label>
+        const whatsappMessage = 
+          `🏠 *${sharingProperty.name}*\n` +
+          `📍 Location: ${sharingProperty.location}\n` +
+          `🏗️ Segment: ${sharingProperty.category || ''}${sharingProperty.subCategory ? ' | ' + sharingProperty.subCategory : ''}\n` +
+          `🏷️ Classification: ${sharingProperty.classification || 'N/A'}\n` +
+          `💰 Price: ${sharingProperty.priceRange}\n` +
+          (shareImagesEnabled && propImgs.length > 0
+            ? `\n📸 *Property Photos (${propImgs.length}):*\n` + propImgs.map((img, i) => `${i + 1}. ${img}`).join('\n') + `\n`
+            : ''
+          ) +
+          `\n🔗 View details: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`;
+
+        return (
+          <div className="modal-overlay" onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '470px' }}>
+              <div className="modal-header border-bottom p-3 flex justify-between align-center">
+                <h3 style={{ margin: 0 }}>Share Property Link</h3>
+                <button onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <XCircle size={20} className="text-muted" />
+                </button>
               </div>
-              
-              <div className="form-group">
-                <label className="form-label font-bold text-xs">Direct Link</label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    readOnly 
-                    value={`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`} 
-                    style={{ backgroundColor: '#f8fafc', fontSize: '0.85rem' }}
-                  />
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`);
-                      onAddToast('Share link copied to clipboard!', 'success');
-                    }}
-                    className="btn btn-outline btn-sm"
-                  >
-                    Copy
-                  </button>
+              <div className="p-3" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Share the public showcase page of <strong>{sharingProperty.name}</strong> with clients or partners.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Google Maps toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      id="chkShareMap"
+                      checked={shareMapEnabled}
+                      onChange={e => setShareMapEnabled(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="chkShareMap" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                      Include Google Map Location link
+                    </label>
+                  </div>
+
+                  {/* Include All Images toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      id="chkShareImages"
+                      checked={shareImagesEnabled}
+                      onChange={e => setShareImagesEnabled(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="chkShareImages" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                      Include all photo links in WhatsApp ({propImgs.length} photo{propImgs.length !== 1 ? 's' : ''})
+                    </label>
+                  </div>
                 </div>
-              </div>
+                
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label font-bold text-xs">Direct Link</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      readOnly 
+                      value={`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`} 
+                      style={{ backgroundColor: '#f8fafc', fontSize: '0.85rem' }}
+                    />
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`);
+                        onAddToast('Share link copied to clipboard!', 'success');
+                      }}
+                      className="btn btn-outline btn-sm"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                <a 
-                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `🏠 *${sharingProperty.name}*\n` +
-                    `📍 Location: ${sharingProperty.location}\n` +
-                    `🏗️ Segment: ${sharingProperty.category || ''}${sharingProperty.subCategory ? ' | ' + sharingProperty.subCategory : ''}\n` +
-                    `🏷️ Classification: ${sharingProperty.classification || 'N/A'}\n` +
-                    `💰 Price: ${sharingProperty.priceRange}\n` +
-                    `🔗 View details: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-secondary btn-sm flex-1 text-center"
-                  style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 600 }}
-                >
-                  Share on WhatsApp
-                </a>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <a 
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappMessage)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-sm flex-1 text-center"
+                    style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 700, padding: '0.55rem', borderRadius: '6px' }}
+                  >
+                    Share on WhatsApp
+                  </a>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {sharingFilteredLink && (
         <div className="modal-overlay" onClick={() => setSharingFilteredLink(false)}>

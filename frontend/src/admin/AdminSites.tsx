@@ -7,12 +7,12 @@ interface AdminSitesProps {
 
 export const AdminSites: React.FC<AdminSitesProps> = ({ marketing }) => {
 
-  const getSiteCount = (sub: SiteCategory) => {
-    return marketing.filter(p => p.category === 'Sites' && p.subCategory === sub).length;
+  const getSiteCount = (sub: string) => {
+    return marketing.filter(p => p.category === 'Sites' && (p.subCategory === sub || (sub.includes('VUDA') && p.subCategory?.includes('VUDA')))).length;
   };
 
   const siteCategories: { name: SiteCategory; authority: string; desc: string }[] = [
-    { name: 'VUDA Approved Sites', authority: 'VMRDA / CRDA', desc: 'Urban plotting layouts verified by metropolitan development authorities. Fully compliant with zoning and public park reservations.' },
+    { name: 'VUDA / VMRDA Approved Sites', authority: 'VMRDA / CRDA', desc: 'Urban plotting layouts verified by metropolitan development authorities. Fully compliant with zoning and public park reservations.' },
     { name: 'Panchayati Approved Sites', authority: 'Gram Panchayat', desc: 'Plotted layout coordinates approved by rural gram panchayat codes. Highly affordable buy-in targets.' },
     { name: 'Development Sites', authority: 'Land Use Board', desc: 'Large land plots set up for commercial complexes, industrial warehouses, or agricultural layouts.' },
     { name: 'Ventures', authority: 'JK Developer Layouts', desc: 'Theme-designed gated plot layouts completed with black-top roads, drainage pipes, and gate arches.' }

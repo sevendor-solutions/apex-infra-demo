@@ -411,6 +411,44 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
     onAddToast(`Configured ${modalBatches.length} batches. Total Opening Stock set to ${totalQty} ${unit}.`, 'info');
   };
 
+  // Helper to check if a batch / floor unit is linked to a saved invoice
+  const getBatchInvoiceInfo = (item: InventoryItem, batch: any): Invoice | null => {
+    if (!invoices || invoices.length === 0 || !batch || !batch.flatNo) return null;
+    const flatNoStr = String(batch.flatNo).trim();
+    if (!flatNoStr) return null;
+
+    for (const inv of invoices) {
+      const allLineItems = [...(inv.items || []), ...(inv.amenityItems || [])];
+      for (const line of allLineItems) {
+        if (!line.productName) continue;
+        
+        const itemCode = (item.code || '').trim().toLowerCase();
+        const itemName = (item.name || '').trim().toLowerCase();
+        const lineCode = (line.productCode || '').trim().toLowerCase();
+        const lineName = (line.productName || '').trim().toLowerCase();
+        const projName = (inv.projectName || '').trim().toLowerCase();
+
+        const matchesProduct = 
+          (lineCode && itemCode && lineCode === itemCode) ||
+          (projName && projName === itemName) ||
+          (lineName.includes(itemName));
+
+        if (!matchesProduct) continue;
+
+        const flatLower = flatNoStr.toLowerCase();
+        const escapedFlat = flatLower.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+        const flatWithKeywordRegex = new RegExp(`\\bflat[\\s#_-]*${escapedFlat}\\b`, 'i');
+        const flatStandaloneRegex = new RegExp(`\\b${escapedFlat}\\b`, 'i');
+
+        if (flatWithKeywordRegex.test(lineName) || (lineName.includes('flat') && flatStandaloneRegex.test(lineName))) {
+          return inv;
+        }
+      }
+    }
+    return null;
+  };
+
   // Export transactions helper
   const exportToExcel = () => {
     if (!selectedItem) return;
@@ -431,7 +469,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   };
 
   return (
-    <div className="admin-page-container" style={{ padding: '1rem', background: '#f8fafc', minHeight: 'calc(100vh - 80px)' }}>
+    <div className="admin-page-container admin-inventory-view" style={{ padding: '1rem', background: '#f8fafc', minHeight: 'calc(100vh - 80px)' }}>
       
       {/* ── Tabs Bar ────────────────────────────────────────── */}
       <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', marginBottom: '1.2rem', background: '#fff', borderRadius: '8px 8px 0 0', padding: '0.5rem 1rem 0', gap: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -459,10 +497,10 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       </div>
 
       {/* ── Main Workspace ──────────────────────────────────── */}
-      <div style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 180px)' }}>
+      <div className="admin-inventory-workspace" style={{ display: 'flex', gap: '16px', height: 'calc(100vh - 180px)' }}>
           
           {/* ── Left Pane: Items List ───────────────────────── */}
-          <div style={{ width: '330px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0' }}>
+          <div className="admin-inventory-left-pane" style={{ width: '330px', background: '#fff', borderRadius: '10px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.05)', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0' }}>
             
             {/* Search and Add */}
             <div style={{ padding: '1rem', borderBottom: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -686,27 +724,82 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                   {/* Batches Sub-section (if batchTracking is enabled) */}
                   {selectedItem.batchTracking && selectedItem.batches && selectedItem.batches.length > 0 && (
                     <div style={{ marginBottom: '2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden' }}>
-                      <div style={{ background: '#f1f5f9', padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}>
-                        Configured Batches / Floor Units ({selectedItem.batches.length})
+                      <div style={{ background: '#f1f5f9', padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>Configured Batches / Floor Units ({selectedItem.batches.length})</span>
                       </div>
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
                           <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                            <th style={{ textAlign: 'left', padding: '6px 12px', color: '#64748b' }}>FACING/FLOOR</th>
-                            <th style={{ textAlign: 'center', padding: '6px 12px', color: '#64748b' }}>UDS</th>
-                            <th style={{ textAlign: 'center', padding: '6px 12px', color: '#64748b' }}>Flat No.</th>
-                            <th style={{ textAlign: 'right', padding: '6px 12px', color: '#64748b' }}>QTY ({selectedItem.unit})</th>
+                            <th style={{ textAlign: 'left', padding: '8px 12px', color: '#64748b' }}>FACING/FLOOR</th>
+                            <th style={{ textAlign: 'center', padding: '8px 12px', color: '#64748b' }}>UDS</th>
+                            <th style={{ textAlign: 'center', padding: '8px 12px', color: '#64748b' }}>Flat No.</th>
+                            <th style={{ textAlign: 'center', padding: '8px 12px', color: '#64748b' }}>STATUS</th>
+                            <th style={{ textAlign: 'right', padding: '8px 12px', color: '#64748b' }}>QTY ({selectedItem.unit})</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedItem.batches.map((b: any, i: number) => (
-                            <tr key={i} style={{ borderBottom: i === selectedItem.batches!.length - 1 ? 'none' : '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '8px 12px', fontWeight: 600, color: '#334155' }}>{b.facingFloor}</td>
-                              <td style={{ padding: '8px 12px', textAlign: 'center', color: '#475569' }}>{b.uds}</td>
-                              <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>{b.flatNo}</td>
-                              <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#10b981' }}>{b.openingQty}</td>
-                            </tr>
-                          ))}
+                          {selectedItem.batches.map((b: any, i: number) => {
+                            const linkedInvoice = getBatchInvoiceInfo(selectedItem, b);
+                            const isInvoiced = !!linkedInvoice;
+
+                            return (
+                              <tr 
+                                key={i} 
+                                style={{ 
+                                  borderBottom: i === selectedItem.batches!.length - 1 ? 'none' : '1px solid #f1f5f9',
+                                  backgroundColor: isInvoiced ? '#fef2f2' : (i % 2 === 0 ? '#ffffff' : '#fcfcfd')
+                                }}
+                              >
+                                <td style={{ padding: '8px 12px', fontWeight: 600, color: isInvoiced ? '#991b1b' : '#334155' }}>
+                                  {b.facingFloor}
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', color: isInvoiced ? '#991b1b' : '#475569' }}>
+                                  {b.uds}
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: isInvoiced ? '#dc2626' : '#0f172a' }}>
+                                  {b.flatNo}
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                                  {isInvoiced ? (
+                                    <span 
+                                      title={`Invoiced to ${linkedInvoice.customerName} (${linkedInvoice.invoiceNumber})`}
+                                      style={{
+                                        backgroundColor: '#fee2e2',
+                                        color: '#dc2626',
+                                        border: '1px solid #fca5a5',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 800,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      SOLD ({linkedInvoice.invoiceNumber})
+                                    </span>
+                                  ) : (
+                                    <span 
+                                      style={{
+                                        backgroundColor: '#dcfce7',
+                                        color: '#16a34a',
+                                        border: '1px solid #86efac',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700
+                                      }}
+                                    >
+                                      AVAILABLE
+                                    </span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: isInvoiced ? '#dc2626' : '#10b981' }}>
+                                  {b.openingQty}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -830,8 +923,8 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)',
           backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div className="modal-content" style={{
-            background: '#fff', borderRadius: '12px', width: '700px', display: 'flex', flexDirection: 'column',
+          <div className="modal-content inventory-item-modal" style={{
+            background: '#fff', borderRadius: '12px', width: '700px', maxWidth: '95vw', display: 'flex', flexDirection: 'column',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #cbd5e1'
           }}>
             {/* Modal Header */}
@@ -865,7 +958,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
               <div style={{ padding: '1.5rem', maxHeight: '70vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 
                 {/* Basic Fields row */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                <div className="inventory-modal-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Item Name *</label>
                     <input
@@ -891,7 +984,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                 </div>
 
                 {/* Category, code, unit */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                <div className="inventory-modal-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Category</label>
                     <select
@@ -1000,10 +1093,10 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     
                     {/* Sale price & Purchase price */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                    <div className="inventory-modal-grid-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Sale Price (₹)</label>
-                        <div style={{ display: 'flex' }}>
+                        <div className="price-input-group" style={{ display: 'flex' }}>
                           <input
                             type="number"
                             value={sellingPrice}
@@ -1024,7 +1117,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
                       <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Purchase Price (₹)</label>
-                        <div style={{ display: 'flex' }}>
+                        <div className="price-input-group" style={{ display: 'flex' }}>
                           <input
                             type="number"
                             value={purchasePrice}
@@ -1067,7 +1160,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                 {modalTab === 'stock' && type === 'Product' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    <div className="inventory-modal-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>Opening Stock Qty</label>
                         <input

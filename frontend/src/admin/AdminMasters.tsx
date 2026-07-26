@@ -571,14 +571,14 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
 
   return (
     <div className="admin-masters-view">
-      <div className="flex justify-between align-center mb-3">
+      <div className="admin-masters-header flex justify-between align-center mb-3">
         <div>
           <h2>Masters Configuration</h2>
           <p className="text-xs text-muted">Manage system-wide dropdown variables for Cities and Micro-locations</p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex gap-1 bg-light-soft p-0.5" style={{ borderRadius: '8px', padding: '0.25rem' }}>
+        <div className="admin-masters-tabs flex gap-1 bg-light-soft p-0.5" style={{ borderRadius: '8px', padding: '0.25rem' }}>
           <button 
             className={`toggle-btn ${activeSubTab === 'cities' ? 'active' : ''}`}
             onClick={() => setActiveSubTab('cities')}

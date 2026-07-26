@@ -1,6 +1,6 @@
 export type ProjectCategory = 'Flats' | 'Villas' | 'Individual Houses' | 'Sites' | 'Duplex';
 
-export type SiteCategory = 'Development Sites' | 'Panchayati Approved Sites' | 'VUDA Approved Sites' | 'Ventures';
+export type SiteCategory = 'Development Sites' | 'Panchayati Approved Sites' | 'VUDA Approved Sites' | 'VUDA / VMRDA Approved Sites' | 'VUDA/VMRDA Approved Sites' | 'Ventures';
 
 export type ProjectStatus = 'Ongoing' | 'Upcoming' | 'Completed';
 

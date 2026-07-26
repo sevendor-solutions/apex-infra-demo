@@ -4,7 +4,7 @@ import {
   Edit2, Trash2, CheckCircle2, XCircle, X, 
   Building2, MapPin, Compass, Layers, Home, 
   IndianRupee, Image, FileText, Sparkles, Upload, 
-  Maximize2
+  Maximize2, Share2
 } from 'lucide-react';
 import { addProject, updateProject, deleteProject, uploadImage, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
@@ -39,6 +39,13 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [autoPostSocial, setAutoPostSocial] = useState(true);
   const [showSharePreview, setShowSharePreview] = useState(false);
   const [sharePreviewData, setSharePreviewData] = useState<any>(null);
+
+  // Record Sharing States
+  const [sharingProperty, setSharingProperty] = useState<Project | null>(null);
+  const [shareMapEnabled, setShareMapEnabled] = useState(false);
+  const [shareImagesEnabled, setShareImagesEnabled] = useState(true);
+  const [selectedProjects, setSelectedProjects] = useState<Project[]>([]);
+  const [sharingSelectedModal, setSharingSelectedModal] = useState(false);
   
   // Upload states
   const [uploadingSpec, setUploadingSpec] = useState(false);
@@ -381,7 +388,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       })(),
       priceRange,
       priceValue: Number(priceValue) || 0,
-      paymentPlans: editingProject ? editingProject.paymentPlans : ['Booking Advance: 10%', 'Installments: 80%', 'Handover: 10%'],
+      paymentPlans: editingProject ? editingProject.paymentPlans : ['Booking Advance: 2%', 'Agreement: 25%', 'Registration: 73%'],
       mapCoordinates: { lat: Number(lat) || 17.7, lng: Number(lng) || 83.3 },
       brochureUrl: '#',
       featured,
@@ -452,8 +459,9 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
         ? <span style={{color:'#1e7e34',display:'flex',alignItems:'center',gap:'4px',justifyContent:'center'}}><CheckCircle2 size={14}/> Yes</span>
         : <span style={{color:'#888',display:'flex',alignItems:'center',gap:'4px',justifyContent:'center'}}><XCircle size={14}/> No</span>
     )},
-    { key: '__actions', label: 'Actions', sortable: false, width: '90px', align: 'center', render: (_v, row) => (
-      <div className="admin-table-actions" style={{justifyContent:'center'}}>
+    { key: '__actions', label: 'Actions', sortable: false, width: '120px', align: 'center', render: (_v, row) => (
+      <div className="admin-table-actions" style={{justifyContent:'center', display: 'flex', gap: '4px'}}>
+        <button onClick={() => { setSharingProperty(row as unknown as Project); setShareMapEnabled(false); }} className="alv-toolbar-btn" title="Share Property Link" style={{ color: '#2563eb', borderColor: '#2563eb' }}><Share2 size={13}/></button>
         <button onClick={() => handleOpenEdit(row as unknown as Project)} className="alv-toolbar-btn" title="Edit"><Edit2 size={13}/></button>
         <button onClick={() => handleDelete(String(row.id), String(row.name))} className="alv-toolbar-btn" title="Delete" style={{color:'#dc2626',borderColor:'#dc2626'}}><Trash2 size={13}/></button>
       </div>
@@ -471,6 +479,19 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
         onAdd={handleOpenAdd}
         addLabel="Add Project"
         onRefresh={onRefresh}
+        onSelectionChange={(rows) => setSelectedProjects(rows as unknown as Project[])}
+        extraToolbarActions={
+          selectedProjects.length > 0 ? (
+            <button 
+              className="alv-toolbar-btn active" 
+              onClick={() => setSharingSelectedModal(true)}
+              title="Share Selected Projects"
+              style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '0 10px', height: '28px', fontSize: '0.8rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+            >
+              <Share2 size={13} /> Share Selected ({selectedProjects.length})
+            </button>
+          ) : undefined
+        }
         searchPlaceholder="Search by name, location, status..."
         emptyText="No projects found. Click + Add Project to create one."
       />
@@ -577,7 +598,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         <option value="">Select Sub-category</option>
                         <option value="Development Sites">Development Sites</option>
                         <option value="Panchayati Approved Sites">Panchayati Approved Sites</option>
-                        <option value="VUDA Approved Sites">VUDA Approved Sites</option>
+                        <option value="VUDA / VMRDA Approved Sites">VUDA / VMRDA Approved Sites</option>
                         <option value="Ventures">Ventures</option>
                       </select>
                     ) : (category === 'Flats' || category === 'Villas' || category === 'Individual Houses' || category === 'Duplex') ? (
@@ -1193,6 +1214,170 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
           imageUrl={sharePreviewData.imageUrl}
           isMarketing={false}
         />
+      )}
+
+      {/* Single Property Share Modal */}
+      {sharingProperty && (() => {
+        const propImgs = (sharingProperty.images && sharingProperty.images.length > 0)
+          ? sharingProperty.images
+          : (sharingProperty.specImage ? sharingProperty.specImage.split(',').map(u => u.trim()).filter(Boolean) : []);
+
+        const whatsappMessage = 
+          `🏠 *${sharingProperty.name}*\n` +
+          `📍 Location: ${sharingProperty.location}\n` +
+          `🏗️ Category: ${sharingProperty.category}${sharingProperty.subCategory ? ' | ' + sharingProperty.subCategory : ''}\n` +
+          `Status: ${sharingProperty.status}\n` +
+          `💰 Price: ${sharingProperty.priceRange}\n` +
+          (shareImagesEnabled && propImgs.length > 0
+            ? `\n📸 *Property Photos (${propImgs.length}):*\n` + propImgs.map((img, i) => `${i + 1}. ${img}`).join('\n') + `\n`
+            : ''
+          ) +
+          `\n🔗 View details: ${window.location.origin}/?project=${sharingProperty.id}${shareMapEnabled ? '&showMap=true' : ''}`;
+
+        return (
+          <div className="modal-overlay" onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', background: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+              <div className="modal-header border-bottom p-3 flex justify-between align-center" style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Share Property Link</h3>
+                <button onClick={() => { setSharingProperty(null); setShareMapEnabled(false); }} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                  <XCircle size={20} className="text-muted" />
+                </button>
+              </div>
+              <div className="p-3" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <p style={{ fontSize: '0.88rem', color: '#64748b', margin: 0 }}>
+                  Share the direct showcase link for <strong>{sharingProperty.name}</strong> with customers or partners.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {/* Google Maps toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      id="chkProjShareMap"
+                      checked={shareMapEnabled}
+                      onChange={e => setShareMapEnabled(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="chkProjShareMap" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                      Include Map Location link
+                    </label>
+                  </div>
+
+                  {/* Include All Images toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="checkbox"
+                      id="chkProjShareImages"
+                      checked={shareImagesEnabled}
+                      onChange={e => setShareImagesEnabled(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="chkProjShareImages" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
+                      Include all photo links in WhatsApp ({propImgs.length} photo{propImgs.length !== 1 ? 's' : ''})
+                    </label>
+                  </div>
+                </div>
+                
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label font-bold text-xs" style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px', display: 'block' }}>Direct Link</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      readOnly 
+                      value={`${window.location.origin}/?project=${sharingProperty.id}${shareMapEnabled ? '&showMap=true' : ''}`} 
+                      style={{ backgroundColor: '#f8fafc', fontSize: '0.82rem', padding: '0.45rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', flex: 1 }}
+                    />
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/?project=${sharingProperty.id}${shareMapEnabled ? '&showMap=true' : ''}`);
+                        onAddToast('Share link copied to clipboard!', 'success');
+                      }}
+                      className="btn btn-outline btn-sm"
+                      style={{ padding: '0.45rem 0.85rem', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer' }}
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <a 
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(whatsappMessage)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary btn-sm flex-1 text-center"
+                    style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 700, padding: '0.55rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                  >
+                    Share on WhatsApp
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Selected Records Bulk Share Modal */}
+      {sharingSelectedModal && (
+        <div className="modal-overlay" onClick={() => setSharingSelectedModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', background: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+            <div className="modal-header border-bottom p-3 flex justify-between align-center" style={{ borderBottom: '1px solid #e2e8f0', padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#1e293b' }}>Share Selected Projects ({selectedProjects.length})</h3>
+              <button onClick={() => setSharingSelectedModal(false)} className="close-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <XCircle size={20} className="text-muted" />
+              </button>
+            </div>
+            <div className="p-3" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ fontSize: '0.88rem', color: '#64748b', margin: 0 }}>
+                You have selected <strong>{selectedProjects.length}</strong> project record{selectedProjects.length !== 1 ? 's' : ''}. Share them together as a curated list with your customers.
+              </p>
+
+              <div style={{ maxHeight: '160px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0.5rem', background: '#f8fafc' }}>
+                {selectedProjects.map((p, idx) => (
+                  <div key={p.id} style={{ padding: '6px 8px', borderBottom: idx === selectedProjects.length - 1 ? 'none' : '1px solid #f1f5f9', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, color: '#1e293b' }}>{idx + 1}. {p.name}</span>
+                    <span style={{ color: '#64748b', fontSize: '0.78rem' }}>{p.location} ({p.priceRange})</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  onClick={() => {
+                    const text = selectedProjects.map((p, idx) => 
+                      `${idx + 1}. ${p.name} | ${p.location} (${p.priceRange})\nLink: ${window.location.origin}/?project=${p.id}`
+                    ).join('\n\n');
+                    navigator.clipboard.writeText(text);
+                    onAddToast('Selected projects list copied to clipboard!', 'success');
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ flex: 1, padding: '0.55rem', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Copy All Links
+                </button>
+
+                <a 
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                    `🏢 *JK Future Infra - Selected Projects List* (${selectedProjects.length} Properties):\n\n` +
+                    selectedProjects.map((p, idx) => 
+                      `*${idx + 1}. ${p.name}*\n` +
+                      `📍 Location: ${p.location}\n` +
+                      `💰 Price: ${p.priceRange}\n` +
+                      `🔗 Link: ${window.location.origin}/?project=${p.id}`
+                    ).join('\n\n')
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary btn-sm flex-1 text-center"
+                  style={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', fontWeight: 700, padding: '0.55rem', borderRadius: '6px', fontSize: '0.85rem' }}
+                >
+                  Share Selected via WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
