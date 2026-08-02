@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Blog, ProjectCategory, SiteCategory } from '../types';
-import { Calendar, Tag, ArrowLeft, Share2, MessageSquare, Send, ExternalLink, Globe, ChevronLeft, ChevronRight, TrendingUp, Sun, Plus, Check, MoreHorizontal } from 'lucide-react';
+import { Calendar, Tag, ArrowLeft, Share2, MessageSquare, Send, ExternalLink, Globe } from 'lucide-react';
 
 const formatNewsTime = (dateStr: string) => {
   if (!dateStr) return '1m ago';
@@ -93,6 +93,7 @@ export const BlogPage: React.FC<BlogProps> = ({
   onNavigate,
   onAddToast
 }) => {
+  const [activeSection, setActiveSection] = useState<'all' | 'live' | 'blogs'>('all');
   const [activeTab, setActiveTab] = useState<string>('All');
   
   // Custom comments local storage simulator
@@ -105,101 +106,116 @@ export const BlogPage: React.FC<BlogProps> = ({
   const [commentName, setCommentName] = useState('');
   const [commentText, setCommentText] = useState('');
 
-  const [heroIdx, setHeroIdx] = useState(0);
+  // Live Online RSS News (Fetched in browser from entire India, for display/show purpose only, NEVER saved to DB)
+  const [liveRssBlogs, setLiveRssBlogs] = useState<Blog[]>([]);
 
-  // LocalStorage persistence for followed news publishers
-  const [followedPublishers, setFollowedPublishers] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('jk_followed_publishers');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load followed publishers', e);
-    }
-    return ['The Times of India', 'The Economic Times'];
-  });
-
-  const toggleFollowPublisher = (pubName: string) => {
-    setFollowedPublishers(prev => {
-      let next: string[];
-      if (prev.includes(pubName)) {
-        next = prev.filter(p => p !== pubName);
-        onAddToast(`Unfollowed ${pubName}`, 'info');
-      } else {
-        next = [...prev, pubName];
-        onAddToast(`Following ${pubName} news channel! Related news updated.`, 'success');
-      }
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveOnlineNews = async () => {
       try {
-        localStorage.setItem('jk_followed_publishers', JSON.stringify(next));
+        // Nationwide India Real Estate RSS Queries
+        const feeds = [
+          { cat: 'Real Estate News', query: 'real+estate+india+property+news' },
+          { cat: 'Property Updates', query: 'india+housing+market+rera+updates' },
+          { cat: 'Investment Guides', query: 'real+estate+investment+india+land' },
+          { cat: 'Company News', query: 'property+developers+india+infrastructure' }
+        ];
+
+        const fetchedItems: Blog[] = [];
+        const stockImages = [
+          'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=800&q=80',
+          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80'
+        ];
+
+        for (const feed of feeds) {
+          const targetUrl = `https://news.google.com/rss/search?q=${feed.query}&hl=en-IN&gl=IN&ceid=IN:en`;
+          const proxyUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(targetUrl)}`;
+          
+          const res = await fetch(proxyUrl);
+          const data = await res.json();
+
+          if (data && data.items && Array.isArray(data.items)) {
+            data.items.slice(0, 4).forEach((item: any, idx: number) => {
+              const title = item.title || '';
+              const link = item.link || '';
+              const pubDate = item.pubDate || new Date().toISOString();
+              
+              let publisher = 'Official Publisher';
+              let cleanTitle = title;
+              if (title.includes(' - ')) {
+                const parts = title.split(' - ');
+                publisher = parts.pop() || 'Official Publisher';
+                cleanTitle = parts.join(' - ');
+              }
+
+              const cleanDesc = (item.description || item.content || cleanTitle)
+                .replace(/<[^>]*>?/gm, '')
+                .trim();
+
+              fetchedItems.push({
+                id: `live_rss_${feed.cat}_${idx}_${Math.random().toString(36).substr(2, 5)}`,
+                title: cleanTitle,
+                slug: `live-news-${idx}-${Math.random().toString(36).substr(2, 5)}`,
+                summary: cleanDesc.slice(0, 165) + '...',
+                content: `${cleanDesc}\n\nPublisher Source: ${publisher}\n\nOfficial Publisher Link: (${link})`,
+                category: feed.cat as any,
+                image: item.thumbnail || stockImages[idx % stockImages.length],
+                date: pubDate,
+                author: publisher,
+                tags: ['India News', publisher, 'Real Estate']
+              });
+            });
+          }
+        }
+
+        if (isMounted && fetchedItems.length > 0) {
+          setLiveRssBlogs(fetchedItems);
+        }
       } catch (e) {
-        console.error(e);
+        console.log('Live RSS fetch error fallback:', e);
       }
-      return next;
-    });
-  };
+    };
+
+    fetchLiveOnlineNews();
+    
+    // Auto-refresh live online news every 1 hour (3,600,000ms)
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const interval = setInterval(() => {
+      fetchLiveOnlineNews();
+    }, ONE_HOUR_MS);
+
+    return () => { 
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const tabs = useMemo(() => [
-    { title: 'All News', value: 'All' },
-    { title: `⭐ Followed (${followedPublishers.length})`, value: 'Followed' },
+    { title: 'All News & Blogs', value: 'All' },
     { title: 'Real Estate News', value: 'Real Estate News' },
     { title: 'Property Updates', value: 'Property Updates' },
-    { title: 'Investment Guides', value: 'Investment Guides' }
-  ], [followedPublishers.length]);
+    { title: 'Investment Guides', value: 'Investment Guides' },
+    { title: 'Company News', value: 'Company News' }
+  ], []);
 
-  // Filter and prioritize news list based on followed publishers
-  const filteredBlogs = useMemo(() => {
-    return blogs.filter(b => {
-      let matchesCategory = true;
-      if (activeTab === 'Followed') {
-        const { publisher } = extractArticleMetaData(b);
-        const fullText = (b.title + ' ' + b.summary + ' ' + publisher).toLowerCase();
-        matchesCategory = followedPublishers.some(pub => fullText.includes(pub.toLowerCase()));
-      } else if (activeTab !== 'All') {
-        matchesCategory = b.category === activeTab;
-      }
-      
-      return matchesCategory;
-    }).sort((a, b) => {
-      // 1. Sort by Date descending (Newest date & timestamp first on top!)
-      const parseNewsDate = (dStr: string): number => {
-        if (!dStr) return 0;
-        const sanitized = dStr.replace('•', '').replace(/\s+/g, ' ').trim();
-        const parsedFull = Date.parse(sanitized);
-        if (!isNaN(parsedFull)) return parsedFull;
-
-        const dateOnly = dStr.split('•')[0].trim();
-        const parsedDate = Date.parse(dateOnly);
-        return isNaN(parsedDate) ? 0 : parsedDate;
-      };
-
-      const timeA = parseNewsDate(a.date);
-      const timeB = parseNewsDate(b.date);
-
-      if (timeA !== timeB) {
-        return timeB - timeA; // Newest first!
-      }
-
-      // 2. Secondary sort: Followed publishers first if dates are identical
-      const aMeta = extractArticleMetaData(a);
-      const bMeta = extractArticleMetaData(b);
-      const aText = (a.title + ' ' + a.summary + ' ' + aMeta.publisher).toLowerCase();
-      const bText = (b.title + ' ' + b.summary + ' ' + bMeta.publisher).toLowerCase();
-
-      const aFollowed = followedPublishers.some(pub => aText.includes(pub.toLowerCase()));
-      const bFollowed = followedPublishers.some(pub => bText.includes(pub.toLowerCase()));
-
-      if (aFollowed && !bFollowed) return -1;
-      if (!aFollowed && bFollowed) return 1;
-      return 0;
+  // Section 1: Filtered Live Online RSS Real Estate News (Times of India, ET, IT, HT, Livemint)
+  const filteredLiveNews = useMemo(() => {
+    return liveRssBlogs.filter(b => {
+      if (activeTab === 'All') return true;
+      return b.category === activeTab;
     });
-  }, [blogs, activeTab, followedPublishers]);
+  }, [liveRssBlogs, activeTab]);
 
-  const featuredStory = useMemo(() => {
-    if (!filteredBlogs || filteredBlogs.length === 0) return null;
-    return filteredBlogs[heroIdx % filteredBlogs.length];
-  }, [filteredBlogs, heroIdx]);
+  // Section 2: Filtered Database Company Blogs
+  const filteredDbBlogs = useMemo(() => {
+    return blogs.filter(b => {
+      if (activeTab === 'All') return true;
+      return b.category === activeTab;
+    });
+  }, [blogs, activeTab]);
 
   const handleCardClick = (blog: Blog) => {
     const { directUrl } = extractArticleMetaData(blog);
@@ -256,7 +272,7 @@ export const BlogPage: React.FC<BlogProps> = ({
   // If activeSlug is set, show details view
   const selectedBlog = useMemo(() => {
     if (!activeSlug) return null;
-    return blogs.find(b => b.slug === activeSlug);
+    return blogs.find((b: Blog) => b.slug === activeSlug);
   }, [blogs, activeSlug]);
 
   if (selectedBlog) {
@@ -332,7 +348,7 @@ export const BlogPage: React.FC<BlogProps> = ({
               <div className="flex gap-1 align-center">
                 <Tag size={16} className="text-secondary" />
                 <div className="flex gap-0.5 flex-wrap">
-                  {selectedBlog.tags.map((tag, idx) => (
+                  {selectedBlog.tags?.map((tag: string, idx: number) => (
                     <span key={idx} style={{ backgroundColor: 'var(--light-soft)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>{tag}</span>
                   ))}
                 </div>
@@ -418,26 +434,71 @@ export const BlogPage: React.FC<BlogProps> = ({
     );
   }  // Listing page view
   return (
-    <div className="blog-listing-page" style={{ minHeight: 'calc(100vh - 80px)', backgroundColor: '#f3f4f6', padding: '1rem 0' }}>
+    <div className="blog-listing-page" style={{ minHeight: 'calc(100vh - 80px)', backgroundColor: '#f3f4f6', padding: '1.5rem 0' }}>
       <div className="container">
-        {/* Top Bar: Brand, Category Filter Pills & Search */}
-        <div className="news-top-bar flex justify-between align-center flex-wrap gap-2 mb-3 shadow-sm">
-          <div className="flex align-center gap-1.5 flex-wrap">
-            <div style={{ backgroundColor: 'var(--primary)', color: '#ffffff', padding: '0.35rem 0.75rem', borderRadius: '6px', fontWeight: 800, fontSize: '0.85rem', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-              JK NEWS
-            </div>
-            <span className="text-xs font-bold text-slate-700" style={{ fontSize: '0.78rem' }}>Real Estate & Urban Property Hub</span>
+        {/* Top Header Bar: Mode Switcher Tabs (JK NEWS & BLOGS vs Live News Feed) */}
+        <div className="news-top-bar flex justify-between align-center flex-wrap gap-2 mb-4 shadow-sm" style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+          <div className="flex align-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveSection('all')}
+              style={{
+                backgroundColor: activeSection === 'all' ? 'var(--primary)' : '#f1f5f9',
+                color: activeSection === 'all' ? '#ffffff' : '#334155',
+                padding: '0.45rem 1rem',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: activeSection === 'all' ? '0 2px 8px rgba(11,37,68,0.25)' : 'none'
+              }}
+            >
+              JK NEWS & BLOGS
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSection('live')}
+              style={{
+                backgroundColor: activeSection === 'live' ? '#dc2626' : '#f1f5f9',
+                color: activeSection === 'live' ? '#ffffff' : '#334155',
+                padding: '0.45rem 1rem',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: activeSection === 'live' ? '0 2px 8px rgba(220,38,38,0.25)' : 'none'
+              }}
+            >
+              📡 Live News Feed
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSection('blogs')}
+              style={{
+                backgroundColor: activeSection === 'blogs' ? '#059669' : '#f1f5f9',
+                color: activeSection === 'blogs' ? '#ffffff' : '#334155',
+                padding: '0.45rem 1rem',
+                borderRadius: '8px',
+                fontWeight: 800,
+                fontSize: '0.88rem',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                boxShadow: activeSection === 'blogs' ? '0 2px 8px rgba(5,150,105,0.25)' : 'none'
+              }}
+            >
+              ✍️ Company Blogs
+            </button>
           </div>
 
-          <div className="flex align-center gap-2">
-            <div className="flex align-center gap-1 text-xs" style={{ backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }} />
-              <span>Live News Feed • Syncs every 60s</span>
-            </div>
-          </div>
-
-          {/* Touch-Scrollable Filter Pills on Mobile */}
-          <div className="news-tabs-scroll">
+          {/* Touch-Scrollable Category Filter Pills */}
+          <div className="news-tabs-scroll w-full mt-2">
             {tabs.map((tab, idx) => {
               const isActive = activeTab === tab.value;
               return (
@@ -446,8 +507,8 @@ export const BlogPage: React.FC<BlogProps> = ({
                   type="button"
                   className={`gallery-tab-btn ${isActive ? 'active' : ''}`}
                   style={{ 
-                    padding: '0.35rem 0.85rem', 
-                    fontSize: '0.78rem', 
+                    padding: '0.4rem 0.95rem', 
+                    fontSize: '0.8rem', 
                     borderRadius: '20px',
                     cursor: 'pointer',
                     whiteSpace: 'nowrap',
@@ -458,11 +519,7 @@ export const BlogPage: React.FC<BlogProps> = ({
                     transition: 'all 0.15s ease',
                     boxShadow: isActive ? '0 2px 8px rgba(11,37,68,0.25)' : 'none'
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActiveTab(tab.value);
-                    setHeroIdx(0);
-                  }}
+                  onClick={() => setActiveTab(tab.value)}
                 >
                   {tab.title}
                 </button>
@@ -471,216 +528,70 @@ export const BlogPage: React.FC<BlogProps> = ({
           </div>
         </div>
 
-        {/* 3-Column MSN News Portal Layout (Responsive grid/flex) */}
-        <div className="msn-portal-grid">
-          
-          {/* COLUMN 1 (LEFT): Suggested Publishers */}
-          <div className="msn-col-left flex flex-col gap-3">
-            <div className="bg-white p-3 shadow-sm" style={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-              <div className="flex justify-between align-center mb-1">
-                <h4 className="my-0 text-xs font-bold flex align-center gap-0.5" style={{ color: '#2563eb', fontSize: '0.82rem' }}>
-                  <span>⭐ Suggested for you</span>
-                </h4>
-                <MoreHorizontal size={15} className="text-muted cursor-pointer" />
+        {/* SECTION 1: 📰 LIVE ONLINE REAL ESTATE NEWS */}
+        {(activeSection === 'all' || activeSection === 'live') && (
+          <section className="mb-5">
+            <div className="flex justify-between align-center mb-3 flex-wrap gap-1">
+              <div>
+                <h3 className="my-0 flex align-center gap-1.5 text-primary" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                  📰 Live Real Estate News Articles
+                </h3>
+                <span className="text-xs text-muted" style={{ fontSize: '0.74rem' }}>
+                  Coverage from Times of India, Economic Times, India Today, Hindustan Times, Livemint Property
+                </span>
               </div>
-              <p className="text-xs text-muted mb-2.5" style={{ fontSize: '0.72rem', lineHeight: '1.3' }}>Follow real estate news publishers for tailored updates</p>
-
-              <div className="flex flex-col gap-2">
-                {[
-                  { name: 'The Times of India', code: 'TOI', color: '#dc2626' },
-                  { name: 'The Economic Times', code: 'ET', color: '#b91c1c' },
-                  { name: 'India Today', code: 'IT', color: '#ea580c' },
-                  { name: 'Hindustan Times', code: 'HT', color: '#0284c7' },
-                  { name: 'Livemint Property', code: 'LM', color: '#0d9488' }
-                ].map((pub, idx) => {
-                  const isFollowing = followedPublishers.includes(pub.name);
-                  return (
-                    <div 
-                      key={idx} 
-                      className="flex justify-between align-center p-1.5 cursor-pointer" 
-                      onClick={() => toggleFollowPublisher(pub.name)}
-                      style={{ borderRadius: '8px', border: isFollowing ? '1px solid #a7f3d0' : '1px solid #f3f4f6', backgroundColor: isFollowing ? '#ecfdf5' : '#fafafa', transition: 'all 0.15s ease' }}
-                    >
-                      <div className="flex align-center gap-1.5">
-                        <span style={{ backgroundColor: pub.color, color: '#fff', fontSize: '0.62rem', fontWeight: 800, padding: '0.15rem 0.35rem', borderRadius: '4px' }}>
-                          {pub.code}
-                        </span>
-                        <span className="text-xs font-semibold" style={{ fontSize: '0.76rem', color: '#1f2937' }}>{pub.name}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFollowPublisher(pub.name);
-                        }}
-                        style={{
-                          border: isFollowing ? '1px solid #10b981' : '1px solid #d1d5db',
-                          backgroundColor: isFollowing ? '#10b981' : '#ffffff',
-                          color: isFollowing ? '#ffffff' : '#374151',
-                          borderRadius: '50%',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer'
-                        }}
-                        title={isFollowing ? 'Following' : 'Follow Source'}
-                      >
-                        {isFollowing ? <Check size={13} strokeWidth={3} /> : <Plus size={13} strokeWidth={2.5} />}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="text-xs text-muted font-bold" style={{ backgroundColor: '#e2e8f0', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+                {filteredLiveNews.length} Live Stories
+              </span>
             </div>
 
-            {/* AP Market Index Widget */}
-            <div className="bg-white p-3 shadow-sm" style={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-              <h4 className="my-0 text-xs font-bold text-primary flex align-center gap-1" style={{ fontSize: '0.82rem' }}>
-                <TrendingUp size={15} color="#059669" /> AP Real Estate Index
-              </h4>
-              <div className="my-2 p-2" style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <div className="flex justify-between text-xs font-bold mb-0.5" style={{ fontSize: '0.75rem' }}>
-                  <span>Visakhapatnam Hub</span>
-                  <span style={{ color: '#059669' }}>+18.4% YoY</span>
-                </div>
-                <p className="text-muted my-0" style={{ fontSize: '0.7rem', lineHeight: '1.3' }}>Bhogapuram & Bheemili corridor showing highest capital growth</p>
-              </div>
-            </div>
-          </div>
-
-          {/* COLUMN 2 (CENTER): Featured Hero Card & Medium News Cards */}
-          <div className="msn-col-center flex flex-col gap-3">
-            {/* Featured Story Hero Banner */}
-            {featuredStory && (
-              <div 
-                className="msn-hero-card relative shadow-md"
-                style={{ 
-                  minHeight: '220px',
-                  maxHeight: '260px', 
-                  borderRadius: '12px', 
-                  overflow: 'hidden', 
-                  backgroundImage: `linear-gradient(to top, rgba(11,25,44,0.95) 0%, rgba(11,25,44,0.5) 55%, rgba(11,25,44,0.15) 100%), url(${featuredStory.image})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  padding: '1.2rem',
-                  color: '#ffffff',
-                  position: 'relative'
-                }}
-              >
-                {/* Navigation Arrows */}
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHeroIdx(prev => (prev === 0 ? Math.max(0, filteredBlogs.length - 1) : prev - 1));
-                  }}
-                  style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHeroIdx(prev => (prev + 1) % Math.max(1, filteredBlogs.length));
-                  }}
-                  style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', backgroundColor: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
-                >
-                  <ChevronRight size={18} />
-                </button>
-
-                {/* Top Badge */}
-                <div className="flex align-center gap-1 flex-wrap" style={{ zIndex: 2 }}>
-                  <span style={{ backgroundColor: '#dc2626', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '0.2rem 0.45rem', borderRadius: '4px', textTransform: 'uppercase' }}>
-                    TOP NEWS
-                  </span>
-                  <span style={{ backgroundColor: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: '0.7rem', fontWeight: 600, padding: '0.2rem 0.45rem', borderRadius: '4px' }}>
-                    {extractArticleMetaData(featuredStory).publisher} • {formatNewsTime(featuredStory.date)}
-                  </span>
-                </div>
-
-                {/* Headline & Engagement Bar */}
-                <div style={{ zIndex: 2 }}>
-                  <h2 
-                    onClick={() => handleCardClick(featuredStory)} 
-                    style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffffff', margin: '0.3rem 0', cursor: 'pointer', lineHeight: '1.35', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                  >
-                    {featuredStory.title}
-                  </h2>
-
-                  <div className="flex justify-between align-center mt-1.5 pt-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                    <span className="text-xs text-white opacity-90 font-semibold" style={{ fontSize: '0.72rem' }}>
-                      Click story to read full coverage
-                    </span>
-
-                    {/* Dots indicator */}
-                    <div className="flex gap-1 align-center">
-                      {filteredBlogs.slice(0, 5).map((_, i) => (
-                        <span 
-                          key={i} 
-                          onClick={(e) => { e.stopPropagation(); setHeroIdx(i); }}
-                          style={{ 
-                            width: i === heroIdx ? '14px' : '5px', 
-                            height: '5px', 
-                            borderRadius: '3px', 
-                            backgroundColor: i === heroIdx ? '#f2b705' : 'rgba(255,255,255,0.5)',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s'
-                          }} 
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Medium News Cards (Responsive grid: 2 col desktop, 1 col mobile) */}
-            {filteredBlogs.length === 0 ? (
-              <div className="bg-white p-4 text-center" style={{ borderRadius: '12px' }}>
-                <p className="text-muted text-sm my-0 font-bold">No articles found matching search query.</p>
+            {filteredLiveNews.length === 0 ? (
+              <div className="bg-white p-4 text-center" style={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                <p className="text-muted text-sm my-0 font-bold">No live news stories found matching this category.</p>
               </div>
             ) : (
-              <div className="msn-medium-news-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem' }}>
-                {filteredBlogs.filter(b => b.id !== featuredStory?.id).slice(0, 4).map(blog => {
-                  const { publisher, cleanSummary } = extractArticleMetaData(blog);
+              <div className="grid grid-3 gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {filteredLiveNews.map(news => {
+                  const { publisher } = extractArticleMetaData(news);
                   return (
                     <div 
-                      key={blog.id} 
+                      key={news.id}
                       className="bg-white shadow-sm flex flex-col justify-between cursor-pointer"
-                      onClick={() => handleCardClick(blog)}
-                      style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e5e7eb', height: '100%' }}
+                      style={{ borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                      onClick={() => handleCardClick(news)}
                     >
                       <div>
-                        <div style={{ height: '120px', position: 'relative' }}>
-                          <img src={blog.image} alt={blog.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <span style={{ position: 'absolute', bottom: '6px', left: '6px', backgroundColor: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '0.62rem', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
-                            {blog.category}
+                        <div 
+                          style={{ 
+                            height: '150px', 
+                            backgroundImage: `url(${news.image})`, 
+                            backgroundSize: 'cover', 
+                            backgroundPosition: 'center', 
+                            position: 'relative' 
+                          }}
+                        >
+                          <span style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: '#dc2626', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                            {publisher}
+                          </span>
+                          <span style={{ position: 'absolute', bottom: '8px', right: '8px', backgroundColor: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.62rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                            {formatNewsTime(news.date)}
                           </span>
                         </div>
-                        <div style={{ padding: '0.65rem' }}>
-                          <div className="flex align-center gap-1 text-xs text-muted mb-0.5" style={{ fontSize: '0.7rem' }}>
-                            <span style={{ color: '#2563eb', fontWeight: 700 }}>{publisher}</span>
-                            <span>• {formatNewsTime(blog.date)}</span>
-                          </div>
-                          <h4 
-                            style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--primary)', margin: '0.2rem 0', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '2.3em' }}
-                          >
-                            {blog.title}
+
+                        <div className="p-3">
+                          <h4 style={{ fontSize: '0.92rem', fontWeight: 700, margin: '0 0 0.4rem 0', color: '#111827', lineHeight: '1.35', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '2.5em' }}>
+                            {news.title}
                           </h4>
-                          <p className="text-xs text-muted my-0.5" style={{ fontSize: '0.74rem', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{cleanSummary}</p>
+                          <p style={{ fontSize: '0.76rem', color: '#4b5563', margin: 0, lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '2.8em' }}>
+                            {news.summary}
+                          </p>
                         </div>
                       </div>
 
-                      {/* Clean Card Footer */}
-                      <div className="flex justify-end align-center px-2.5 py-1.5" style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#f8fafc' }}>
-                        <span className="text-xs font-bold text-secondary flex align-center gap-0.5" style={{ fontSize: '0.72rem' }}>
-                          Read Story →
+                      <div className="px-3 py-2 flex justify-between align-center" style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#fafafa' }}>
+                        <span className="text-xs text-muted font-semibold" style={{ fontSize: '0.7rem' }}>{news.category}</span>
+                        <span className="text-xs font-bold text-primary flex align-center gap-0.5" style={{ fontSize: '0.74rem' }}>
+                          Read Story <ExternalLink size={12} />
                         </span>
                       </div>
                     </div>
@@ -688,67 +599,76 @@ export const BlogPage: React.FC<BlogProps> = ({
                 })}
               </div>
             )}
-          </div>
+          </section>
+        )}
 
-          {/* COLUMN 3 (RIGHT): MSN Weather Card & Hot News Flash Stack */}
-          <div className="msn-col-right flex flex-col gap-3">
-            {/* MSN Style Weather Widget */}
-            <div 
-              className="msn-weather-card p-3 text-white shadow-md relative"
-              style={{ 
-                background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)', 
-                borderRadius: '12px', 
-                boxShadow: '0 4px 15px rgba(30,64,175,0.25)' 
-              }}
-            >
-              <div className="flex justify-between align-center text-xs mb-1" style={{ opacity: 0.9, fontSize: '0.75rem' }}>
-                <span className="font-bold flex align-center gap-0.5">📍 Manoharabad / Vizag ▾</span>
-                <MoreHorizontal size={14} />
+        {/* SECTION 2: ✍️ COMPANY BLOGS & INSIGHTS (FROM DATABASE) */}
+        {(activeSection === 'all' || activeSection === 'blogs') && (
+          <section className="mb-4">
+            <div className="flex justify-between align-center mb-3 flex-wrap gap-1">
+              <div>
+                <h3 className="my-0 flex align-center gap-1.5 text-primary" style={{ fontSize: '1.2rem', fontWeight: 800 }}>
+                  ✍️ Company Blogs & Insights
+                </h3>
+                <span className="text-xs text-muted" style={{ fontSize: '0.74rem' }}>
+                  Articles and announcements from JK Future Infra database
+                </span>
               </div>
-
-              <div className="flex align-center justify-between my-1">
-                <div className="flex align-center gap-2">
-                  <Sun size={34} color="#f2b705" />
-                  <div>
-                    <h2 className="my-0 text-white" style={{ fontSize: '1.8rem', fontWeight: 800, lineHeight: 1 }}>28°C</h2>
-                    <span className="text-xs" style={{ opacity: 0.85, fontSize: '0.7rem' }}>Humidity 68%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Hourly Chips */}
-              <div className="flex justify-between align-center mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.2)', fontSize: '0.68rem' }}>
-                {['12 PM', '1 PM', '2 PM', '3 PM', '4 PM'].map((time, idx) => (
-                  <div key={idx} className="text-center">
-                    <div style={{ opacity: 0.8 }}>{time}</div>
-                    <div className="font-bold my-0.5">{29 + (idx % 2)}°</div>
-                    <div style={{ fontSize: '0.62rem', color: '#fef08a' }}>▲ {(idx + 3)}%</div>
-                  </div>
-                ))}
-              </div>
+              <span className="text-xs text-muted font-bold" style={{ backgroundColor: '#e2e8f0', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>
+                {filteredDbBlogs.length} Articles
+              </span>
             </div>
 
-            {/* Trending Hot Flashes Stack */}
-            <div className="bg-white p-3 shadow-sm" style={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-              <h4 className="my-0 text-xs font-bold text-primary mb-2 flex align-center gap-1" style={{ fontSize: '0.82rem' }}>
-                <TrendingUp size={14} color="#dc2626" /> Hot Property Headlines
-              </h4>
+            {filteredDbBlogs.length === 0 ? (
+              <div className="bg-white p-4 text-center" style={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+                <p className="text-muted text-sm my-0 font-bold">No company blogs available in this category.</p>
+              </div>
+            ) : (
+              <div className="grid grid-3 gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {filteredDbBlogs.map(blog => (
+                  <div 
+                    key={blog.id}
+                    className="bg-white shadow-sm flex flex-col justify-between cursor-pointer"
+                    style={{ borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                    onClick={() => onNavigate('blog-details', null, null, { slug: blog.slug })}
+                  >
+                    <div>
+                      <div 
+                        style={{ 
+                          height: '150px', 
+                          backgroundImage: `url(${blog.image || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80'})`, 
+                          backgroundSize: 'cover', 
+                          backgroundPosition: 'center', 
+                          position: 'relative' 
+                        }}
+                      >
+                        <span style={{ position: 'absolute', top: '8px', left: '8px', backgroundColor: 'var(--primary)', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                          {blog.category}
+                        </span>
+                      </div>
 
-              <div className="flex flex-col gap-2">
-                {blogs.slice(0, 3).map((b, i) => (
-                  <div key={i} onClick={() => onNavigate('blog-details', null, null, { slug: b.slug })} className="flex gap-2 align-center p-1.5 hover-bg-light" style={{ cursor: 'pointer', borderRadius: '6px', border: '1px solid #f3f4f6', backgroundColor: '#fafafa' }}>
-                    <img src={b.image} alt={b.title} style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <h5 className="my-0 text-xs font-bold text-primary line-clamp-2" style={{ fontSize: '0.75rem', lineHeight: '1.25' }}>{b.title}</h5>
-                      <span className="text-xxs text-muted" style={{ fontSize: '0.65rem' }}>{formatNewsTime(b.date)}</span>
+                      <div className="p-3">
+                        <h4 style={{ fontSize: '0.92rem', fontWeight: 700, margin: '0 0 0.4rem 0', color: '#111827', lineHeight: '1.35', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '2.5em' }}>
+                          {blog.title}
+                        </h4>
+                        <p style={{ fontSize: '0.76rem', color: '#4b5563', margin: 0, lineHeight: '1.4', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '2.8em' }}>
+                          {blog.summary}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="px-3 py-2 flex justify-between align-center" style={{ borderTop: '1px solid #f3f4f6', backgroundColor: '#fafafa' }}>
+                      <span className="text-xs text-muted font-semibold" style={{ fontSize: '0.7rem' }}>{formatNewsTime(blog.date)}</span>
+                      <span className="text-xs font-bold text-primary flex align-center gap-0.5" style={{ fontSize: '0.74rem' }}>
+                        Read Article →
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-        </div>
+            )}
+          </section>
+        )}
       </div>
 
       <style>{`
