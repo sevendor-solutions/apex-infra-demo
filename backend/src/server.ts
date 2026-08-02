@@ -42,16 +42,35 @@ import { seedDatabase } from "./utils/seeder";
 const app = express();
 app.set("trust proxy", true);
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "https://jkfutureinfra.com",
+  "https://www.jkfutureinfra.com",
+  "http://jkfutureinfra.com",
+  "http://www.jkfutureinfra.com"
+];
+
+const envAllowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
-  : ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+  : [];
+
+const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...envAllowedOrigins])];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, Postman) or matching allowed origins
-    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+    // Allow requests with no origin (like mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    
+    const isAllowed = allowedOrigins.includes("*") || 
+                      allowedOrigins.includes(origin) ||
+                      origin.endsWith("jkfutureinfra.com");
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
+      console.warn(`⚠️ CORS blocked request from unknown origin: ${origin}`);
       callback(new Error(`CORS policy blocked request from origin: ${origin}`));
     }
   },
@@ -100,8 +119,15 @@ app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/invoices", invoicesRoutes);
 app.use("/api/payments", paymentsRoutes);
 
-// Test routes
-// Safe Health Check route for Dokploy / Load Balancers
+// Root & Health Check routes for Dokploy / Load Balancers
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    message: "JK Future Infra API Server is running",
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
