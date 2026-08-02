@@ -2909,6 +2909,111 @@ button {
   }
 }
 
+/* Modern MSN-Style Real Estate News Portal & Blog Design System */
+
+/* Navigation & Header Bar */
+.news-top-bar {
+  border-radius: 12px;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+/* Horizontal Scrollable Category Pills on Mobile */
+.news-tabs-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 0.2rem 0;
+  max-width: 100%;
+}
+
+.news-tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* MSN Portal 3-Column Grid Responsive Layout */
+.msn-portal-grid {
+  display: grid;
+  grid-template-columns: 240px 1fr 270px;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* Media Query Overrides for Mobile & Tablet */
+@media (max-width: 1024px) {
+  .msn-portal-grid {
+    grid-template-columns: 240px 1fr;
+  }
+  .msn-col-right {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .news-top-bar {
+    padding: 0.65rem 0.85rem !important;
+  }
+
+  .msn-portal-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  .msn-col-center {
+    order: 1 !important;
+    width: 100% !important;
+  }
+
+  .msn-col-left {
+    order: 2 !important;
+    width: 100% !important;
+  }
+
+  .msn-col-right {
+    order: 3 !important;
+    width: 100% !important;
+  }
+
+  .msn-medium-news-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .msn-hero-card {
+    height: 220px !important;
+    padding: 1rem !important;
+  }
+
+  .msn-hero-card h2 {
+    font-size: 1.05rem !important;
+    line-height: 1.3 !important;
+  }
+
+  .premium-article {
+    padding: 1.25rem 1rem !important;
+    border-radius: 14px !important;
+  }
+
+  .blog-detail-img-box {
+    height: auto !important;
+    aspect-ratio: 16 / 10 !important;
+    max-height: 260px !important;
+    margin-bottom: 1.25rem !important;
+  }
+
+  .blog-detail-header h1 {
+    font-size: 1.5rem !important;
+  }
+
+  .blog-content-body {
+    font-size: 0.98rem !important;
+    line-height: 1.75 !important;
+  }
+}
+
 /* Blog Card Styles (Shared across Home & Blog pages) */
 .blog-home-card {
   cursor: pointer;
@@ -2918,6 +3023,8 @@ button {
   box-shadow: var(--shadow-md);
   transition: var(--transition-normal);
   border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
 }
 
 .blog-home-card:hover {
@@ -2958,6 +3065,7 @@ button {
 
 .blog-home-body {
   padding: 1.5rem;
+  flex: 1;
 }
 
 .blog-home-body h3 {
@@ -3023,7 +3131,7 @@ button {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-color);
-  padding: 2.5rem 3rem !important;
+  padding: 2.5rem 3rem;
 }
 
 .blog-detail-header .badge-cat {

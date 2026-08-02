@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Project, ProjectCategory, PropertyType, Facing, City, LocationMaster } from '../types';
 import { MapPin, ArrowRight, ShieldCheck, TrendingUp, Sparkles, Key, Search, ChevronDown, SlidersHorizontal, Compass, Building2, Home, LayoutGrid, List, Eye, FileText } from 'lucide-react';
-import { getProjectMainImage } from '../utils/image';
+import { getProjectMainImage, getSegmentFallbackSpecImage } from '../utils/image';
 
 interface MarketingProps {
   category: ProjectCategory;
@@ -746,7 +746,7 @@ export const Marketing: React.FC<MarketingProps> = ({
               </div>            ) : viewMode === 'grid' ? (
               <div className="grid grid-3 gap-3">
                 {finalFilteredProjects.map(project => {
-                  const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
+                  const specPlanImage = getSegmentFallbackSpecImage(project);
                   return (
                     <div key={project.id} className="property-card flex flex-col" style={{ height: '100%', border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden' }}>
                       <div className="property-card-img-wrapper" onClick={() => onNavigate('project-details', null, null, { id: project.id, isMarketing: true })} style={{ cursor: 'pointer', height: '200px', position: 'relative' }}>
@@ -849,7 +849,7 @@ export const Marketing: React.FC<MarketingProps> = ({
               /* ── LIST VIEW ── */
               <div className="flex flex-col gap-3">
                 {finalFilteredProjects.map(project => {
-                  const specPlanImage = project.specImage || (project.floorPlans && project.floorPlans[0]?.image) || '';
+                  const specPlanImage = getSegmentFallbackSpecImage(project);
                   return (
                     <div key={project.id} className="mkt-list-card glass-card flex" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--white)' }}>
                       {/* Left: Image Column */}

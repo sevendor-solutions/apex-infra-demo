@@ -39,11 +39,24 @@ import paymentsRoutes from "./routes/payments";
 // Import seeder
 import { seedDatabase } from "./utils/seeder";
 
-dotenv.config();
-
 const app = express();
 app.set("trust proxy", true);
-app.use(cors());
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map(o => o.trim())
+  : ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman) or matching allowed origins
+    if (!origin || allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy blocked request from origin: ${origin}`));
+    }
+  },
+  credentials: true
+}));
 app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
@@ -88,18 +101,11 @@ app.use("/api/invoices", invoicesRoutes);
 app.use("/api/payments", paymentsRoutes);
 
 // Test routes
-app.get("/", (req, res) => res.send("JK Future Infra Backend (Sequelize) is running!"));
-app.get("/api/db-info", (req, res) => {
+// Safe Health Check route for Dokploy / Load Balancers
+app.get("/api/health", (req, res) => {
   res.json({
-    dbType: process.env.DB_TYPE || "postgres",
-    pg_db: process.env.PG_DB,
-    pg_host: process.env.PG_HOST,
-    pg_port: process.env.PG_PORT,
-    sqlite_storage: process.env.SQLITE_STORAGE || "./database.sqlite",
-    mysql_db: process.env.MYSQL_DB,
-    mysql_host: process.env.MYSQL_HOST,
-    mssql_db: process.env.DB_NAME,
-    mssql_host: process.env.DB_HOST
+    status: "ok",
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -139,9 +145,10 @@ UPLOAD_SUBFOLDERS.forEach((folder) => {
 });
 
 // Initialize Database & Start Express Server
-sequelize.sync({ alter: true }) // Automatically add/drop columns and create tables on startup through the backend server
+const isProduction = process.env.NODE_ENV === "production";
+sequelize.sync({ alter: !isProduction })
   .then(async () => {
-    console.log("🔥 Sequelize Database Connected & Synced (Alter Mode)!");
+    console.log(`🔥 Sequelize Database Connected & Synced (${isProduction ? 'Standard Mode' : 'Alter Mode'})!`);
 
     // Run the data seeder
     await seedDatabase();

@@ -77,6 +77,16 @@ function App() {
     initDB();
     refreshData();
 
+    // ⚡ Auto-refresh Google News blog feed every 60 seconds (1 minute)
+    const newsInterval = setInterval(async () => {
+      try {
+        const blgs = await getBlogs();
+        setBlogs(blgs);
+      } catch (err) {
+        console.error("Auto-sync blog news error:", err);
+      }
+    }, 60000);
+
     const parseCleanRoute = () => {
       let pathname = window.location.pathname || '/';
       let search = window.location.search || '';
@@ -156,6 +166,7 @@ function App() {
     parseCleanRoute(); // Check route on initial load
     window.addEventListener('popstate', parseCleanRoute);
     return () => {
+      clearInterval(newsInterval);
       window.removeEventListener('popstate', parseCleanRoute);
     };
   }, []);
@@ -358,7 +369,7 @@ function App() {
       <div className="page-body-container" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {activePage === 'home' && (
           <Home 
-            projects={[...projects, ...marketing]}
+            projects={projects}
             blogs={blogs}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -369,7 +380,7 @@ function App() {
 
         {activePage === 'projects' && (
           <Projects 
-            projects={[...projects, ...marketing]}
+            projects={projects}
             initialParams={activeParams}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -383,7 +394,7 @@ function App() {
         {/* Dynamic status listings */}
         {activePage === 'projects-ongoing' && (
           <Projects 
-            projects={[...projects, ...marketing]}
+            projects={projects}
             initialParams={{ status: 'Ongoing' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -395,7 +406,7 @@ function App() {
         )}
         {activePage === 'projects-upcoming' && (
           <Projects 
-            projects={[...projects, ...marketing]}
+            projects={projects}
             initialParams={{ status: 'Upcoming' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}
@@ -407,7 +418,7 @@ function App() {
         )}
         {activePage === 'projects-completed' && (
           <Projects 
-            projects={[...projects, ...marketing]}
+            projects={projects}
             initialParams={{ status: 'Completed' }}
             onNavigate={handleNavigate}
             onOpenEnquiry={handleOpenEnquiryModal}

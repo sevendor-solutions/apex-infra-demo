@@ -138,6 +138,7 @@ export const Projects: React.FC<ProjectsProps> = ({
   const filteredProjects = useMemo(() => {
     return projects.filter(p => {
       if (p.isActive === false) return false;
+      if (p.isMarketing === true) return false;
       // 1. Keyword search
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                             p.location.toLowerCase().includes(search.toLowerCase()) ||
@@ -995,13 +996,14 @@ export const Projects: React.FC<ProjectsProps> = ({
                   /* List Layout - Side-by-Side Images Specification Cards */
                   <div className="flex flex-col gap-3" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     {paginatedProjects.map(project => {
-                      const specPlanImage = project.specImage || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
+                      const renderElevationImage = project.specImage || (project.images && project.images.length > 1 ? project.images[1] : project.images?.[0]) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
+                      const specPlanImage = (project.images && project.images.length > 0 ? project.images[0] : project.specImage) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
                       return (
                         <div key={project.id} className="premium-spec-card flex shadow-sm" style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', backgroundColor: 'var(--white)' }}>
                           {/* Left Block: Render elevation & specs side by side */}
                           <div className="card-visual-images flex" style={{ display: 'flex', flex: 1, minWidth: '360px', position: 'relative' }}>
                             <div className="visual-img-box" style={{ flex: 1, height: '240px', position: 'relative', overflow: 'hidden' }}>
-                              <img src={project.images[0]} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={renderElevationImage} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <div className="img-overlay-label">Render Elevation</div>
                             </div>
                             <div className="visual-img-box" style={{ flex: 1, height: '240px', position: 'relative', overflow: 'hidden', borderLeft: '2px solid var(--white)' }}>
