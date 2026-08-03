@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "vite-plugin-sitemap": "^0.8.2"
+  },
+  "dependencies": {
+    "react-ga4": "^3.0.1"
   }
 }

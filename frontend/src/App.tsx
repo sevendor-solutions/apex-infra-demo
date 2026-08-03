@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
+import { pageView } from './utils/analytics';
 
 // Pages
 import { Home } from './pages/Home';
@@ -24,10 +25,16 @@ interface Toast {
 function App() {
   // Navigation Routing States
   const [activePage, setActivePage] = useState<string>('home');
+  useEffect(() => {
+  pageView("/" + activePage);
+}, [activePage]);
+
   const [activeCategory, setActiveCategory] = useState<ProjectCategory | null>(null);
   const [activeSiteCategory, setActiveSiteCategory] = useState<string | null>(null);
   const [activeParams, setActiveParams] = useState<any>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+
+  
 
   useEffect(() => {
     const handleScroll = () => {
