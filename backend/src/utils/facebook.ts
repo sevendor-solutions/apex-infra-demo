@@ -59,7 +59,11 @@ export async function publishToFacebook(message: string, imageUrl?: string): Pro
     }
 }
 
-export async function publishToInstagram(message: string, imageUrl: string): Promise<{ success: boolean; postId?: string; error?: string }> {
+export async function publishToInstagram(
+    message: string, 
+    imageUrl: string, 
+    fallbackImageUrl?: string
+): Promise<{ success: boolean; postId?: string; error?: string; usedFallback?: boolean }> {
     try {
         const config = await MailConfig.findByPk("default");
         if (!config) {
@@ -79,69 +83,87 @@ export async function publishToInstagram(message: string, imageUrl: string): Pro
             return { success: false, error: "Invalid Instagram Account ID" };
         }
 
-        // Step 1: Create media container
-        const containerUrl = `https://graph.facebook.com/v20.0/${igUserId}/media`;
-        const containerResponse = await fetch(containerUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                image_url: imageUrl,
-                caption: message,
-                access_token: facebookPageAccessToken
-            })
-        });
+        // Helper function to create & publish media container
+        const attemptPublish = async (targetUrl: string): Promise<{ success: boolean; postId?: string; error?: string }> => {
+            // Step 1: Create media container
+            const containerUrl = `https://graph.facebook.com/v20.0/${igUserId}/media`;
+            const containerResponse = await fetch(containerUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    image_url: targetUrl,
+                    caption: message,
+                    access_token: facebookPageAccessToken
+                })
+            });
 
-        const containerData: any = await containerResponse.json();
-        if (!containerResponse.ok || !containerData.id) {
-            const errDetails = containerData.error ? containerData.error.message : JSON.stringify(containerData);
-            return { success: false, error: `Failed to create Instagram media container: ${errDetails}` };
+            const containerData: any = await containerResponse.json();
+            if (!containerResponse.ok || !containerData.id) {
+                const errDetails = containerData.error ? containerData.error.message : JSON.stringify(containerData);
+                return { success: false, error: errDetails };
+            }
+
+            const creationId = containerData.id;
+
+            // Step 2: Poll/Wait for container to be ready (up to 10 seconds)
+            let isReady = false;
+            const statusUrl = `https://graph.facebook.com/v20.0/${creationId}?fields=status_code&access_token=${facebookPageAccessToken}`;
+            
+            for (let attempt = 0; attempt < 5; attempt++) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const statusResponse = await fetch(statusUrl);
+                if (statusResponse.ok) {
+                    const statusData: any = await statusResponse.json();
+                    if (statusData.status_code === "FINISHED") {
+                        isReady = true;
+                        break;
+                    } else if (statusData.status_code === "ERROR") {
+                        const errDetails = statusData.error ? statusData.error.message : "Container processing error";
+                        return { success: false, error: errDetails };
+                    }
+                }
+            }
+
+            if (!isReady) {
+                console.log("Instagram media container polling timed out, attempting publish anyway...");
+            }
+
+            // Step 3: Publish container
+            const publishUrl = `https://graph.facebook.com/v20.0/${igUserId}/media_publish`;
+            const publishResponse = await fetch(publishUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    creation_id: creationId,
+                    access_token: facebookPageAccessToken
+                })
+            });
+
+            const publishData: any = await publishResponse.json();
+            if (publishResponse.ok && publishData.id) {
+                return { success: true, postId: publishData.id };
+            } else {
+                const errDetails = publishData.error ? publishData.error.message : JSON.stringify(publishData);
+                return { success: false, error: errDetails };
+            }
+        };
+
+        // Try publishing with primary image URL
+        const primaryResult = await attemptPublish(imageUrl);
+        if (primaryResult.success) {
+            return primaryResult;
         }
 
-        const creationId = containerData.id;
-
-        // Step 2: Poll/Wait for container to be ready (up to 10 seconds)
-        let isReady = false;
-        const statusUrl = `https://graph.facebook.com/v20.0/${creationId}?fields=status_code&access_token=${facebookPageAccessToken}`;
-        
-        for (let attempt = 0; attempt < 5; attempt++) {
-            // Wait 2 seconds before checking status
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const statusResponse = await fetch(statusUrl);
-            if (statusResponse.ok) {
-                const statusData: any = await statusResponse.json();
-                if (statusData.status_code === "FINISHED") {
-                    isReady = true;
-                    break;
-                } else if (statusData.status_code === "ERROR") {
-                    const errDetails = statusData.error ? statusData.error.message : "Container processing error";
-                    return { success: false, error: `Instagram media processing failed: ${errDetails}` };
-                }
+        // If primary image failed (e.g. aspect ratio unsupported) and a fallback logo URL exists, retry with fallback
+        if (fallbackImageUrl && fallbackImageUrl !== imageUrl) {
+            console.warn(`Instagram publish failed with primary image (${primaryResult.error}). Retrying with fallback logo: ${fallbackImageUrl}`);
+            const fallbackResult = await attemptPublish(fallbackImageUrl);
+            if (fallbackResult.success) {
+                return { success: true, postId: fallbackResult.postId, usedFallback: true };
             }
         }
 
-        if (!isReady) {
-            console.log("Instagram media container polling timed out, attempting publish anyway...");
-        }
-
-        // Step 3: Publish container
-        const publishUrl = `https://graph.facebook.com/v20.0/${igUserId}/media_publish`;
-        const publishResponse = await fetch(publishUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                creation_id: creationId,
-                access_token: facebookPageAccessToken
-            })
-        });
-
-        const publishData: any = await publishResponse.json();
-        if (publishResponse.ok && publishData.id) {
-            return { success: true, postId: publishData.id };
-        } else {
-            const errDetails = publishData.error ? publishData.error.message : JSON.stringify(publishData);
-            return { success: false, error: `Failed to publish Instagram media: ${errDetails}` };
-        }
+        return { success: false, error: `Failed to create Instagram media container: ${primaryResult.error}` };
     } catch (err: any) {
         console.error("Instagram API publishing failed:", err);
         return { success: false, error: err.message || "Unknown transport error" };

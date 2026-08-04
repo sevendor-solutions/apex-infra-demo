@@ -1,3 +1,4 @@
+import path from "path";
 import { Router } from "express";
 import { Op } from "sequelize";
 import { Project } from "../models/Project";
@@ -5,6 +6,7 @@ import { MarketingAgent } from "../models/MarketingAgent";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
 import { publishToFacebook, publishToInstagram } from "../utils/facebook";
+import { ensureInstagramCompatibleImage } from "../utils/imageResizer";
 
 async function buildSocialPostMessage(project: any): Promise<string> {
     const locParts = [project.location, project.microLocation, project.city].filter(Boolean);
@@ -108,47 +110,62 @@ router.post("/", authenticateToken, async (req, res, next) => {
         if (autoPostSocial) {
             (async () => {
                 try {
-                    let firstImg: string | undefined = undefined;
-                    if (newProject.isMarketing) {
-                        firstImg = (newProject.images && newProject.images.length > 0) ? newProject.images[0] : newProject.specImage;
-                    } else {
-                        firstImg = newProject.specImage || ((newProject.images && newProject.images.length > 0) ? newProject.images[0] : undefined);
-                    }
+                    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+                    const host = req.get("host");
+                    const fallbackLogoUrl = `${protocol}://${host}/uploads/logo.png`;
 
-                    let absoluteImgUrl: string | undefined = undefined;
-                    if (firstImg) {
-                        if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
-                            absoluteImgUrl = firstImg;
-                        } else {
-                            const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                            const host = req.get("host");
-                            absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                    let firstImgUrl: string | undefined = undefined;
+                    let igImgUrl: string | undefined = undefined;
+
+                    const allCandidateUrls = [
+                      ...(newProject.images || []),
+                      ...(newProject.specImage ? newProject.specImage.split(',').map(u => u.trim()) : [])
+                    ].filter(Boolean);
+
+                    // Filter for image URLs (exclude .pdf, .mp4, .webm, .mov, .avi)
+                    const imageCandidates = allCandidateUrls.filter(url => !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
+                    if (imageCandidates.length > 0) {
+                      const img = imageCandidates[0];
+                      if (img.startsWith("http://") || img.startsWith("https://")) {
+                        firstImgUrl = img;
+                        igImgUrl = img;
+                      } else {
+                        const cleanPath = img.startsWith("/") ? img : `/${img}`;
+                        firstImgUrl = `${protocol}://${host}${cleanPath}`;
+                        
+                        // Auto-adjust aspect ratio for Instagram if local file
+                        try {
+                          const publicDir = path.join(__dirname, "../../public");
+                          const diskPath = path.join(publicDir, cleanPath);
+                          const adjustedDiskPath = await ensureInstagramCompatibleImage(diskPath);
+                          if (adjustedDiskPath && adjustedDiskPath !== diskPath) {
+                            const relPath = path.relative(publicDir, adjustedDiskPath).replace(/\\/g, "/");
+                            igImgUrl = `${protocol}://${host}/${relPath.startsWith('/') ? relPath.slice(1) : relPath}`;
+                          } else {
+                            igImgUrl = firstImgUrl;
+                          }
+                        } catch (resErr) {
+                          console.warn("Instagram image auto-adjust failed, using original image URL:", resErr);
+                          igImgUrl = firstImgUrl;
                         }
+                      }
                     }
 
                     const message = await buildSocialPostMessage(newProject);
 
                     // Post to Facebook
-                    const fbResult = await publishToFacebook(message, absoluteImgUrl);
+                    const fbResult = await publishToFacebook(message, firstImgUrl);
                     if (fbResult.success) {
                         await logAuditAction(req, "Social Media Post", `Auto-published "${newProject.name}" to live Facebook Page (Post ID: ${fbResult.postId})`, "Success");
                     } else {
                         await logAuditAction(req, "Social Media Post Failed", `Failed auto-publishing "${newProject.name}" to Facebook Page: ${fbResult.error}`, "Failed");
                     }
 
-                    // Post to Instagram (use uploaded image, or fall back to default logo)
-                    let igImgUrl = absoluteImgUrl;
-                    let usingFallbackLogo = false;
-                    if (!igImgUrl) {
-                        const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                        const host = req.get("host");
-                        igImgUrl = `${protocol}://${host}/uploads/logo.png`;
-                        usingFallbackLogo = true;
-                    }
-
-                    const igResult = await publishToInstagram(message, igImgUrl);
+                    // Post to Instagram (use auto-adjusted image or fallback logo, with automatic retry fallback)
+                    const targetIgUrl = igImgUrl || fallbackLogoUrl;
+                    const igResult = await publishToInstagram(message, targetIgUrl, fallbackLogoUrl);
                     if (igResult.success) {
-                        const suffix = usingFallbackLogo ? " (using default logo)" : "";
+                        const suffix = igResult.usedFallback || targetIgUrl === fallbackLogoUrl ? " (using logo image fallback)" : "";
                         await logAuditAction(req, "Social Media Post", `Auto-published "${newProject.name}" to Instagram${suffix} (Post ID: ${igResult.postId})`, "Success");
                     } else {
                         await logAuditAction(req, "Social Media Post Failed", `Failed auto-publishing "${newProject.name}" to Instagram: ${igResult.error}`, "Failed");
@@ -215,47 +232,62 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (autoPostSocial) {
             (async () => {
                 try {
-                    let firstImg: string | undefined = undefined;
-                    if (project.isMarketing) {
-                        firstImg = (project.images && project.images.length > 0) ? project.images[0] : project.specImage;
-                    } else {
-                        firstImg = project.specImage || ((project.images && project.images.length > 0) ? project.images[0] : undefined);
-                    }
+                    const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+                    const host = req.get("host");
+                    const fallbackLogoUrl = `${protocol}://${host}/uploads/logo.png`;
 
-                    let absoluteImgUrl: string | undefined = undefined;
-                    if (firstImg) {
-                        if (firstImg.startsWith("http://") || firstImg.startsWith("https://")) {
-                            absoluteImgUrl = firstImg;
-                        } else {
-                            const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                            const host = req.get("host");
-                            absoluteImgUrl = `${protocol}://${host}${firstImg.startsWith("/") ? "" : "/"}${firstImg}`;
+                    let firstImgUrl: string | undefined = undefined;
+                    let igImgUrl: string | undefined = undefined;
+
+                    const allCandidateUrls = [
+                      ...(project.images || []),
+                      ...(project.specImage ? project.specImage.split(',').map(u => u.trim()) : [])
+                    ].filter(Boolean);
+
+                    // Filter for image URLs (exclude .pdf, .mp4, .webm, .mov, .avi)
+                    const imageCandidates = allCandidateUrls.filter(url => !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
+                    if (imageCandidates.length > 0) {
+                      const img = imageCandidates[0];
+                      if (img.startsWith("http://") || img.startsWith("https://")) {
+                        firstImgUrl = img;
+                        igImgUrl = img;
+                      } else {
+                        const cleanPath = img.startsWith("/") ? img : `/${img}`;
+                        firstImgUrl = `${protocol}://${host}${cleanPath}`;
+                        
+                        // Auto-adjust aspect ratio for Instagram if local file
+                        try {
+                          const publicDir = path.join(__dirname, "../../public");
+                          const diskPath = path.join(publicDir, cleanPath);
+                          const adjustedDiskPath = await ensureInstagramCompatibleImage(diskPath);
+                          if (adjustedDiskPath && adjustedDiskPath !== diskPath) {
+                            const relPath = path.relative(publicDir, adjustedDiskPath).replace(/\\/g, "/");
+                            igImgUrl = `${protocol}://${host}/${relPath.startsWith('/') ? relPath.slice(1) : relPath}`;
+                          } else {
+                            igImgUrl = firstImgUrl;
+                          }
+                        } catch (resErr) {
+                          console.warn("Instagram image auto-adjust failed on update, using original image URL:", resErr);
+                          igImgUrl = firstImgUrl;
                         }
+                      }
                     }
 
                     const message = await buildSocialPostMessage(project);
 
                     // Post to Facebook
-                    const fbResult = await publishToFacebook(message, absoluteImgUrl);
+                    const fbResult = await publishToFacebook(message, firstImgUrl);
                     if (fbResult.success) {
                         await logAuditAction(req, "Social Media Post", `Auto-published update of "${project.name}" to live Facebook Page (Post ID: ${fbResult.postId})`, "Success");
                     } else {
                         await logAuditAction(req, "Social Media Post Failed", `Failed auto-publishing update of "${project.name}" to Facebook Page: ${fbResult.error}`, "Failed");
                     }
 
-                    // Post to Instagram (use uploaded image, or fall back to default logo)
-                    let igImgUrl = absoluteImgUrl;
-                    let usingFallbackLogo = false;
-                    if (!igImgUrl) {
-                        const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-                        const host = req.get("host");
-                        igImgUrl = `${protocol}://${host}/uploads/logo.png`;
-                        usingFallbackLogo = true;
-                    }
-
-                    const igResult = await publishToInstagram(message, igImgUrl);
+                    // Post to Instagram (use auto-adjusted image or fallback logo, with automatic retry fallback)
+                    const targetIgUrl = igImgUrl || fallbackLogoUrl;
+                    const igResult = await publishToInstagram(message, targetIgUrl, fallbackLogoUrl);
                     if (igResult.success) {
-                        const suffix = usingFallbackLogo ? " (using default logo)" : "";
+                        const suffix = igResult.usedFallback || targetIgUrl === fallbackLogoUrl ? " (using logo image fallback)" : "";
                         await logAuditAction(req, "Social Media Post", `Auto-published update of "${project.name}" to Instagram${suffix} (Post ID: ${igResult.postId})`, "Success");
                     } else {
                         await logAuditAction(req, "Social Media Post Failed", `Failed auto-publishing update of "${project.name}" to Instagram: ${igResult.error}`, "Failed");
