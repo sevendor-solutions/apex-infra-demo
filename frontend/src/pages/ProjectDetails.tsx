@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
+import { PDFDocument } from 'pdf-lib';
 import { MapPin, Download, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert, Compass, Layers, Home, Sparkles, SlidersHorizontal, Tag, Landmark, CheckCircle2, Video } from 'lucide-react';
 import type { Project, Enquiry } from '../types';
-import { getProjectGalleryImages } from '../utils/image';
+import { getProjectGalleryImages, getProjectPdfFiles } from '../utils/image';
 import { addEnquiry } from '../utils/db';
 import logoImg from '../assets/logo.png';
 
@@ -113,18 +114,10 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
     if (!project) return;
 
     // Collect all uploaded PDF documents attached to this project
-    const specPdfs = project.specImage 
-      ? project.specImage.split(',').map(u => u.trim()).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'))
-      : [];
-    const imgPdfs = (project.images || []).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'));
-    const brochurePdf = project.brochureUrl && project.brochureUrl !== '#' ? [project.brochureUrl] : [];
-    const uploadedPdfs = Array.from(new Set([...brochurePdf, ...specPdfs, ...imgPdfs])).filter(Boolean);
+    const uploadedPdfs = getProjectPdfFiles(project);
 
     if (uploadedPdfs.length > 0) {
-      onAddToast(`Opening ${uploadedPdfs.length} uploaded PDF document(s) & downloading summary...`, 'info');
-      uploadedPdfs.forEach(pdfUrl => {
-        window.open(pdfUrl, '_blank');
-      });
+      onAddToast(`Generating combined Brochure PDF (merging specs, images & ${uploadedPdfs.length} uploaded PDF document(s))...`, 'info');
     } else {
       onAddToast('Generating Brochure PDF, please wait...', 'info');
     }
@@ -308,6 +301,8 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         });
       }
 
+
+
       // Footer bar on last specs page
       doc.setFillColor(15, 43, 70);
       doc.rect(0, 267, 210, 30, 'F');
@@ -389,8 +384,39 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         }
       }
 
-      doc.save(`JK_Infra_${project.name.replace(/\s+/g, '_')}_Brochure.pdf`);
-      onAddToast('Brochure PDF downloaded successfully!', 'success');
+      // Merge main brochure pages with all uploaded PDF document pages
+      const mainPdfArrayBuffer = doc.output('arraybuffer');
+      const mergedPdf = await PDFDocument.load(mainPdfArrayBuffer);
+
+      if (uploadedPdfs.length > 0) {
+        onAddToast(`Merging ${uploadedPdfs.length} uploaded PDF document(s) into brochure...`, 'info');
+        for (const pdfUrl of uploadedPdfs) {
+          try {
+            const resp = await fetch(pdfUrl);
+            if (resp.ok) {
+              const pdfBytes = await resp.arrayBuffer();
+              const extDoc = await PDFDocument.load(pdfBytes);
+              const copiedPages = await mergedPdf.copyPages(extDoc, extDoc.getPageIndices());
+              copiedPages.forEach(page => mergedPdf.addPage(page));
+            }
+          } catch (e) {
+            console.warn(`Could not merge uploaded PDF ${pdfUrl}:`, e);
+          }
+        }
+      }
+
+      const mergedPdfBytes = await mergedPdf.save();
+      const blob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `JK_Infra_${project.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_Brochure.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      onAddToast('Brochure PDF (with all uploaded PDF pages included) downloaded successfully!', 'success');
     } catch (err: any) {
       console.error('PDF Generation failed:', err);
       onAddToast('Failed to generate Brochure PDF. Downloading text version instead.', 'error');
@@ -734,28 +760,6 @@ Email: jkfutureinfra@gmail.com
             </div>
           )}
 
-          {/* Timeline Milestones */}
-          {project.timeline && project.timeline.length > 0 && (
-            <div className="detail-card admin-card mb-3">
-              <h3 className="border-bottom-title mb-2">Construction Progress Timeline</h3>
-              <div className="timeline-trail flex flex-col gap-2">
-                {project.timeline.map((event, i) => (
-                  <div key={event.id} className="timeline-node flex gap-2">
-                    <div className="timeline-marker-box">
-                      <div className="timeline-dot" />
-                      {i < project.timeline.length - 1 && <div className="timeline-line" />}
-                    </div>
-                    <div className="timeline-node-content">
-                      <span className="timeline-node-date text-secondary font-bold text-sm">{event.date}</span>
-                      <h4>{event.title}</h4>
-                      <p className="text-muted text-sm">{event.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Video Walkthroughs & Virtual Tours (MP4 Player) */}
           {(() => {
             const specVideos = project.specImage 
@@ -804,12 +808,7 @@ Email: jkfutureinfra@gmail.com
 
           {/* PDF Blueprints & Documents Section */}
           {(() => {
-            const specPdfs = project.specImage 
-              ? project.specImage.split(',').map(u => u.trim()).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'))
-              : [];
-            const imgPdfs = (project.images || []).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'));
-            const brochurePdf = project.brochureUrl && project.brochureUrl !== '#' ? [project.brochureUrl] : [];
-            const allPdfs = Array.from(new Set([...brochurePdf, ...specPdfs, ...imgPdfs])).filter(Boolean);
+            const allPdfs = getProjectPdfFiles(project);
             if (allPdfs.length === 0) return null;
 
             return (
@@ -848,6 +847,28 @@ Email: jkfutureinfra@gmail.com
               </div>
             );
           })()}
+
+          {/* Timeline Milestones */}
+          {project.timeline && project.timeline.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2">Construction Progress Timeline</h3>
+              <div className="timeline-trail flex flex-col gap-2">
+                {project.timeline.map((event, i) => (
+                  <div key={event.id} className="timeline-node flex gap-2">
+                    <div className="timeline-marker-box">
+                      <div className="timeline-dot" />
+                      {i < project.timeline.length - 1 && <div className="timeline-line" />}
+                    </div>
+                    <div className="timeline-node-content">
+                      <span className="timeline-node-date text-secondary font-bold text-sm">{event.date}</span>
+                      <h4>{event.title}</h4>
+                      <p className="text-muted text-sm">{event.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Map Location — hidden for marketing projects unless showMap is enabled */}
           {(!isMarketing || showMap) && (

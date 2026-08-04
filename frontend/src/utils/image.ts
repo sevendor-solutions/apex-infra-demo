@@ -84,3 +84,35 @@ export const getSegmentFallbackSpecImage = (project: Project): string => {
   // Fallback default architectural plan image
   return 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1000&auto=format&fit=crop&q=80';
 };
+
+export const getProjectPdfFiles = (project: Project): string[] => {
+  if (!project) return [];
+  const set = new Set<string>();
+
+  const checkAndAdd = (u: string) => {
+    if (!u) return;
+    const trimmed = u.trim();
+    if (!trimmed || trimmed === '#') return;
+    const lower = trimmed.toLowerCase();
+    if (lower.includes('.pdf') || lower.endsWith('.pdf')) {
+      set.add(trimmed);
+    }
+  };
+
+  // 1. Brochure URL
+  if (project.brochureUrl) checkAndAdd(project.brochureUrl);
+
+  // 2. SpecImage
+  if (project.specImage) {
+    project.specImage.split(',').forEach(checkAndAdd);
+  }
+
+  // 3. Images array or string
+  if (Array.isArray(project.images)) {
+    project.images.forEach(checkAndAdd);
+  } else if (typeof project.images === 'string') {
+    (project.images as string).split(',').forEach(checkAndAdd);
+  }
+
+  return Array.from(set);
+};
