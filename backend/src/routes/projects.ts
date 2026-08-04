@@ -14,26 +14,37 @@ async function buildSocialPostMessage(project: any): Promise<string> {
     const cityHash = project.city ? `#${project.city.replace(/\s+/g, '')}` : '';
     const microHash = project.microLocation ? `#${project.microLocation.replace(/\s+/g, '')}` : '';
     const categoryHash = project.category ? `#${project.category.replace(/\s+/g, '')}` : '';
-    const hashtagsList = `#RealEstate #Housing #JKFutureInfra #Trending #Investment ${cityHash} ${microHash} ${categoryHash} #LuxuryLiving #DreamHome`.replace(/\s+/g, ' ').trim();
+    const hashtagsList = `#RealEstate #VisakhapatnamProperty #JKFutureInfra #Trending #Investment ${cityHash} ${microHash} ${categoryHash} #PlotsForSale #DreamHome`.replace(/\s+/g, ' ').trim();
 
-    const websiteUrl = "https://jkfutureinfra.com";
+    const baseUrl = "https://jkfutureinfra.com";
+    const propertyDetailUrl = project.id 
+        ? `${baseUrl}/project-details?id=${project.id}${project.isMarketing ? '&isMarketing=true' : ''}`
+        : baseUrl;
+
+    let phoneNum = "9000553832";
+    let agentName = "";
+    if (project.isMarketing && project.agentId) {
+        const agent = await MarketingAgent.findByPk(project.agentId);
+        if (agent?.phone) {
+            phoneNum = agent.phone.replace(/\D/g, "");
+            agentName = agent.name;
+        }
+    }
+    if (!phoneNum || phoneNum.length < 10) {
+        phoneNum = "9000553832";
+    }
+
+    const cleanDigits = phoneNum.slice(-10);
+    const waLink = `https://wa.me/91${cleanDigits}?text=${encodeURIComponent(`Hi, I am interested in ${project.name}`)}`;
 
     if (project.isMarketing) {
-        let agent: MarketingAgent | null = null;
-        if (project.agentId) {
-            agent = await MarketingAgent.findByPk(project.agentId);
-        }
-
-        const agentNameStr = agent?.name ? `👤 Marketing Agent: ${agent.name}\n` : '';
-        const agentPhoneStr = agent?.phone 
-            ? `📞 Call / WhatsApp Agent: ${agent.phone}\n` 
-            : `📞 Call / WhatsApp: +91 9000553832, +91 7893963322\n`;
-
-        return `✨ FEATURED PROPERTY SHOWCASE ✨\n\n🏢 Property: ${project.name}\n🏷️ Segment: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Investment: ${project.priceRange || 'Contact for Price'}\n\n📝 Description:\n${project.description || ''}\n\n🌐 Website: ${websiteUrl}\n${agentNameStr}${agentPhoneStr}\n${hashtagsList}`;
+        const agentNameStr = agentName ? `👤 Marketing Agent: ${agentName}\n` : '';
+        return `✨ FEATURED PROPERTY SHOWCASE ✨\n\n🏢 Property: ${project.name}\n🏷️ Segment: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Investment: ${project.priceRange || 'Contact for Price'}\n\n📝 Description:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n${agentNameStr}📞 Call / WhatsApp Agent: +91 ${cleanDigits}\n\n${hashtagsList}`;
     } else {
-        return `✨ PREMIUM REAL ESTATE OPPORTUNITY ✨\n\n🏢 Venture: ${project.name}\n🏷️ Category: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Price Range: ${project.priceRange || 'Contact for Price'}\n\n📝 Overview:\n${project.description || ''}\n\n🌐 Website: ${websiteUrl}\n📞 Call / WhatsApp: +91 9000553832, +91 7893963322\n\n${hashtagsList}`;
+        return `✨ PREMIUM REAL ESTATE OPPORTUNITY ✨\n\n🏢 Venture: ${project.name}\n🏷️ Category: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Price Range: ${project.priceRange || 'Contact for Price'}\n\n📝 Overview:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n📞 Call / WhatsApp: +91 ${cleanDigits}\n\n${hashtagsList}`;
     }
 }
+
 
 
 const router = Router();
