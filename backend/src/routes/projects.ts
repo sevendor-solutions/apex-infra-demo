@@ -8,6 +8,17 @@ import { logAuditAction } from "../utils/auditLogger";
 import { publishToFacebook, publishToInstagram } from "../utils/facebook";
 import { ensureInstagramCompatibleImage } from "../utils/imageResizer";
 
+function formatPriceRangeDisplay(rawPrice?: string): string {
+    if (!rawPrice) return 'Contact for Price';
+    let formatted = rawPrice.trim();
+    // Expand L to Lakhs and Cr to Crore/Crores for a clean premium look
+    formatted = formatted
+        .replace(/(\d+)\s*L(?!akh)/gi, '$1 Lakhs')
+        .replace(/(\d+)\s*Cr(?!ore)/gi, '$1 Crore')
+        .replace(/1\s*Crores/gi, '1 Crore');
+    return formatted;
+}
+
 async function buildSocialPostMessage(project: any): Promise<string> {
     const locParts = [project.location, project.microLocation, project.city].filter(Boolean);
     const locationStr = locParts.join(", ");
@@ -35,15 +46,19 @@ async function buildSocialPostMessage(project: any): Promise<string> {
     }
 
     const cleanDigits = phoneNum.slice(-10);
-    const waLink = `https://wa.me/91${cleanDigits}?text=${encodeURIComponent(`Hi, I am interested in ${project.name}`)}`;
+    // Short & clean WhatsApp pre-filled text
+    const waLink = `https://wa.me/91${cleanDigits}?text=${encodeURIComponent("Hi, I want property details")}`;
+
+    const formattedPrice = formatPriceRangeDisplay(project.priceRange);
 
     if (project.isMarketing) {
         const agentNameStr = agentName ? `👤 Marketing Agent: ${agentName}\n` : '';
-        return `✨ FEATURED PROPERTY SHOWCASE ✨\n\n🏢 Property: ${project.name}\n🏷️ Segment: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Investment: ${project.priceRange || 'Contact for Price'}\n\n📝 Description:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n${agentNameStr}📞 Call / WhatsApp Agent: +91 ${cleanDigits}\n\n${hashtagsList}`;
+        return `✨ FEATURED PROPERTY SHOWCASE ✨\n\n🏢 Property: ${project.name}\n🏷️ Segment: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Investment: ${formattedPrice}\n\n📝 Description:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n${agentNameStr}📞 Call / WhatsApp Agent: +91 ${cleanDigits}\n\n${hashtagsList}`;
     } else {
-        return `✨ PREMIUM REAL ESTATE OPPORTUNITY ✨\n\n🏢 Venture: ${project.name}\n🏷️ Category: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Price Range: ${project.priceRange || 'Contact for Price'}\n\n📝 Overview:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n📞 Call / WhatsApp: +91 ${cleanDigits}\n\n${hashtagsList}`;
+        return `✨ PREMIUM REAL ESTATE OPPORTUNITY ✨\n\n🏢 Venture: ${project.name}\n🏷️ Category: ${project.category || 'Real Estate'}\n📍 Location: ${locationStr}\n💰 Price Range: ${formattedPrice}\n\n📝 Overview:\n${project.description || ''}\n\n🔥 READY FOR IMMEDIATE REGISTRATION & SITE VISITS 🔥\n\n👉 🚗 Book a Free Site Visit Today!\n🌐 View Property Details: ${propertyDetailUrl}\n📲 WhatsApp Inquiry: ${waLink}\n📞 Call / WhatsApp: +91 ${cleanDigits}\n\n${hashtagsList}`;
     }
 }
+
 
 
 
