@@ -10,7 +10,7 @@ export class GalleryItem extends Model {
     id!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     title!: string;
@@ -28,13 +28,13 @@ export class GalleryItem extends Model {
     type!: "image" | "video";
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     url!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: true
     })
     thumbnail?: string;

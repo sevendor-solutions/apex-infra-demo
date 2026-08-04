@@ -176,6 +176,28 @@ sequelize.sync({ alter: !isProduction })
   .then(async () => {
     console.log(`🔥 Sequelize Database Connected & Synced (${isProduction ? 'Standard Mode' : 'Alter Mode'})!`);
 
+    // Alter existing table columns to TEXT to prevent VARCHAR(255) length errors
+    try {
+      await sequelize.query(`
+        ALTER TABLE "projects" ALTER COLUMN "specImage" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "brochureUrl" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "location" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "microLocation" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "city" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "availabilityDetails" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "marketingResult" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "name" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "category" TYPE TEXT;
+        ALTER TABLE "projects" ALTER COLUMN "subCategory" TYPE TEXT;
+        ALTER TABLE "gallery_items" ALTER COLUMN "url" TYPE TEXT;
+        ALTER TABLE "gallery_items" ALTER COLUMN "thumbnail" TYPE TEXT;
+        ALTER TABLE "documents" ALTER COLUMN "fileUrl" TYPE TEXT;
+      `);
+      console.log("✅ Database column types updated to TEXT successfully.");
+    } catch (migErr: any) {
+      console.log("ℹ️ Column migration info:", migErr?.message || migErr);
+    }
+
     // Run the data seeder
     await seedDatabase();
 

@@ -10,7 +10,7 @@ export class Document extends Model {
     id!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     title!: string;
@@ -22,7 +22,7 @@ export class Document extends Model {
     category!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     fileUrl!: string;

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { User } from "../models/User";
 import { UserSessionLog } from "../models/UserSessionLog";
 import { authenticateToken } from "../middleware/auth";
@@ -45,12 +46,18 @@ router.get("/", async (req, res, next) => {
 router.post("/", async (req, res, next) => {
     try {
         const { username, email, password, name, role } = req.body;
-        const exists = await User.findOne({ where: { username } });
+        const cleanUsername = (username || "").trim().toLowerCase();
+
+        const exists = await User.findOne({ where: { username: { [Op.iLike]: cleanUsername } } });
         if (exists) {
             return res.status(400).json({ success: false, message: "Username already exists" });
         }
 
-        const newUser = await User.create(req.body);
+        const newUser = await User.create({
+            ...req.body,
+            username: cleanUsername,
+            email: email ? email.trim() : email
+        });
         const userJson = newUser.toJSON();
         delete userJson.password;
 
@@ -151,6 +158,12 @@ router.put("/:id", async (req, res, next) => {
         }
 
         const updateData = { ...req.body };
+        if (updateData.username) {
+            updateData.username = updateData.username.trim().toLowerCase();
+        }
+        if (updateData.email) {
+            updateData.email = updateData.email.trim();
+        }
         if (!updateData.password || !updateData.password.trim()) {
             delete updateData.password;
         }

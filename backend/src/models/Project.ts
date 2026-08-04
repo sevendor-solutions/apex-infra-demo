@@ -23,31 +23,31 @@ export class Project extends Model {
     id!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     name!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     category!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: true
     })
     subCategory?: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     status!: string;
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     location!: string;
@@ -182,7 +182,7 @@ export class Project extends Model {
     };
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: false
     })
     brochureUrl!: string;
@@ -194,13 +194,13 @@ export class Project extends Model {
     })
     featured!: boolean;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     facing?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     city?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     microLocation?: string;
 
     @Column(DataType.INTEGER)
@@ -209,22 +209,22 @@ export class Project extends Model {
     @Column(DataType.INTEGER)
     unitsCount?: number;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     availabilityDetails?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     specImage?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     uds?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     width?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     length?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     classification?: string;
 
     @Column({
@@ -237,7 +237,7 @@ export class Project extends Model {
     @Column(DataType.TEXT)
     remarks?: string;
 
-    @Column(DataType.STRING)
+    @Column(DataType.TEXT)
     marketingResult?: string;
 
     @Column(DataType.STRING)

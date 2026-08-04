@@ -4,9 +4,9 @@ import {
   Edit2, Trash2, CheckCircle2, XCircle, X, 
   Building2, MapPin, Compass, Layers, Home, 
   IndianRupee, Image, FileText, Sparkles, Upload, 
-  Maximize2, Share2
+  Maximize2, Share2, Video
 } from 'lucide-react';
-import { addProject, updateProject, deleteProject, uploadImage, uploadMultipleImages } from '../utils/db';
+import { addProject, updateProject, deleteProject, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { SocialSharePreview } from './SocialSharePreview';
@@ -50,18 +50,22 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   // Upload states
   const [uploadingSpec, setUploadingSpec] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingVideos, setUploadingVideos] = useState(false);
+  const [uploadingBrochure, setUploadingBrochure] = useState(false);
 
   const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setUploadingSpec(true);
     try {
-      const url = await uploadImage(e.target.files[0], 'MP');
-      setSpecImage(url);
-      onAddToast('Blueprint image uploaded successfully!', 'success');
+      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MP');
+      const current = specImage ? specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
+      setSpecImage([...current, ...urls].join(', '));
+      onAddToast('Blueprint image(s) uploaded successfully!', 'success');
     } catch (err: any) {
       onAddToast(err.message || 'Blueprint upload failed', 'error');
     } finally {
       setUploadingSpec(false);
+      e.target.value = '';
     }
   };
 
@@ -107,6 +111,38 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       onAddToast(err.message || 'Images upload failed', 'error');
     } finally {
       setUploadingImages(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const currentUrls = videoUrl.split(',').map(u => u.trim()).filter(Boolean);
+    setUploadingVideos(true);
+    try {
+      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MP');
+      const combined = [...currentUrls, ...urls].join(', ');
+      setVideoUrl(combined);
+      onAddToast('Video file(s) uploaded successfully!', 'success');
+    } catch (err: any) {
+      onAddToast(err.message || 'Video upload failed', 'error');
+    } finally {
+      setUploadingVideos(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    setUploadingBrochure(true);
+    try {
+      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MP');
+      setBrochureUrl(urls[0] || '');
+      onAddToast('Brochure PDF uploaded successfully!', 'success');
+    } catch (err: any) {
+      onAddToast(err.message || 'Brochure upload failed', 'error');
+    } finally {
+      setUploadingBrochure(false);
       e.target.value = '';
     }
   };
@@ -200,6 +236,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   const [configSftValues, setConfigSftValues] = useState<{ [type: string]: string }>({});
   const [configUdsValues, setConfigUdsValues] = useState<{ [type: string]: string }>({});
   const [specImage, setSpecImage] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [brochureUrl, setBrochureUrl] = useState('');
   const [width, setWidth] = useState('');
   const [length, setLength] = useState('');
   const [uds, setUds] = useState('');
@@ -235,6 +273,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setConfigSftValues({ '2 BHK': '', '3 BHK': '' });
     setConfigUdsValues({ '2 BHK': '', '3 BHK': '' });
     setSpecImage('');
+    setVideoUrl('');
+    setBrochureUrl('');
     setWidth('');
     setLength('');
     setUds('');
@@ -279,6 +319,8 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
     setConfigUdsValues(parsedUdsValues);
     
     setSpecImage(proj.specImage || '');
+    setVideoUrl(proj.videos && proj.videos.length > 0 ? proj.videos.join(', ') : '');
+    setBrochureUrl(proj.brochureUrl && proj.brochureUrl !== '#' ? proj.brochureUrl : '');
     setWidth(proj.width || '');
     setLength(proj.length || '');
     setUds(proj.uds || '');
@@ -372,6 +414,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       location,
       description,
       images: imagesArray,
+      videos: videoUrl.split(',').map(v => v.trim()).filter(Boolean),
       highlights: highlightsArray,
       amenities: selectedAmenities,
       timeline: editingProject ? editingProject.timeline : [
@@ -390,7 +433,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
       priceValue: Number(priceValue) || 0,
       paymentPlans: editingProject ? editingProject.paymentPlans : ['Booking Advance: 2%', 'Agreement: 25%', 'Registration: 73%'],
       mapCoordinates: { lat: Number(lat) || 17.7, lng: Number(lng) || 83.3 },
-      brochureUrl: '#',
+      brochureUrl: brochureUrl.trim() || '#',
       featured,
       facing: facingString,
       city,
@@ -1002,53 +1045,12 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                     {/* Section 4: Media & Details */}
                     <div className="modal-section-title" style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.3rem', marginBottom: '1rem', marginTop: '0' }}>Media & Details</div>
                 
+                {/* Property Images (Photos Upload) */}
                 <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Blueprint/Specifications Image</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                      <Image size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                      <input 
-                        type="text" 
-                        className="form-control" 
-                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
-                        placeholder="https://... or upload local file" 
-                        value={specImage}
-                        onChange={e => setSpecImage(e.target.value)}
-                      />
-                    </div>
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
-                      <Upload size={14} />
-                      {uploadingSpec ? 'Uploading...' : 'Choose File'}
-                      <input type="file" accept="image/*" onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpec} />
-                    </label>
-                  </div>
-                  {/* Blueprint preview */}
-                  {specImage && (
-                    <div style={{ marginTop: '0.75rem', display: 'inline-flex', position: 'relative' }}>
-                      <img
-                        src={specImage}
-                        alt="Blueprint preview"
-                        style={{ height: '80px', width: '120px', objectFit: 'cover', borderRadius: '6px', border: '1.5px solid #e2e8f0' }}
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setSpecImage('')}
-                        title="Remove"
-                        style={{
-                          position: 'absolute', top: '-6px', right: '-6px',
-                          background: '#dc2626', color: '#fff', border: 'none',
-                          borderRadius: '50%', width: '18px', height: '18px',
-                          cursor: 'pointer', fontSize: '10px', display: 'flex',
-                          alignItems: 'center', justifyContent: 'center', lineHeight: 1
-                        }}
-                      >✕</button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-                  <label className="form-label font-bold" style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>Property Images (Comma-separated URLs)</label>
+                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>
+                    <Image size={15} style={{ color: 'var(--primary)' }} />
+                    Property Images (Photos Upload)
+                  </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     <div style={{ position: 'relative' }}>
                       <Image size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
@@ -1056,14 +1058,14 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                         className="form-control" 
                         rows={2} 
                         style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
-                        placeholder="URL1, URL2, URL3... or upload files below" 
+                        placeholder="URL1, URL2, URL3... or upload photos below" 
                         value={imageUrl}
                         onChange={e => setImageUrl(e.target.value)}
                       />
                     </div>
                     <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
                       <Upload size={14} />
-                      {uploadingImages ? 'Uploading Images...' : 'Choose Photos'}
+                      {uploadingImages ? 'Uploading Images...' : 'Upload Photos'}
                       <input type="file" accept="image/*" multiple onChange={handleImagesUpload} style={{ display: 'none' }} disabled={uploadingImages} />
                     </label>
                   </div>
@@ -1095,6 +1097,175 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
                           >✕</button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Blueprint / Specifications Image & Layout PDFs */}
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>
+                    <FileText size={15} style={{ color: 'var(--primary)' }} />
+                    Blueprint &amp; Floor Layout Images / PDFs
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ position: 'relative' }}>
+                      <FileText size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
+                      <textarea 
+                        className="form-control" 
+                        rows={2} 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="URL1, URL2... or upload blueprint images / PDFs below" 
+                        value={specImage}
+                        onChange={e => setSpecImage(e.target.value)}
+                      />
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
+                      <Upload size={14} />
+                      {uploadingSpec ? 'Uploading...' : 'Upload Blueprint Images / PDF'}
+                      <input type="file" accept="image/*,application/pdf" multiple onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpec} />
+                    </label>
+                  </div>
+                  {/* Blueprint preview grid */}
+                  {specImage && specImage.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {specImage.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => {
+                        const isPdf = url.toLowerCase().includes('.pdf');
+                        return (
+                          <div key={idx} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                            {isPdf ? (
+                              <a href={url} target="_blank" rel="noreferrer" style={{ height: '72px', width: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#dc2626', textDecoration: 'none', padding: '4px' }}>
+                                <FileText size={24} />
+                                <span style={{ fontSize: '10px', color: '#334155', marginTop: '2px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90px', whiteSpace: 'nowrap' }}>PDF Blueprint {idx + 1}</span>
+                              </a>
+                            ) : (
+                              <img
+                                src={url}
+                                alt={`Blueprint ${idx + 1}`}
+                                style={{ height: '72px', width: '100px', objectFit: 'cover', borderRadius: '6px', border: '1.5px solid #e2e8f0' }}
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newUrls = specImage.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
+                                setSpecImage(newUrls);
+                              }}
+                              title="Remove"
+                              style={{
+                                position: 'absolute', top: '-6px', right: '-6px',
+                                background: '#dc2626', color: '#fff', border: 'none',
+                                borderRadius: '50%', width: '18px', height: '18px',
+                                cursor: 'pointer', fontSize: '10px', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                              }}
+                            >✕</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Property Videos & Virtual Tours (Video Upload) */}
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>
+                    <Video size={15} style={{ color: 'var(--primary)' }} />
+                    Property Videos / Walkthroughs (MP4, WebM, MOV or Video URLs)
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ position: 'relative' }}>
+                      <Video size={16} style={{ position: 'absolute', left: '12px', top: '15px', color: 'var(--text-muted)' }} />
+                      <textarea 
+                        className="form-control" 
+                        rows={2} 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="Video URL1, Video URL2... or upload video files below" 
+                        value={videoUrl}
+                        onChange={e => setVideoUrl(e.target.value)}
+                      />
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
+                      <Upload size={14} />
+                      {uploadingVideos ? 'Uploading Video...' : 'Upload Video Files'}
+                      <input type="file" accept="video/*,.mp4,.webm,.mov,.avi" multiple onChange={handleVideoUpload} style={{ display: 'none' }} disabled={uploadingVideos} />
+                    </label>
+                  </div>
+                  {/* Video previews */}
+                  {videoUrl && videoUrl.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
+                    <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {videoUrl.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
+                        <div key={idx} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+                          {url.match(/\.(mp4|webm|mov|avi)($|\?)/i) ? (
+                            <video
+                              src={url}
+                              controls
+                              style={{ height: '72px', width: '120px', borderRadius: '6px', border: '1.5px solid #e2e8f0', backgroundColor: '#000' }}
+                            />
+                          ) : (
+                            <a href={url} target="_blank" rel="noreferrer" style={{ height: '72px', width: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderRadius: '6px', color: '#38bdf8', textDecoration: 'none', padding: '4px' }}>
+                              <Video size={22} />
+                              <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px', whiteSpace: 'nowrap' }}>Video Link {idx + 1}</span>
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newUrls = videoUrl.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
+                              setVideoUrl(newUrls);
+                            }}
+                            title="Remove"
+                            style={{
+                              position: 'absolute', top: '-6px', right: '-6px',
+                              background: '#dc2626', color: '#fff', border: 'none',
+                              borderRadius: '50%', width: '18px', height: '18px',
+                              cursor: 'pointer', fontSize: '10px', display: 'flex',
+                              alignItems: 'center', justifyContent: 'center', lineHeight: 1
+                            }}
+                          >✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Property Brochure (PDF Upload) */}
+                <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.75px', marginBottom: '6px' }}>
+                    <FileText size={15} style={{ color: 'var(--primary)' }} />
+                    Brochure PDF Document
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <FileText size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        style={{ paddingLeft: '2.5rem', width: '100%', padding: '0.65rem 0.9rem 0.65rem 2.5rem', border: '1px solid #cbd5e1', borderRadius: '8px', background: '#f8fafc', boxSizing: 'border-box' }}
+                        placeholder="Brochure PDF URL or upload file..." 
+                        value={brochureUrl}
+                        onChange={e => setBrochureUrl(e.target.value)}
+                      />
+                    </div>
+                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.85rem', fontSize: '0.8rem', border: '1.5px solid var(--border-color)', borderRadius: '6px', background: 'transparent', color: '#374151' }}>
+                      <Upload size={14} />
+                      {uploadingBrochure ? 'Uploading PDF...' : 'Upload Brochure PDF'}
+                      <input type="file" accept="application/pdf,.pdf" onChange={handleBrochureUpload} style={{ display: 'none' }} disabled={uploadingBrochure} />
+                    </label>
+                  </div>
+                  {/* Brochure preview link */}
+                  {brochureUrl && brochureUrl !== '#' && (
+                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                      <FileText size={18} style={{ color: '#dc2626' }} />
+                      <a href={brochureUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0284c7', textDecoration: 'underline' }}>
+                        View Brochure PDF
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setBrochureUrl('')}
+                        title="Remove Brochure"
+                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0 4px', fontSize: '14px', fontWeight: 700 }}
+                      >✕</button>
                     </div>
                   )}
                 </div>

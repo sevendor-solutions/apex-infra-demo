@@ -339,12 +339,13 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
               <div className="grid grid-2 gap-2">
                 <div className="form-group">
-                  <label className="form-label">Username * (lowercase)</label>
+                  <label className="form-label">Username * (Case-Insensitive)</label>
                   <input 
                     type="text" 
                     className="form-control" 
+                    placeholder="e.g. john or admin"
                     value={username}
-                    onChange={e => setUsername(e.target.value)}
+                    onChange={e => setUsername(e.target.value.toLowerCase())}
                     required
                   />
                 </div>

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Op } from "sequelize";
 import { User } from "../models/User";
 import { UserSessionLog } from "../models/UserSessionLog";
 import { MailConfig } from "../models/MailConfig";
@@ -18,8 +19,9 @@ router.get("/user-email/:username", async (req, res, next) => {
         const { username } = req.params;
         if (!username) return res.status(400).json({ success: false, message: "Username is required." });
 
+        const cleanUsername = username.trim().toLowerCase();
         const user = await User.findOne({
-            where: { username: username.trim().toLowerCase() }
+            where: { username: { [Op.iLike]: cleanUsername } }
         });
         if (!user) {
             return res.status(404).json({ success: false, message: "Username not found in system." });
@@ -57,8 +59,9 @@ router.post("/login", async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Username and password are required" });
         }
 
+        const cleanUsername = username.trim().toLowerCase();
         const user = await User.findOne({
-            where: { username }
+            where: { username: { [Op.iLike]: cleanUsername } }
         });
 
         if (!user) {
@@ -142,8 +145,9 @@ router.post("/logout", async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Username is required" });
         }
 
+        const cleanUsername = username.trim().toLowerCase();
         const user = await User.findOne({
-            where: { username }
+            where: { username: { [Op.iLike]: cleanUsername } }
         });
 
         if (user) {

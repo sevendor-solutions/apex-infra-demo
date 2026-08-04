@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { jsPDF } from 'jspdf';
-import { MapPin, Download, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert, Compass, Layers, Home, Sparkles, SlidersHorizontal, Tag, Landmark, CheckCircle2 } from 'lucide-react';
+import { MapPin, Download, Image as ImageIcon, X, ArrowLeft, ArrowRight, ShieldAlert, Compass, Layers, Home, Sparkles, SlidersHorizontal, Tag, Landmark, CheckCircle2, Video } from 'lucide-react';
 import type { Project, Enquiry } from '../types';
 import { getProjectGalleryImages } from '../utils/image';
 import { addEnquiry } from '../utils/db';
@@ -736,6 +736,44 @@ Email: jkfutureinfra@gmail.com
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Video Walkthroughs & Virtual Tours (MP4 Player) */}
+          {project.videos && project.videos.length > 0 && (
+            <div className="detail-card admin-card mb-3">
+              <h3 className="border-bottom-title mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Video size={20} style={{ color: 'var(--secondary)' }} />
+                Video Walkthroughs &amp; Virtual Tours
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                {project.videos.map((vidUrl, idx) => {
+                  const isLocalVideo = vidUrl.match(/\.(mp4|webm|mov|avi)($|\?)/i);
+                  return (
+                    <div key={idx} style={{ borderRadius: '8px', overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid #1e293b' }}>
+                      {isLocalVideo ? (
+                        <video 
+                          src={vidUrl} 
+                          controls 
+                          preload="metadata"
+                          style={{ width: '100%', height: '220px', objectFit: 'cover', display: 'block' }}
+                        />
+                      ) : (
+                        <iframe 
+                          src={vidUrl}
+                          title={`Video tour ${idx + 1}`}
+                          style={{ width: '100%', height: '220px', border: 0 }}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )}
+                      <div style={{ padding: '0.6rem 0.9rem', backgroundColor: '#1e293b', color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>
+                        📹 Walkthrough Tour {idx + 1}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -61,7 +61,10 @@ const getBaseUrl = (req: Request): string => {
     return `${protocol}://${host}`;
 };
 
-const upload = multer({ storage });
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 200 * 1024 * 1024 } // 200MB limit for high quality MP4 videos and documents
+});
 
 // POST /api/upload - Single file upload
 router.post("/", upload.single("image"), (req: Request, res: Response, next: NextFunction) => {
