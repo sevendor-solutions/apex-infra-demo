@@ -173,33 +173,6 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         nextSectionY = 50 + logoH + 12;
       }
 
-      // Project Title (pushed down based on logo dimensions)
-      doc.setTextColor(15, 43, 70);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(28);
-      doc.text(project.name, 20, nextSectionY);
-
-      // Location Subtitle
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(14);
-      doc.setTextColor(100, 110, 120);
-      doc.text(`Location: ${project.location}`, 20, nextSectionY + 10);
-
-      // Specs Table
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.5);
-      doc.line(20, nextSectionY + 20, 190, nextSectionY + 20);
-
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(15, 43, 70);
-      doc.setFontSize(12);
-      doc.text('PROPERTY SPECIFICATIONS', 20, nextSectionY + 30);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.setTextColor(50, 50, 50);
-      
-      let currentY = nextSectionY + 40;
       const cleanPDFText = (txt: string | undefined | null): string => {
         if (!txt) return '—';
         return txt
@@ -214,6 +187,49 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
           .replace(/\s+/g, ' ')
           .trim();
       };
+
+      // Project Title (dynamic font size & automatic wrapping)
+      doc.setTextColor(15, 43, 70);
+      doc.setFont('helvetica', 'bold');
+      
+      const cleanName = cleanPDFText(project.name);
+      let titleFontSize = 22;
+      if (cleanName.length > 50) titleFontSize = 14;
+      else if (cleanName.length > 30) titleFontSize = 17;
+      
+      doc.setFontSize(titleFontSize);
+      const titleLines = doc.splitTextToSize(cleanName, 170);
+      doc.text(titleLines, 20, nextSectionY);
+      
+      const titleLineHeight = titleFontSize * 0.45;
+      const totalTitleHeight = titleLines.length * titleLineHeight;
+      nextSectionY += totalTitleHeight + 4;
+
+      // Location Subtitle
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(100, 110, 120);
+      const cleanLoc = cleanPDFText(project.location);
+      const locLines = doc.splitTextToSize(`Location: ${cleanLoc}`, 170);
+      doc.text(locLines, 20, nextSectionY);
+      nextSectionY += (locLines.length * 5) + 6;
+
+      // Specs Table
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(20, nextSectionY, 190, nextSectionY);
+
+      nextSectionY += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 70);
+      doc.setFontSize(12);
+      doc.text('PROPERTY SPECIFICATIONS', 20, nextSectionY);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(50, 50, 50);
+      
+      let currentY = nextSectionY + 10;
 
       const drawSpecLine = (label: string, value: string) => {
         doc.setFont('helvetica', 'bold');
