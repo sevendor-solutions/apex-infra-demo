@@ -769,22 +769,6 @@ export const addAuditLog = async (log: { action: string; details: string; status
   await handleResponse(res);
 };
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    const session = sessionStorage.getItem('jk_infra_logged_user');
-    if (session) {
-      try {
-        const user = JSON.parse(session);
-        if (user && user.username) {
-          const blob = new Blob([JSON.stringify({ username: user.username })], { type: 'application/json' });
-          navigator.sendBeacon(`${API_BASE_URL}/auth/logout`, blob);
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-  });
-}
 
 // JkFutureinfra API Endpoints
 
