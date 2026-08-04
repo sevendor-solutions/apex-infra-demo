@@ -83,7 +83,7 @@ router.post("/", upload.single("image"), (req: Request, res: Response, next: Nex
 });
 
 // POST /api/upload/multiple - Multiple files upload
-router.post("/multiple", upload.array("images", 10), (req: Request, res: Response, next: NextFunction) => {
+router.post("/multiple", upload.array("images", 100), (req: Request, res: Response, next: NextFunction) => {
     try {
         const files = req.files as Express.Multer.File[];
         if (!files || files.length === 0) {

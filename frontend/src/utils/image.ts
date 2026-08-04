@@ -1,8 +1,11 @@
 import type { Project } from '../types';
 
 export const getProjectGalleryImages = (project: Project): string[] => {
-  const specImages = project.specImage ? project.specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
-  const propImages = project.images || [];
+  const specFiles = project.specImage ? project.specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
+  // Filter out PDFs and videos from image gallery list
+  const isMediaFile = (url: string) => url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i);
+  const specImages = specFiles.filter(url => !isMediaFile(url));
+  const propImages = (project.images || []).filter(url => !isMediaFile(url));
   
   let list: string[] = [];
   if (project.isMarketing) {

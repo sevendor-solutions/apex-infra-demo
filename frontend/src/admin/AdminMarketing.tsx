@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Project, ProjectCategory, ProjectStatus, City, LocationMaster, PropertyType, Facing, Amenity, MarketingAgent } from '../types';
-import { Edit2, Trash2, CheckCircle2, XCircle, X, Share2, ChevronDown, Image, Upload, FileText, Video } from 'lucide-react';
+import { Edit2, Trash2, CheckCircle2, XCircle, X, Share2, ChevronDown, Image, Upload, FileText } from 'lucide-react';
 import { addMarketing, updateMarketing, deleteMarketing, uploadMultipleImages } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -204,52 +204,19 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
   const [sharingFilteredLink, setSharingFilteredLink] = useState(false);
   const [filterShareMapEnabled, setFilterShareMapEnabled] = useState(false);
 
-  const [shareImagesEnabled, setShareImagesEnabled] = useState(true);
-
   // Upload states
   const [uploadingElevation, setUploadingElevation] = useState(false);
   const [uploadingSpecImages, setUploadingSpecImages] = useState(false);
-  const [uploadingVideos, setUploadingVideos] = useState(false);
-  const [uploadingBrochure, setUploadingBrochure] = useState(false);
 
   const handleElevationUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
-    const currentUrls = imageUrl.split(',').map(u => u.trim()).filter(Boolean);
-    const duplicates: string[] = [];
-    const validFiles: File[] = [];
-
-    for (const file of Array.from(e.target.files)) {
-      const dotIndex = file.name.lastIndexOf('.');
-      const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
-      
-      const isDuplicate = currentUrls.some(url => {
-        const decodedUrl = decodeURIComponent(url);
-        const urlFile = decodedUrl.split('/').pop() || '';
-        return urlFile.toLowerCase().includes(baseName.toLowerCase());
-      });
-
-      if (isDuplicate) {
-        duplicates.push(file.name);
-      } else {
-        validFiles.push(file);
-      }
-    }
-
-    if (duplicates.length > 0) {
-      onAddToast(`Image(s) already uploaded: ${duplicates.join(', ')}`, 'error');
-      if (validFiles.length === 0) {
-        e.target.value = '';
-        return;
-      }
-    }
-
+    const currentUrls = imageUrl ? imageUrl.split(',').map(u => u.trim()).filter(Boolean) : [];
     setUploadingElevation(true);
     try {
-      const urls = await uploadMultipleImages(validFiles, 'MMS');
+      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MMS');
       const combined = [...currentUrls, ...urls].join(', ');
       setImageUrl(combined);
-      onAddToast('Property image(s) uploaded successfully!', 'success');
+      onAddToast(`${urls.length} Property image(s) uploaded successfully!`, 'success');
     } catch (err: any) {
       onAddToast(err.message || 'Images upload failed', 'error');
     } finally {
@@ -260,78 +227,17 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
 
   const handleSpecUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
-    const currentUrls = specImage.split(',').map(u => u.trim()).filter(Boolean);
-    const duplicates: string[] = [];
-    const validFiles: File[] = [];
-
-    for (const file of Array.from(e.target.files)) {
-      const dotIndex = file.name.lastIndexOf('.');
-      const baseName = dotIndex !== -1 ? file.name.substring(0, dotIndex) : file.name;
-      
-      const isDuplicate = currentUrls.some(url => {
-        const decodedUrl = decodeURIComponent(url);
-        const urlFile = decodedUrl.split('/').pop() || '';
-        return urlFile.toLowerCase().includes(baseName.toLowerCase());
-      });
-
-      if (isDuplicate) {
-        duplicates.push(file.name);
-      } else {
-        validFiles.push(file);
-      }
-    }
-
-    if (duplicates.length > 0) {
-      onAddToast(`Image(s) already uploaded: ${duplicates.join(', ')}`, 'error');
-      if (validFiles.length === 0) {
-        e.target.value = '';
-        return;
-      }
-    }
-
+    const currentUrls = specImage ? specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
     setUploadingSpecImages(true);
     try {
-      const urls = await uploadMultipleImages(validFiles, 'MMS');
+      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MMS');
       const combined = [...currentUrls, ...urls].join(', ');
       setSpecImage(combined);
-      onAddToast('Blueprint image(s) uploaded successfully!', 'success');
+      onAddToast(`${urls.length} Blueprint file(s) uploaded successfully!`, 'success');
     } catch (err: any) {
       onAddToast(err.message || 'Blueprint upload failed', 'error');
     } finally {
       setUploadingSpecImages(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const currentUrls = videoUrl.split(',').map(u => u.trim()).filter(Boolean);
-    setUploadingVideos(true);
-    try {
-      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MMS');
-      const combined = [...currentUrls, ...urls].join(', ');
-      setVideoUrl(combined);
-      onAddToast('Video file(s) uploaded successfully!', 'success');
-    } catch (err: any) {
-      onAddToast(err.message || 'Video upload failed', 'error');
-    } finally {
-      setUploadingVideos(false);
-      e.target.value = '';
-    }
-  };
-
-  const handleBrochureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    setUploadingBrochure(true);
-    try {
-      const urls = await uploadMultipleImages(Array.from(e.target.files), 'MMS');
-      setBrochureUrl(urls[0] || '');
-      onAddToast('Brochure PDF uploaded successfully!', 'success');
-    } catch (err: any) {
-      onAddToast(err.message || 'Brochure upload failed', 'error');
-    } finally {
-      setUploadingBrochure(false);
       e.target.value = '';
     }
   };
@@ -1497,25 +1403,25 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                   )}
                 </div>
 
-                {/* Specifications Blueprint Image & Layout PDFs */}
+                {/* Specifications Blueprint Image, Layout PDFs & Videos */}
                 <div className="form-group">
                   <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <FileText size={15} style={{ color: 'var(--primary)' }} />
-                    Specifications Blueprint Images / PDFs
+                    Blueprint &amp; Floor Layout Images / PDFs / Videos
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                     <textarea
                       className="form-control"
                       rows={2}
-                      placeholder="URL1, URL2... or upload blueprint images / PDFs below"
+                      placeholder="URL1, URL2... or upload blueprint images, PDFs or videos below"
                       value={specImage}
                       onChange={e => setSpecImage(e.target.value)}
                       style={{ marginBottom: 0 }}
                     />
                     <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Upload size={13} />
-                      {uploadingSpecImages ? 'Uploading...' : 'Upload Blueprint Images / PDF'}
-                      <input type="file" accept="image/*,application/pdf" multiple onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpecImages} />
+                      {uploadingSpecImages ? 'Uploading...' : 'Upload Blueprint Images / PDF / Video'}
+                      <input type="file" accept="image/*,application/pdf,video/*,.mp4,.webm,.mov,.avi" multiple onChange={handleSpecUpload} style={{ display: 'none' }} disabled={uploadingSpecImages} />
                     </label>
                   </div>
                   {/* Blueprint preview grid */}
@@ -1523,9 +1429,16 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                       {specImage.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => {
                         const isPdf = url.toLowerCase().includes('.pdf');
+                        const isVideo = url.match(/\.(mp4|webm|mov|avi)($|\?)/i);
                         return (
                           <div key={idx} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                            {isPdf ? (
+                            {isVideo ? (
+                              <video
+                                src={url}
+                                controls
+                                style={{ height: '72px', width: '120px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: '#000' }}
+                              />
+                            ) : isPdf ? (
                               <a href={url} target="_blank" rel="noreferrer" style={{ height: '72px', width: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#dc2626', textDecoration: 'none', padding: '4px' }}>
                                 <FileText size={24} />
                                 <span style={{ fontSize: '10px', color: '#334155', marginTop: '2px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90px', whiteSpace: 'nowrap' }}>PDF Blueprint {idx + 1}</span>
@@ -1556,102 +1469,6 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Property Videos & Virtual Tours (Video Upload) */}
-                <div className="form-group">
-                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Video size={15} style={{ color: 'var(--primary)' }} />
-                    Property Videos / Walkthroughs (MP4, WebM, MOV or Video URLs)
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <textarea
-                      className="form-control"
-                      rows={2}
-                      placeholder="Video URL1, Video URL2... or upload video files below"
-                      value={videoUrl}
-                      onChange={e => setVideoUrl(e.target.value)}
-                      style={{ marginBottom: 0 }}
-                    />
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, alignSelf: 'flex-end', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Upload size={13} />
-                      {uploadingVideos ? 'Uploading Video...' : 'Upload Video Files'}
-                      <input type="file" accept="video/*,.mp4,.webm,.mov,.avi" multiple onChange={handleVideoUpload} style={{ display: 'none' }} disabled={uploadingVideos} />
-                    </label>
-                  </div>
-                  {/* Video previews */}
-                  {videoUrl && videoUrl.split(',').map(u => u.trim()).filter(Boolean).length > 0 && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      {videoUrl.split(',').map(u => u.trim()).filter(Boolean).map((url, idx) => (
-                        <div key={idx} style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-                          {url.match(/\.(mp4|webm|mov|avi)($|\?)/i) ? (
-                            <video
-                              src={url}
-                              controls
-                              style={{ height: '72px', width: '120px', borderRadius: '6px', border: '1px solid var(--border-color)', backgroundColor: '#000' }}
-                            />
-                          ) : (
-                            <a href={url} target="_blank" rel="noreferrer" style={{ height: '72px', width: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', borderRadius: '6px', color: '#38bdf8', textDecoration: 'none', padding: '4px' }}>
-                              <Video size={22} />
-                              <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '110px', whiteSpace: 'nowrap' }}>Video Link {idx + 1}</span>
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newUrls = videoUrl.split(',').map(u => u.trim()).filter(Boolean).filter((_, i) => i !== idx).join(', ');
-                              setVideoUrl(newUrls);
-                            }}
-                            title="Remove"
-                            style={{
-                              position: 'absolute', top: '-6px', right: '-6px',
-                              background: '#dc2626', color: '#fff', border: 'none',
-                              borderRadius: '50%', width: '18px', height: '18px',
-                              cursor: 'pointer', fontSize: '10px', display: 'flex',
-                              alignItems: 'center', justifyContent: 'center', lineHeight: 1
-                            }}
-                          >✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Property Brochure (PDF Upload) */}
-                <div className="form-group">
-                  <label className="form-label font-bold" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <FileText size={15} style={{ color: 'var(--primary)' }} />
-                    Brochure PDF Document
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Brochure PDF URL or upload file..."
-                      value={brochureUrl}
-                      onChange={e => setBrochureUrl(e.target.value)}
-                    />
-                    <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', margin: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Upload size={13} />
-                      {uploadingBrochure ? 'Uploading PDF...' : 'Upload Brochure PDF'}
-                      <input type="file" accept="application/pdf,.pdf" onChange={handleBrochureUpload} style={{ display: 'none' }} disabled={uploadingBrochure} />
-                    </label>
-                  </div>
-                  {/* Brochure preview link */}
-                  {brochureUrl && brochureUrl !== '#' && (
-                    <div style={{ marginTop: '0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.4rem 0.75rem', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
-                      <FileText size={18} style={{ color: '#dc2626' }} />
-                      <a href={brochureUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#0284c7', textDecoration: 'underline' }}>
-                        View Brochure PDF
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => setBrochureUrl('')}
-                        title="Remove Brochure"
-                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0 4px', fontSize: '14px', fontWeight: 700 }}
-                      >✕</button>
                     </div>
                   )}
                 </div>
@@ -1844,20 +1661,12 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
       )}
 
       {sharingProperty && (() => {
-        const propImgs = (sharingProperty.images && sharingProperty.images.length > 0)
-          ? sharingProperty.images
-          : (sharingProperty.specImage ? sharingProperty.specImage.split(',').map(u => u.trim()).filter(Boolean) : []);
-
         const whatsappMessage = 
           `🏠 *${sharingProperty.name}*\n` +
           `📍 Location: ${sharingProperty.location}\n` +
           `🏗️ Segment: ${sharingProperty.category || ''}${sharingProperty.subCategory ? ' | ' + sharingProperty.subCategory : ''}\n` +
           `🏷️ Classification: ${sharingProperty.classification || 'N/A'}\n` +
           `💰 Price: ${sharingProperty.priceRange}\n` +
-          (shareImagesEnabled && propImgs.length > 0
-            ? `\n📸 *Property Photos (${propImgs.length}):*\n` + propImgs.map((img, i) => `${i + 1}. ${img}`).join('\n') + `\n`
-            : ''
-          ) +
           `\n🔗 View details: ${window.location.origin}/?project=${sharingProperty.id}&isMarketing=true${shareMapEnabled ? '&showMap=true' : ''}`;
 
         return (
@@ -1886,20 +1695,6 @@ export const AdminMarketing: React.FC<AdminMarketingProps> = ({
                     />
                     <label htmlFor="chkShareMap" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
                       Include Google Map Location link
-                    </label>
-                  </div>
-
-                  {/* Include All Images toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <input
-                      type="checkbox"
-                      id="chkShareImages"
-                      checked={shareImagesEnabled}
-                      onChange={e => setShareImagesEnabled(e.target.checked)}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="chkShareImages" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#374151', cursor: 'pointer', margin: 0 }}>
-                      Include all photo links in WhatsApp ({propImgs.length} photo{propImgs.length !== 1 ? 's' : ''})
                     </label>
                   </div>
                 </div>

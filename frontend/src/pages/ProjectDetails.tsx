@@ -741,42 +741,96 @@ Email: jkfutureinfra@gmail.com
           )}
 
           {/* Video Walkthroughs & Virtual Tours (MP4 Player) */}
-          {project.videos && project.videos.length > 0 && (
-            <div className="detail-card admin-card mb-3">
-              <h3 className="border-bottom-title mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Video size={20} style={{ color: 'var(--secondary)' }} />
-                Video Walkthroughs &amp; Virtual Tours
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-                {project.videos.map((vidUrl, idx) => {
-                  const isLocalVideo = vidUrl.match(/\.(mp4|webm|mov|avi)($|\?)/i);
-                  return (
-                    <div key={idx} style={{ borderRadius: '8px', overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid #1e293b' }}>
-                      {isLocalVideo ? (
-                        <video 
-                          src={vidUrl} 
-                          controls 
-                          preload="metadata"
-                          style={{ width: '100%', height: '220px', objectFit: 'cover', display: 'block' }}
-                        />
-                      ) : (
-                        <iframe 
-                          src={vidUrl}
-                          title={`Video tour ${idx + 1}`}
-                          style={{ width: '100%', height: '220px', border: 0 }}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                      )}
-                      <div style={{ padding: '0.6rem 0.9rem', backgroundColor: '#1e293b', color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>
-                        📹 Walkthrough Tour {idx + 1}
+          {(() => {
+            const specVideos = project.specImage 
+              ? project.specImage.split(',').map(u => u.trim()).filter(u => u.match(/\.(mp4|webm|mov|avi)($|\?)/i))
+              : [];
+            const allVideos = Array.from(new Set([...(project.videos || []), ...specVideos])).filter(Boolean);
+            if (allVideos.length === 0) return null;
+
+            return (
+              <div className="detail-card admin-card mb-3">
+                <h3 className="border-bottom-title mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Video size={20} style={{ color: 'var(--secondary)' }} />
+                  Video Walkthroughs &amp; Virtual Tours
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+                  {allVideos.map((vidUrl, idx) => {
+                    const isLocalVideo = vidUrl.match(/\.(mp4|webm|mov|avi)($|\?)/i);
+                    return (
+                      <div key={idx} style={{ borderRadius: '8px', overflow: 'hidden', backgroundColor: '#0f172a', border: '1px solid #1e293b' }}>
+                        {isLocalVideo ? (
+                          <video 
+                            src={vidUrl} 
+                            controls 
+                            preload="metadata"
+                            style={{ width: '100%', height: '220px', objectFit: 'cover', display: 'block' }}
+                          />
+                        ) : (
+                          <iframe 
+                            src={vidUrl}
+                            title={`Video tour ${idx + 1}`}
+                            style={{ width: '100%', height: '220px', border: 0 }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        )}
+                        <div style={{ padding: '0.6rem 0.9rem', backgroundColor: '#1e293b', color: '#94a3b8', fontSize: '0.78rem', fontWeight: 600 }}>
+                          📹 Walkthrough Tour {idx + 1}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
+
+          {/* PDF Blueprints & Documents Section */}
+          {(() => {
+            const specPdfs = project.specImage 
+              ? project.specImage.split(',').map(u => u.trim()).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'))
+              : [];
+            const brochurePdf = project.brochureUrl && project.brochureUrl !== '#' ? [project.brochureUrl] : [];
+            const allPdfs = Array.from(new Set([...brochurePdf, ...specPdfs])).filter(Boolean);
+            if (allPdfs.length === 0) return null;
+
+            return (
+              <div className="detail-card admin-card mb-3">
+                <h3 className="border-bottom-title mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Download size={20} style={{ color: '#dc2626' }} />
+                  Layout Blueprints &amp; PDF Documents
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  {allPdfs.map((pdfUrl, idx) => (
+                    <a
+                      key={idx}
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        padding: '0.65rem 1rem',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        borderRadius: '8px',
+                        color: '#dc2626',
+                        fontWeight: 700,
+                        fontSize: '0.85rem',
+                        textDecoration: 'none',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <Download size={18} />
+                      View PDF Document {allPdfs.length > 1 ? idx + 1 : ''}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Map Location — hidden for marketing projects unless showMap is enabled */}
           {(!isMarketing || showMap) && (
