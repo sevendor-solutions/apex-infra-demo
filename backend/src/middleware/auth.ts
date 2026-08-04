@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
+import { cancelPendingLogout } from "../routes/auth";
 
 // Globally augment Express Request so req.user is available everywhere
 declare global {
@@ -42,9 +43,14 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
             return res.status(403).json({ success: false, message: "Access Denied: Your account is currently inactive." });
         }
 
+        if (decoded.username) {
+            cancelPendingLogout(decoded.username);
+        }
+
         req.user = decoded;
         next();
     } catch (error) {
         return res.status(403).json({ success: false, message: "Access Denied: Invalid or expired authentication token." });
     }
 };
+

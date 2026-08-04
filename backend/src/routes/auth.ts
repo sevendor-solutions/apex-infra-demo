@@ -137,10 +137,42 @@ router.post("/login", async (req, res, next) => {
     }
 });
 
+const pendingLogoutTimers = new Map<string, NodeJS.Timeout>();
+
+export function cancelPendingLogout(username: string) {
+    if (!username) return;
+    const clean = username.trim().toLowerCase();
+    if (pendingLogoutTimers.has(clean)) {
+        clearTimeout(pendingLogoutTimers.get(clean));
+        pendingLogoutTimers.delete(clean);
+        console.log(`⏱️ Cancelled pending tab-close logout for ${clean} (Page Refreshed)`);
+    }
+}
+
+// GET /ping — Keepalive to cancel pending tab-close logouts on page reload
+router.get("/ping", async (req, res, next) => {
+    try {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader && authHeader.split(" ")[1];
+        if (token) {
+            try {
+                const secret = process.env.JWT_SECRET || "jk_future_infra_secret_jwt_key_2026";
+                const decoded = jwt.verify(token, secret) as { username: string };
+                if (decoded?.username) {
+                    cancelPendingLogout(decoded.username);
+                }
+            } catch {}
+        }
+        return res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Staff Logout
 router.post("/logout", async (req, res, next) => {
     try {
-        const { username } = req.body;
+        const { username, isBeacon } = req.body;
         if (!username) {
             return res.status(400).json({ success: false, message: "Username is required" });
         }
@@ -151,23 +183,56 @@ router.post("/logout", async (req, res, next) => {
         });
 
         if (user) {
-            // Track LOGOUT event in UserSessionLog
-            try {
-                await UserSessionLog.create({
-                    userId: user.id,
-                    username: user.username,
-                    action: "LOGOUT",
-                    ipAddress: req.ip || (req.headers["x-forwarded-for"] as string) || null,
-                    userAgent: req.headers["user-agent"] || null,
-                    device: getDeviceType(req.headers["user-agent"] || null)
-                });
-            } catch (trackError) {
-                console.error("Failed to log user logout session:", trackError);
-            }
+            if (isBeacon) {
+                // If sent from window beforeunload beacon (tab close / refresh), delay writing audit log
+                // If page was just refreshing, incoming API calls or /ping will cancel this timer within 2 seconds.
+                cancelPendingLogout(cleanUsername);
 
-            // Log logout in System Audit Logs
-            const fakeReq = { ip: req.ip, headers: req.headers, socket: req.socket, user: undefined } as any;
-            await logAuditAction(fakeReq, "User Logout", `User "${user.username}" logged out`, "Success", { username: user.username, role: user.role });
+                const reqIp = req.ip || (req.headers["x-forwarded-for"] as string) || null;
+                const userAgent = req.headers["user-agent"] || null;
+                const device = getDeviceType(userAgent);
+
+                const timer = setTimeout(async () => {
+                    pendingLogoutTimers.delete(cleanUsername);
+                    try {
+                        await UserSessionLog.create({
+                            userId: user.id,
+                            username: user.username,
+                            action: "LOGOUT",
+                            ipAddress: reqIp,
+                            userAgent: userAgent,
+                            device: device
+                        });
+                    } catch (trackError) {
+                        console.error("Failed to log user logout session:", trackError);
+                    }
+
+                    const fakeReq = { ip: reqIp, headers: req.headers, socket: req.socket, user: undefined } as any;
+                    await logAuditAction(fakeReq, "User Logout", `User "${user.username}" logged out`, "Success", { username: user.username, role: user.role });
+                    console.log(`🚪 Logged tab-close logout for ${user.username} in Audit Trail`);
+                }, 2000);
+
+                pendingLogoutTimers.set(cleanUsername, timer);
+                return res.json({ success: true, message: "Beacon logout scheduled" });
+            } else {
+                // Immediate manual logout button click
+                cancelPendingLogout(cleanUsername);
+                try {
+                    await UserSessionLog.create({
+                        userId: user.id,
+                        username: user.username,
+                        action: "LOGOUT",
+                        ipAddress: req.ip || (req.headers["x-forwarded-for"] as string) || null,
+                        userAgent: req.headers["user-agent"] || null,
+                        device: getDeviceType(req.headers["user-agent"] || null)
+                    });
+                } catch (trackError) {
+                    console.error("Failed to log user logout session:", trackError);
+                }
+
+                const fakeReq = { ip: req.ip, headers: req.headers, socket: req.socket, user: undefined } as any;
+                await logAuditAction(fakeReq, "User Logout", `User "${user.username}" logged out`, "Success", { username: user.username, role: user.role });
+            }
         }
 
         return res.json({
@@ -178,6 +243,7 @@ router.post("/logout", async (req, res, next) => {
         next(error);
     }
 });
+
 
 
 // POST /forgot-password — generate & email OTP
