@@ -112,7 +112,8 @@ router.post("/", authenticateToken, async (req, res, next) => {
                 try {
                     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
                     const host = req.get("host");
-                    const fallbackLogoUrl = `${protocol}://${host}/uploads/logo.png`;
+                    const baseUrl = `${protocol}://${host}`;
+                    const fallbackLogoUrl = `${baseUrl}/uploads/logo.png`;
 
                     let firstImgUrl: string | undefined = undefined;
                     let igImgUrl: string | undefined = undefined;
@@ -126,29 +127,12 @@ router.post("/", authenticateToken, async (req, res, next) => {
                     const imageCandidates = allCandidateUrls.filter(url => !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
                     if (imageCandidates.length > 0) {
                       const img = imageCandidates[0];
-                      if (img.startsWith("http://") || img.startsWith("https://")) {
-                        firstImgUrl = img;
-                        igImgUrl = img;
-                      } else {
-                        const cleanPath = img.startsWith("/") ? img : `/${img}`;
-                        firstImgUrl = `${protocol}://${host}${cleanPath}`;
-                        
-                        // Auto-adjust aspect ratio for Instagram if local file
-                        try {
-                          const publicDir = path.join(__dirname, "../../public");
-                          const diskPath = path.join(publicDir, cleanPath);
-                          const adjustedDiskPath = await ensureInstagramCompatibleImage(diskPath);
-                          if (adjustedDiskPath && adjustedDiskPath !== diskPath) {
-                            const relPath = path.relative(publicDir, adjustedDiskPath).replace(/\\/g, "/");
-                            igImgUrl = `${protocol}://${host}/${relPath.startsWith('/') ? relPath.slice(1) : relPath}`;
-                          } else {
-                            igImgUrl = firstImgUrl;
-                          }
-                        } catch (resErr) {
-                          console.warn("Instagram image auto-adjust failed, using original image URL:", resErr);
-                          igImgUrl = firstImgUrl;
-                        }
-                      }
+                      firstImgUrl = (img.startsWith("http://") || img.startsWith("https://")) 
+                        ? img 
+                        : `${baseUrl}${img.startsWith("/") ? "" : "/"}${img}`;
+                      
+                      // Auto-adjust aspect ratio for Instagram (converts outside ratio images to 1:1 square canvas)
+                      igImgUrl = await ensureInstagramCompatibleImage(img, baseUrl);
                     }
 
                     const message = await buildSocialPostMessage(newProject);
@@ -234,7 +218,8 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
                 try {
                     const protocol = req.headers["x-forwarded-proto"] || req.protocol;
                     const host = req.get("host");
-                    const fallbackLogoUrl = `${protocol}://${host}/uploads/logo.png`;
+                    const baseUrl = `${protocol}://${host}`;
+                    const fallbackLogoUrl = `${baseUrl}/uploads/logo.png`;
 
                     let firstImgUrl: string | undefined = undefined;
                     let igImgUrl: string | undefined = undefined;
@@ -248,29 +233,12 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
                     const imageCandidates = allCandidateUrls.filter(url => !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
                     if (imageCandidates.length > 0) {
                       const img = imageCandidates[0];
-                      if (img.startsWith("http://") || img.startsWith("https://")) {
-                        firstImgUrl = img;
-                        igImgUrl = img;
-                      } else {
-                        const cleanPath = img.startsWith("/") ? img : `/${img}`;
-                        firstImgUrl = `${protocol}://${host}${cleanPath}`;
-                        
-                        // Auto-adjust aspect ratio for Instagram if local file
-                        try {
-                          const publicDir = path.join(__dirname, "../../public");
-                          const diskPath = path.join(publicDir, cleanPath);
-                          const adjustedDiskPath = await ensureInstagramCompatibleImage(diskPath);
-                          if (adjustedDiskPath && adjustedDiskPath !== diskPath) {
-                            const relPath = path.relative(publicDir, adjustedDiskPath).replace(/\\/g, "/");
-                            igImgUrl = `${protocol}://${host}/${relPath.startsWith('/') ? relPath.slice(1) : relPath}`;
-                          } else {
-                            igImgUrl = firstImgUrl;
-                          }
-                        } catch (resErr) {
-                          console.warn("Instagram image auto-adjust failed on update, using original image URL:", resErr);
-                          igImgUrl = firstImgUrl;
-                        }
-                      }
+                      firstImgUrl = (img.startsWith("http://") || img.startsWith("https://")) 
+                        ? img 
+                        : `${baseUrl}${img.startsWith("/") ? "" : "/"}${img}`;
+                      
+                      // Auto-adjust aspect ratio for Instagram (converts outside ratio images to 1:1 square canvas)
+                      igImgUrl = await ensureInstagramCompatibleImage(img, baseUrl);
                     }
 
                     const message = await buildSocialPostMessage(project);

@@ -111,7 +111,23 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
 
   const handleDownloadBrochure = async () => {
     if (!project) return;
-    onAddToast('Generating Brochure PDF, please wait...', 'info');
+
+    // Collect all uploaded PDF documents attached to this project
+    const specPdfs = project.specImage 
+      ? project.specImage.split(',').map(u => u.trim()).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'))
+      : [];
+    const imgPdfs = (project.images || []).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'));
+    const brochurePdf = project.brochureUrl && project.brochureUrl !== '#' ? [project.brochureUrl] : [];
+    const uploadedPdfs = Array.from(new Set([...brochurePdf, ...specPdfs, ...imgPdfs])).filter(Boolean);
+
+    if (uploadedPdfs.length > 0) {
+      onAddToast(`Opening ${uploadedPdfs.length} uploaded PDF document(s) & downloading summary...`, 'info');
+      uploadedPdfs.forEach(pdfUrl => {
+        window.open(pdfUrl, '_blank');
+      });
+    } else {
+      onAddToast('Generating Brochure PDF, please wait...', 'info');
+    }
 
     try {
       const doc = new jsPDF();
@@ -791,8 +807,9 @@ Email: jkfutureinfra@gmail.com
             const specPdfs = project.specImage 
               ? project.specImage.split(',').map(u => u.trim()).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'))
               : [];
+            const imgPdfs = (project.images || []).filter(u => u.toLowerCase().endsWith('.pdf') || u.toLowerCase().includes('.pdf?'));
             const brochurePdf = project.brochureUrl && project.brochureUrl !== '#' ? [project.brochureUrl] : [];
-            const allPdfs = Array.from(new Set([...brochurePdf, ...specPdfs])).filter(Boolean);
+            const allPdfs = Array.from(new Set([...brochurePdf, ...specPdfs, ...imgPdfs])).filter(Boolean);
             if (allPdfs.length === 0) return null;
 
             return (
