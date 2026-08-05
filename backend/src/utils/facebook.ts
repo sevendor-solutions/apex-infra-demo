@@ -70,15 +70,51 @@ export async function publishToFacebook(message: string, imageUrl?: string): Pro
                         body: JSON.stringify({
                             url: imageUrl,
                             caption: message,
-                            published: true,
+                            //published: true,
+                            published: false,
                             access_token: facebookPageAccessToken
                         })
                     });
 
                     const data: any = await response.json();
-                    if (response.ok && (data.id || data.post_id)) {
-                        return { success: true, postId: data.id || data.post_id };
-                    }
+                    //commited by srikanth on 8-5-2026
+                    // if (response.ok && (data.id || data.post_id)) {
+                    //     return { success: true, postId: data.id || data.post_id };
+                    // }
+                    if (response.ok && data.id) {
+
+    const feedUrl = `https://graph.facebook.com/v20.0/${pageId}/feed`;
+
+    const feedResponse = await fetch(feedUrl, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            message,
+            attached_media: [
+                {
+                    media_fbid: data.id
+                }
+            ],
+            access_token: facebookPageAccessToken
+        })
+    });
+
+    const feedData = await feedResponse.json();
+
+    if (feedResponse.ok) {
+        return {
+            success: true,
+            postId: feedData.id
+        };
+    }
+
+    return {
+        success: false,
+        error: feedData.error?.message || JSON.stringify(feedData)
+    };
+}
 
                     photoAttemptError = data.error ? data.error.message : JSON.stringify(data);
                     console.warn(`Facebook Photo publish attempt ${attempt} failed: ${photoAttemptError}`);
