@@ -70,6 +70,7 @@ export async function publishToFacebook(message: string, imageUrl?: string): Pro
                         body: JSON.stringify({
                             url: imageUrl,
                             caption: message,
+                            published: true,
                             access_token: facebookPageAccessToken
                         })
                     });
@@ -111,6 +112,7 @@ export async function publishToFacebook(message: string, imageUrl?: string): Pro
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         message: message,
+                        published: true,
                         access_token: facebookPageAccessToken
                     })
                 });
@@ -122,6 +124,7 @@ export async function publishToFacebook(message: string, imageUrl?: string): Pro
 
                 feedAttemptError = data.error ? data.error.message : JSON.stringify(data);
                 console.warn(`Facebook Feed publish attempt ${attempt} failed: ${feedAttemptError}`);
+
 
                 if (isTransientMetaError(data, response.status) && attempt < 3) {
                     await sleep(2000 * attempt);
