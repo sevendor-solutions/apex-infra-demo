@@ -621,13 +621,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
     openShareModal(selectedList);
   }, [files, selectedDocIds, onAddToast, openShareModal]);
 
-  const handleCopySelectedLinks = useCallback(() => {
-    const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
-    if (selectedList.length === 0) return;
-    const text = selectedList.map(f => `📄 ${f.title}\n🔗 ${f.fileUrl}`).join('\n\n');
-    navigator.clipboard.writeText(text);
-    onAddToast(`Copied links for ${selectedList.length} document(s) to clipboard.`, 'success');
-  }, [files, selectedDocIds, onAddToast]);
+
 
   const handleDownloadSelected = useCallback(() => {
     const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
