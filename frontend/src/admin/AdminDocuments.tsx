@@ -1153,9 +1153,6 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
             <button className="sap-btn sap-btn-primary-bright" onClick={handleShareSelected}>
               <Share2 size={14} /> Share Selected ({selectedDocIds.size})
             </button>
-            <button className="sap-btn sap-btn-white-ghost" onClick={handleCopySelectedLinks}>
-              <Copy size={14} /> Copy Links
-            </button>
             <button className="sap-btn sap-btn-white-ghost" onClick={handleDownloadSelected}>
               <Download size={14} /> Download ({selectedDocIds.size})
             </button>
