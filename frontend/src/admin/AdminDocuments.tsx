@@ -3,7 +3,8 @@ import type { Document, Project } from '../types';
 import {
   Folder, FolderOpen, FolderPlus, FileText, Image as ImageIcon,
   FileMinus, Trash2, Edit2, Download, Eye, X, ChevronRight,
-  Upload, Home, Search, Grid, List, Check, ArrowLeft, Video, Network, MoreVertical
+  Upload, Home, Search, Grid, List, Check, ArrowLeft, Video, Network, MoreVertical,
+  Share2, CheckSquare, Square, Copy, MessageCircle, Mail
 } from 'lucide-react';
 import { addDocument, updateDocument, deleteDocument, reorderDocuments, uploadImage } from '../utils/db';
 
@@ -250,6 +251,9 @@ interface FlowFolderNodeProps {
   setDragOverItemId: (id: string | null) => void;
   handleDragStartItem: (e: React.DragEvent, id: string, type: 'folder' | 'file') => void;
   handleDropToReorder: (e: React.DragEvent, targetId: string, targetParentId: string) => void;
+  selectedDocIds: Set<string>;
+  toggleDocSelection: (id: string) => void;
+  onShareDoc: (doc: DocEntry) => void;
 }
 
 const FlowFolderNode: React.FC<FlowFolderNodeProps> = (props) => {
@@ -276,6 +280,9 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
   setDragOverItemId,
   handleDragStartItem,
   handleDropToReorder,
+  selectedDocIds,
+  toggleDocSelection,
+  onShareDoc,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const kids  = childFolders(folder.id);
@@ -355,10 +362,11 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
             <div className="sap-file-cards-grid">
               {files.map(file => {
                 const isFileDragOver = dragOverItemId === file.id;
+                const isSelected = selectedDocIds.has(file.id);
                 return (
                   <div
                     key={file.id}
-                    className="sap-file-link-card"
+                    className={`sap-file-link-card${isSelected ? ' selected' : ''}`}
                     onClick={() => setPreviewDoc(file)}
                     onContextMenu={e => {
                       e.preventDefault();
@@ -380,11 +388,26 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
                     }}
                     onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
                     style={{
-                      border: isFileDragOver ? '2px dashed #0070f2' : undefined,
-                      backgroundColor: isFileDragOver ? '#ebf5ff' : undefined
+                      border: isFileDragOver ? '2px dashed #0070f2' : isSelected ? '1.5px solid #0070f2' : undefined,
+                      backgroundColor: isFileDragOver ? '#ebf5ff' : isSelected ? '#e8f0fe' : undefined
                     }}
                   >
                     <div className="sap-file-card-main">
+                      <div
+                        className="sap-file-checkbox"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleDocSelection(file.id);
+                        }}
+                        title={isSelected ? "Deselect document" : "Select document"}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', marginRight: 4 }}
+                      >
+                        {isSelected ? (
+                          <CheckSquare size={17} style={{ color: '#0070f2' }} />
+                        ) : (
+                          <Square size={17} style={{ color: '#a0aec0' }} />
+                        )}
+                      </div>
                       <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
                       <div className="sap-file-card-text">
                         <span className="sap-file-card-title">{file.title}</span>
@@ -392,6 +415,7 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
                       </div>
                     </div>
                     <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                      <button title="Share Document" onClick={() => onShareDoc(file)}><Share2 size={13} /></button>
                       <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
                       <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
                       <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
@@ -427,6 +451,9 @@ const FlowFolderNodeInner: React.FC<FlowFolderNodeProps> = ({
                   setDragOverItemId={setDragOverItemId}
                   handleDragStartItem={handleDragStartItem}
                   handleDropToReorder={handleDropToReorder}
+                  selectedDocIds={selectedDocIds}
+                  toggleDocSelection={toggleDocSelection}
+                  onShareDoc={onShareDoc}
                 />
               ))}
             </div>
@@ -460,6 +487,11 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   const [viewMode, setViewMode]             = useState<'grid' | 'list' | 'tree'>('tree');
   const [search, setSearch]                 = useState('');
 
+  /* Multi-Select & Batch Sharing State */
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [shareModalDocs, setShareModalDocs] = useState<DocEntry[] | null>(null);
+  const [shareNote, setShareNote]           = useState('');
+
   /* Rename modal states */
   const [showRename, setShowRename] = useState(false);
   const [renameTarget, setRenameTarget] = useState<{ id: string; type: 'folder' | 'file'; currentName: string } | null>(null);
@@ -490,7 +522,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       const localMap = JSON.parse(localStorage.getItem('jk_infra_doc_order_map') || '{}');
       if (localMap[docId] !== undefined) return Number(localMap[docId]);
     } catch {}
-    const doc = (documents || []).find(d => d.id === docId);
+    const doc = (documents || []).find(d => d && d.id === docId);
     if (doc && typeof doc.sortOrder === 'number') return doc.sortOrder;
     return defaultOrder;
   }, [documents]);
@@ -502,7 +534,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       .map((d, idx) => ({
         id: d.id,
         name: d.title || 'Untitled Folder',
-        parentId: d.category === 'root' ? ROOT : d.category,
+        parentId: (!d.category || d.category === 'root') ? ROOT : d.category,
         sortOrder: getSortOrder(d.id, d.sortOrder ?? idx)
       }));
     return raw.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
@@ -520,16 +552,16 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   }, [documents, getSortOrder]);
 
   const childFolders = useCallback(
-    (parentId: string) => folders.filter(f => f.parentId === parentId && f.id !== parentId),
+    (parentId: string) => folders.filter(f => f && f.parentId === parentId && f.id !== parentId),
     [folders]
   );
 
   const filesIn = useCallback(
     (folderId: string) => {
-      const inFolder = files.filter(f => f.folderId === folderId);
+      const inFolder = files.filter(f => f && f.folderId === folderId);
       if (!search.trim()) return inFolder;
       const q = search.toLowerCase();
-      return inFolder.filter(f => f.title && f.title.toLowerCase().includes(q));
+      return inFolder.filter(f => f && f.title && f.title.toLowerCase().includes(q));
     },
     [files, search]
   );
@@ -539,12 +571,194 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       if (visited.has(folderId)) return 0;
       const nextVisited = new Set(visited);
       nextVisited.add(folderId);
-      const directFiles = files.filter(f => f.folderId === folderId).length;
+      const directFiles = files.filter(f => f && f.folderId === folderId).length;
       const childCount  = childFolders(folderId).reduce((sum, c) => sum + totalDescendantFiles(c.id, nextVisited), 0);
       return directFiles + childCount;
     },
     [files, childFolders]
   );
+
+  /* Multi-Select & Sharing Handlers */
+  const toggleDocSelection = useCallback((id: string) => {
+    setSelectedDocIds(prev => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+
+  const selectAllCurrentFolder = useCallback(() => {
+    const idsInFolder = files.filter(f => f && f.folderId === activeFolderId).map(f => f.id);
+    setSelectedDocIds(prev => {
+      const n = new Set(prev);
+      const allSelected = idsInFolder.length > 0 && idsInFolder.every(id => n.has(id));
+      if (allSelected) {
+        idsInFolder.forEach(id => n.delete(id));
+      } else {
+        idsInFolder.forEach(id => n.add(id));
+      }
+      return n;
+    });
+  }, [files, activeFolderId]);
+
+  const clearDocSelection = useCallback(() => {
+    setSelectedDocIds(new Set());
+  }, []);
+
+  const openShareModal = useCallback((docsToShare: DocEntry[]) => {
+    if (docsToShare.length === 0) return;
+    setShareModalDocs(docsToShare);
+    setShareNote('');
+  }, []);
+
+  const handleShareSelected = useCallback(() => {
+    const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
+    if (selectedList.length === 0) {
+      onAddToast('Please select at least one document to share.', 'info');
+      return;
+    }
+    openShareModal(selectedList);
+  }, [files, selectedDocIds, onAddToast, openShareModal]);
+
+  const handleCopySelectedLinks = useCallback(() => {
+    const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
+    if (selectedList.length === 0) return;
+    const text = selectedList.map(f => `📄 ${f.title}\n🔗 ${f.fileUrl}`).join('\n\n');
+    navigator.clipboard.writeText(text);
+    onAddToast(`Copied links for ${selectedList.length} document(s) to clipboard.`, 'success');
+  }, [files, selectedDocIds, onAddToast]);
+
+  const handleDownloadSelected = useCallback(() => {
+    const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
+    if (selectedList.length === 0) return;
+    selectedList.forEach((file, index) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = file.fileUrl;
+        a.download = file.title;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, index * 300);
+    });
+    onAddToast(`Downloading ${selectedList.length} document(s)...`, 'info');
+  }, [files, selectedDocIds, onAddToast]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    const selectedList = files.filter(f => f && selectedDocIds.has(f.id));
+    if (selectedList.length === 0) return;
+    if (!await onConfirm(`Are you sure you want to delete ${selectedList.length} selected document(s)?`)) return;
+    try {
+      for (const doc of selectedList) {
+        await deleteDocument(doc.id);
+      }
+      setSelectedDocIds(new Set());
+      onAddToast(`${selectedList.length} document(s) deleted successfully.`, 'success');
+      onRefresh();
+    } catch {
+      onAddToast('Failed to delete selected documents.', 'error');
+    }
+  }, [files, selectedDocIds, onConfirm, deleteDocument, onAddToast, onRefresh]);
+
+  const getFormattedShareMessage = useCallback(() => {
+    if (!shareModalDocs || shareModalDocs.length === 0) return '';
+    let msg = `*JK Future Infra - Shared Documents*\n`;
+    if (shareNote.trim()) {
+      msg += `\n📝 *Note:* ${shareNote.trim()}\n`;
+    }
+    msg += `\n📁 *Files (${shareModalDocs.length}):*\n`;
+    shareModalDocs.forEach((doc, idx) => {
+      msg += `${idx + 1}. *${doc.title}* (${(doc.fileType || 'file').toUpperCase()})\n`;
+    });
+    return msg;
+  }, [shareModalDocs, shareNote]);
+
+  const handleWhatsAppShare = useCallback(() => {
+    const text = encodeURIComponent(getFormattedShareMessage());
+    const url = `https://api.whatsapp.com/send?text=${text}`;
+    window.open(url, '_blank');
+  }, [getFormattedShareMessage]);
+
+  const handleEmailShare = useCallback(() => {
+    const subject = encodeURIComponent(`Shared Documents (${shareModalDocs?.length || 0}) - JK Future Infra`);
+    const body = encodeURIComponent(getFormattedShareMessage());
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  }, [shareModalDocs, getFormattedShareMessage]);
+
+  const handleCopyShareMessage = useCallback(() => {
+    const text = getFormattedShareMessage();
+    navigator.clipboard.writeText(text);
+    onAddToast('Share text copied to clipboard!', 'success');
+  }, [getFormattedShareMessage, onAddToast]);
+
+  const handleDownloadShareModalDocs = useCallback(() => {
+    if (!shareModalDocs || shareModalDocs.length === 0) return;
+    shareModalDocs.forEach((doc, index) => {
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = doc.fileUrl;
+        a.download = doc.title;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, index * 300);
+    });
+    onAddToast(`Downloading ${shareModalDocs.length} document(s)...`, 'info');
+  }, [shareModalDocs, onAddToast]);
+
+  const handleNativeShare = useCallback(async () => {
+    if (!shareModalDocs || shareModalDocs.length === 0) return;
+
+    if (navigator.share) {
+      try {
+        onAddToast('Preparing files for direct attachment...', 'info');
+        const fileObjects: File[] = [];
+        for (const doc of shareModalDocs) {
+          if (doc.fileUrl && doc.fileUrl !== '#') {
+            try {
+              const res = await fetch(doc.fileUrl);
+              const blob = await res.blob();
+              const ext = doc.fileUrl.split('.').pop()?.split('?')[0] || doc.fileType || 'bin';
+              const fileName = `${doc.title}.${ext}`;
+              const fileObj = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+              fileObjects.push(fileObj);
+            } catch (err) {
+              console.warn('Could not fetch file blob for share:', doc.fileUrl, err);
+            }
+          }
+        }
+
+        if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
+          await navigator.share({
+            title: 'Shared Documents - JK Future Infra',
+            text: shareNote.trim() || 'Attached documents from JK Future Infra:',
+            files: fileObjects,
+          });
+          onAddToast('Documents attached and shared successfully!', 'success');
+          return;
+        }
+
+        await navigator.share({
+          title: 'Shared Documents - JK Future Infra',
+          text: getFormattedShareMessage(),
+        });
+        onAddToast('Shared successfully!', 'success');
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          handleCopyShareMessage();
+        }
+      }
+    } else {
+      handleCopyShareMessage();
+    }
+  }, [shareModalDocs, shareNote, getFormattedShareMessage, onAddToast, handleCopyShareMessage]);
+
+
+
+
 
   /* Breadcrumb path calculation */
   const breadcrumb = (): Array<{ id: string; name: string }> => {
@@ -928,6 +1142,33 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   return (
     <div className="sap-root" onClick={() => setCtx(null)}>
 
+      {/* ──────────── Sticky Batch Selection Action Bar ──────────── */}
+      {selectedDocIds.size > 0 && (
+        <div className="sap-batch-bar">
+          <div className="sap-batch-info">
+            <CheckSquare size={18} style={{ color: '#ffffff' }} />
+            <span><strong>{selectedDocIds.size}</strong> Document{selectedDocIds.size > 1 ? 's' : ''} Selected</span>
+          </div>
+          <div className="sap-batch-actions">
+            <button className="sap-btn sap-btn-primary-bright" onClick={handleShareSelected}>
+              <Share2 size={14} /> Share Selected ({selectedDocIds.size})
+            </button>
+            <button className="sap-btn sap-btn-white-ghost" onClick={handleCopySelectedLinks}>
+              <Copy size={14} /> Copy Links
+            </button>
+            <button className="sap-btn sap-btn-white-ghost" onClick={handleDownloadSelected}>
+              <Download size={14} /> Download ({selectedDocIds.size})
+            </button>
+            <button className="sap-btn sap-btn-danger-bright" onClick={handleDeleteSelected}>
+              <Trash2 size={14} /> Delete
+            </button>
+            <button className="sap-btn sap-btn-icon-bright" onClick={clearDocSelection} title="Clear selection">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ──────────── Toolbar ──────────── */}
       <div className="sap-toolbar">
         <div className="sap-toolbar-left">
@@ -948,6 +1189,16 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
               onChange={e => setSearch(e.target.value)}
             />
           </div>
+          {activeFiles.length > 0 && (
+            <button
+              className="sap-btn sap-btn-ghost"
+              onClick={selectAllCurrentFolder}
+              title="Select or deselect all documents in current folder"
+            >
+              <CheckSquare size={14} />
+              {activeFiles.every(f => selectedDocIds.has(f.id)) ? 'Deselect Folder' : 'Select All Files'}
+            </button>
+          )}
           <div className="sap-view-toggle">
             <button className={viewMode === 'grid' ? 'active' : ''} onClick={() => setViewMode('grid')} title="Grid View"><Grid size={15} /></button>
             <button className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')} title="Table / List View"><List size={15} /></button>
@@ -1118,6 +1369,9 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                       setDragOverItemId={setDragOverItemId}
                       handleDragStartItem={handleDragStartItem}
                       handleDropToReorder={handleDropToReorder}
+                      selectedDocIds={selectedDocIds}
+                      toggleDocSelection={toggleDocSelection}
+                      onShareDoc={(doc) => openShareModal([doc])}
                     />
                   ))}
                 </div>
@@ -1128,10 +1382,11 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                 <div className="sap-file-cards-grid" style={{ marginTop: '0.25rem' }}>
                   {activeFiles.map(file => {
                     const isFileDragOver = dragOverItemId === file.id;
+                    const isSelected = selectedDocIds.has(file.id);
                     return (
                       <div
                         key={file.id}
-                        className="sap-file-link-card"
+                        className={`sap-file-link-card${isSelected ? ' selected' : ''}`}
                         onClick={() => setPreviewDoc(file)}
                         onContextMenu={e => {
                           e.preventDefault();
@@ -1153,11 +1408,26 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                         }}
                         onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
                         style={{
-                          border: isFileDragOver ? '2px dashed #0070f2' : undefined,
-                          backgroundColor: isFileDragOver ? '#ebf5ff' : undefined
+                          border: isFileDragOver ? '2px dashed #0070f2' : isSelected ? '1.5px solid #0070f2' : undefined,
+                          backgroundColor: isFileDragOver ? '#ebf5ff' : isSelected ? '#e8f0fe' : undefined
                         }}
                       >
                         <div className="sap-file-card-main">
+                          <div
+                            className="sap-file-checkbox"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleDocSelection(file.id);
+                            }}
+                            title={isSelected ? "Deselect document" : "Select document"}
+                            style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', marginRight: 4 }}
+                          >
+                            {isSelected ? (
+                              <CheckSquare size={17} style={{ color: '#0070f2' }} />
+                            ) : (
+                              <Square size={17} style={{ color: '#a0aec0' }} />
+                            )}
+                          </div>
                           <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
                           <div className="sap-file-card-text">
                             <span className="sap-file-card-title">{file.title}</span>
@@ -1165,6 +1435,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                           </div>
                         </div>
                         <div className="sap-file-card-actions" onClick={e => e.stopPropagation()}>
+                          <button title="Share Document" onClick={() => openShareModal([file])}><Share2 size={13} /></button>
                           <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
                           <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
                           <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
@@ -1259,13 +1530,14 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                     <div className="sap-files-grid">
                       {activeFiles.map(file => {
                         const isFileDragOver = dragOverItemId === file.id;
+                        const isSelected = selectedDocIds.has(file.id);
                         return (
                           <div
                             key={file.id}
-                            className="sap-file-card"
+                            className={`sap-file-card${isSelected ? ' selected' : ''}`}
                             style={{ 
-                              background: fileColor[file.fileType] ?? '#f7fafc',
-                              border: isFileDragOver ? '2px dashed #0070f2' : undefined
+                              background: isSelected ? '#e8f0fe' : (fileColor[file.fileType] ?? '#f7fafc'),
+                              border: isFileDragOver ? '2px dashed #0070f2' : isSelected ? '2px solid #0070f2' : undefined
                             }}
                             onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
                             
@@ -1284,10 +1556,19 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                             }}
                             onDrop={(e) => handleDropToReorder(e, file.id, file.folderId)}
                           >
+                            <div
+                              className="sap-file-card-checkbox"
+                              onClick={(e) => { e.stopPropagation(); toggleDocSelection(file.id); }}
+                              title={isSelected ? "Deselect document" : "Select document"}
+                              style={{ position: 'absolute', top: 8, left: 8, cursor: 'pointer', zIndex: 5 }}
+                            >
+                              {isSelected ? <CheckSquare size={18} style={{ color: '#0070f2' }} /> : <Square size={18} style={{ color: '#a0aec0' }} />}
+                            </div>
                             <div className="sap-file-card-icon">{fileIcon(file.fileType)}</div>
                             <span className="sap-file-card-name" title={file.title}>{file.title}</span>
                             <span className="sap-file-card-type">{file.fileType.toUpperCase()} · {file.date}</span>
                             <div className="sap-file-card-actions">
+                              <button onClick={() => openShareModal([file])} title="Share"><Share2 size={13} /></button>
                               <button onClick={() => setPreviewDoc(file)} title="Preview"><Eye size={13} /></button>
                               <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
                               <button onClick={() => triggerRename(file.id, 'file', file.title)} title="Rename"><Edit2 size={13} /></button>
@@ -1302,7 +1583,16 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                       <table className="sap-files-table">
                         <thead>
                           <tr>
-                            <th>Type</th>
+                            <th style={{ width: 38, textAlign: 'center' }}>
+                              <input
+                                type="checkbox"
+                                checked={activeFiles.length > 0 && activeFiles.every(f => selectedDocIds.has(f.id))}
+                                onChange={selectAllCurrentFolder}
+                                title="Select / Deselect all in this folder"
+                                style={{ cursor: 'pointer' }}
+                              />
+                            </th>
+                            <th style={{ width: 44 }}>Type</th>
                             <th>File Name</th>
                             <th>Date</th>
                             <th>Actions</th>
@@ -1310,15 +1600,25 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                         </thead>
                         <tbody>
                           {activeFiles.map(file => {
+                            const isSelected = selectedDocIds.has(file.id);
                             return (
                               <tr 
                                 key={file.id} 
+                                className={isSelected ? 'selected-row' : ''}
                                 onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setCtx({ id: file.id, type: 'file', x: e.clientX, y: e.clientY }); }}
                                 
                                 // Drag table row
                                 draggable={true}
                                 onDragStart={(e) => handleDragStartItem(e, file.id, 'file')}
                               >
+                                <td style={{ width: 38, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleDocSelection(file.id)}
+                                    style={{ cursor: 'pointer' }}
+                                  />
+                                </td>
                                 <td style={{ width: 44 }}>{fileIcon(file.fileType)}</td>
                                 <td>
                                   <span className="sap-table-filename">{file.title}</span>
@@ -1327,6 +1627,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
                                 <td className="sap-table-date">{file.date}</td>
                                 <td>
                                   <div className="sap-table-actions">
+                                    <button title="Share" onClick={() => openShareModal([file])}><Share2 size={13} /></button>
                                     <button title="Preview" onClick={() => setPreviewDoc(file)}><Eye size={13} /></button>
                                     <a href={file.fileUrl} target="_blank" rel="noopener noreferrer" download title="Download"><Download size={13} /></a>
                                     <button title="Rename" onClick={() => triggerRename(file.id, 'file', file.title)}><Edit2 size={13} /></button>
@@ -1413,6 +1714,12 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
           {ctx.type === 'folder' ? (
             <>
               <button onClick={() => { setActiveFolderId(ctx.id); setExpandedIds(p => { const n = new Set(p); n.add(ctx.id); return n; }); setCtx(null); }}><FolderOpen size={13} /> Open</button>
+              <button onClick={() => {
+                const filesInFolder = files.filter(f => f.folderId === ctx.id);
+                if (filesInFolder.length > 0) openShareModal(filesInFolder);
+                else onAddToast('Folder contains no direct files to share.', 'info');
+                setCtx(null);
+              }}><Share2 size={13} /> Share Folder Files</button>
               <button onClick={() => { setActiveFolderId(ctx.id); setCtx(null); setTimeout(() => fileInputRef.current?.click(), 50); }}><Upload size={13} /> Upload File</button>
               <button onClick={() => { const f = folders.find(x => x.id === ctx.id); if (f) triggerRename(ctx.id, 'folder', f.name); setCtx(null); }}><Edit2 size={13} /> Rename</button>
               <button onClick={() => { setActiveFolderId(ctx.id); setShowCF(true); setCtx(null); }}><FolderPlus size={13} /> New Subfolder</button>
@@ -1421,12 +1728,146 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
             </>
           ) : (
             <>
+              <button onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) openShareModal([f]); setCtx(null); }}><Share2 size={13} /> Share</button>
               <button onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) setPreviewDoc(f); setCtx(null); }}><Eye size={13} /> Preview</button>
               <button onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) triggerRename(f.id, 'file', f.title); setCtx(null); }}><Edit2 size={13} /> Rename</button>
               <hr className="sap-ctx-sep" />
               <button className="danger" onClick={() => { const f = files.find(x => x.id === ctx.id); if (f) deleteFile(f); setCtx(null); }}><Trash2 size={13} /> Delete</button>
             </>
           )}
+        </div>
+      )}
+
+      {/* ──────────── Preview Modal ──────────── */}
+      {previewDoc && (
+        <div className="modal-overlay" onClick={() => setPreviewDoc(null)}>
+          <div className="modal-content" style={{ maxWidth: 860, width: '92%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 1.25rem', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#1a202c' }}>{previewDoc.title}</h3>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { setPreviewDoc(null); openShareModal([previewDoc]); }} className="sap-btn sap-btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Share2 size={14} /> Share</button>
+                <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer" download className="sap-btn sap-btn-ghost" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Download size={14} /> Download</a>
+                <button onClick={() => setPreviewDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718096' }}><X size={20} /></button>
+              </div>
+            </div>
+            <div style={{ padding: '1rem', minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f7fafc' }}>
+              {previewDoc.fileType === 'pdf' ? (
+                <iframe src={previewDoc.fileUrl} title="PDF" style={{ width: '100%', height: 500, border: 'none', borderRadius: 6 }} />
+              ) : (previewDoc.fileType === 'jpeg' || previewDoc.fileType === 'png') ? (
+                <img src={previewDoc.fileUrl} alt={previewDoc.title} style={{ maxWidth: '100%', maxHeight: 500, objectFit: 'contain', borderRadius: 6 }} />
+              ) : (['mp4', 'webm', 'ogg', 'mov'].includes(previewDoc.fileType)) ? (
+                <video src={previewDoc.fileUrl} controls style={{ maxWidth: '100%', maxHeight: 500, borderRadius: 6, outline: 'none' }} />
+              ) : (
+                <div style={{ textAlign: 'center' }}>
+                  <FileText size={56} style={{ color: '#3182ce', marginBottom: 12 }} />
+                  <p style={{ color: '#718096' }}>Word files cannot be previewed in the browser.</p>
+                  <a href={previewDoc.fileUrl} target="_blank" rel="noopener noreferrer" download className="sap-btn sap-btn-primary" style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Download size={14} /> Download to View</a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ──────────── Multiple Document Sharing Modal ──────────── */}
+      {shareModalDocs && (
+        <div className="modal-overlay" onClick={() => setShareModalDocs(null)}>
+          <div className="sap-modal sap-share-modal" onClick={e => e.stopPropagation()}>
+            <div className="sap-modal-header">
+              <span><Share2 size={18} style={{ color: '#0070f2' }} /> Share Documents ({shareModalDocs.length})</span>
+              <button onClick={() => setShareModalDocs(null)}><X size={18} /></button>
+            </div>
+
+            <div className="sap-modal-body">
+              {/* Selected files preview chips */}
+              <div className="sap-share-files-preview">
+                <label className="form-label" style={{ marginBottom: 6, fontWeight: 700, fontSize: '0.8rem', color: '#2d3a4a' }}>
+                  Selected Documents ({shareModalDocs.length})
+                </label>
+                <div className="sap-share-files-list">
+                  {shareModalDocs.map(doc => (
+                    <div key={doc.id} className="sap-share-file-chip">
+                      {fileIcon(doc.fileType)}
+                      <span className="title" title={doc.title}>{doc.title}</span>
+                      <span className="type">{doc.fileType.toUpperCase()}</span>
+                      {shareModalDocs.length > 1 && (
+                        <button
+                          className="remove-btn"
+                          title="Remove from share"
+                          onClick={() => setShareModalDocs(prev => prev ? prev.filter(d => d.id !== doc.id) : null)}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom optional note/message */}
+              <div className="form-group" style={{ marginTop: 4 }}>
+                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.8rem', color: '#4a5568' }}>Add Note / Description (Optional)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Please review these customer verification documents..."
+                  value={shareNote}
+                  onChange={e => setShareNote(e.target.value)}
+                />
+              </div>
+
+              {/* Share Channel Buttons Grid */}
+              <div className="sap-share-channels">
+                {'share' in navigator && (
+                  <button className="sap-share-channel-btn native" onClick={handleNativeShare} style={{ background: '#f0f7ff', borderColor: '#0070f2' }}>
+                    <Share2 size={22} style={{ color: '#0070f2' }} />
+                    <div className="text-group">
+                      <span className="main-label" style={{ color: '#0070f2' }}>Attach & Share Files</span>
+                      <span className="sub-label">Share actual document files directly</span>
+                    </div>
+                  </button>
+                )}
+
+                <button className="sap-share-channel-btn whatsapp" onClick={handleWhatsAppShare}>
+                  <MessageCircle size={22} />
+                  <div className="text-group">
+                    <span className="main-label">Share via WhatsApp</span>
+                    <span className="sub-label">Send document list to WhatsApp</span>
+                  </div>
+                </button>
+
+                <button className="sap-share-channel-btn email" onClick={handleEmailShare}>
+                  <Mail size={22} />
+                  <div className="text-group">
+                    <span className="main-label">Share via Email</span>
+                    <span className="sub-label">Open mail app with document list</span>
+                  </div>
+                </button>
+
+                <button className="sap-share-channel-btn download" onClick={handleDownloadShareModalDocs} style={{ background: '#f0fdf4', borderColor: '#16a34a' }}>
+                  <Download size={22} style={{ color: '#16a34a' }} />
+                  <div className="text-group">
+                    <span className="main-label" style={{ color: '#16a34a' }}>Download Documents</span>
+                    <span className="sub-label">Save files to device for manual attachment</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Formatted Text Preview Box */}
+              <div className="sap-share-preview-box">
+                <div className="sap-share-preview-header">
+                  <span>Message Preview</span>
+                  <button onClick={handleCopyShareMessage} title="Copy preview text"><Copy size={13} /> Copy</button>
+                </div>
+                <pre className="sap-share-preview-content">{getFormattedShareMessage()}</pre>
+              </div>
+
+            </div>
+
+            <div className="sap-modal-footer">
+              <button className="sap-btn sap-btn-ghost" onClick={() => setShareModalDocs(null)}>Close</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1934,6 +2375,80 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
           color: #8c9cb0;
         }
 
+        /* ──────────── Sticky Batch Selection Bar ──────────── */
+        .sap-batch-bar {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0.65rem 1.25rem; background: linear-gradient(135deg, #1e3a8a 0%, #0070f2 100%);
+          color: #ffffff; flex-shrink: 0; gap: 1rem; flex-wrap: wrap;
+          box-shadow: 0 4px 14px rgba(0, 112, 242, 0.3); z-index: 10;
+          animation: slideDown 0.2s ease-out;
+        }
+        @keyframes slideDown {
+          from { transform: translateY(-100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .sap-batch-info { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+        .sap-batch-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        
+        .sap-btn-primary-bright { background: #ffffff; color: #0070f2; border-color: #ffffff; font-weight: 700; }
+        .sap-btn-primary-bright:hover { background: #f0f7ff; }
+        .sap-btn-white-ghost { background: rgba(255, 255, 255, 0.18); color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.35); font-weight: 600; }
+        .sap-btn-white-ghost:hover { background: rgba(255, 255, 255, 0.3); }
+        .sap-btn-danger-bright { background: #e53e3e; color: #ffffff; border-color: #e53e3e; }
+        .sap-btn-danger-bright:hover { background: #c53030; }
+        .sap-btn-icon-bright { background: transparent; color: #ffffff; border: none; padding: 4px; cursor: pointer; opacity: 0.8; }
+        .sap-btn-icon-bright:hover { opacity: 1; }
+
+        /* ──────────── Multiple Document Sharing Modal ──────────── */
+        .sap-share-modal { width: 560px; max-width: 95vw; }
+        
+        .sap-share-files-preview { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; }
+        .sap-share-files-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding-top: 4px; }
+        .sap-share-file-chip {
+          display: inline-flex; align-items: center; gap: 6px;
+          background: #ffffff; border: 1px solid #cbd5e0; border-radius: 16px;
+          padding: 3px 10px; font-size: 0.75rem; color: #2d3a4a; max-width: 220px;
+        }
+        .sap-share-file-chip .title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+        .sap-share-file-chip .type { font-size: 0.65rem; color: #718096; background: #edf2f7; padding: 1px 5px; border-radius: 8px; }
+        .sap-share-file-chip .remove-btn { background: none; border: none; cursor: pointer; color: #a0aec0; display: flex; align-items: center; padding: 0; }
+        .sap-share-file-chip .remove-btn:hover { color: #e53e3e; }
+
+        /* Share Channels 2x2 Grid */
+        .sap-share-channels { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+        .sap-share-channel-btn {
+          display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+          border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer;
+          background: #ffffff; text-align: left; transition: all 0.15s ease;
+        }
+        .sap-share-channel-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        
+        .sap-share-channel-btn.whatsapp { border-color: #25d366; background: #f0fdf4; color: #166534; }
+        .sap-share-channel-btn.whatsapp:hover { background: #25d366; color: #ffffff; }
+        
+        .sap-share-channel-btn.email { border-color: #0070f2; background: #eff6ff; color: #1e40af; }
+        .sap-share-channel-btn.email:hover { background: #0070f2; color: #ffffff; }
+        
+        .sap-share-channel-btn.copy { border-color: #475569; background: #f8fafc; color: #334155; }
+        .sap-share-channel-btn.copy:hover { background: #475569; color: #ffffff; }
+        
+        .sap-share-channel-btn.native { border-color: #8b5cf6; background: #f5f3ff; color: #5b21b6; }
+        .sap-share-channel-btn.native:hover { background: #8b5cf6; color: #ffffff; }
+
+        .sap-share-channel-btn .text-group { display: flex; flex-direction: column; }
+        .sap-share-channel-btn .main-label { font-weight: 700; font-size: 0.82rem; }
+        .sap-share-channel-btn .sub-label { font-size: 0.68rem; opacity: 0.8; }
+
+        /* Formatted Share Preview Box */
+        .sap-share-preview-box { background: #0f172a; border-radius: 8px; padding: 10px 12px; color: #e2e8f0; font-size: 0.78rem; margin-top: 6px; }
+        .sap-share-preview-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #334155; padding-bottom: 6px; margin-bottom: 6px; font-weight: 700; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; }
+        .sap-share-preview-header button { background: #334155; color: #f8fafc; border: none; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+        .sap-share-preview-header button:hover { background: #0070f2; }
+        .sap-share-preview-content { white-space: pre-wrap; font-family: monospace; font-size: 0.75rem; color: #cbd5e1; margin: 0; max-height: 110px; overflow-y: auto; }
+
+        /* Selected table rows */
+        .sap-files-table tr.selected-row td { background: #e8f0fe !important; }
+
         /* Mobile Responsiveness Improvements */
         @media (max-width: 768px) {
           .sap-nav {
@@ -1956,6 +2471,9 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
           }
           .sap-folders-grid {
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          }
+          .sap-share-channels {
+            grid-template-columns: 1fr;
           }
         }
         @media (max-width: 600px) {

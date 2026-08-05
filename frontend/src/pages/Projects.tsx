@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, Compass, Building2, Home, Phone, Calendar, Sparkles } from 'lucide-react';
+import { LayoutGrid, List, Map, Search, MapPin, ArrowRight, ChevronDown, SlidersHorizontal, Compass, Building2, Home, Phone, Calendar, Sparkles, FileText } from 'lucide-react';
 import type { Project, ProjectCategory, SiteCategory, PropertyType, Facing, City, LocationMaster } from '../types';
-import { getProjectMainImage } from '../utils/image';
+import { getProjectMainImage, getSegmentFallbackSpecImage } from '../utils/image';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -996,20 +996,52 @@ export const Projects: React.FC<ProjectsProps> = ({
                   /* List Layout - Side-by-Side Images Specification Cards */
                   <div className="flex flex-col gap-3" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                     {paginatedProjects.map(project => {
-                      const renderElevationImage = project.specImage || (project.images && project.images.length > 1 ? project.images[1] : project.images?.[0]) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
-                      const specPlanImage = (project.images && project.images.length > 0 ? project.images[0] : project.specImage) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
+                      const propPhotos = (project.images || []).filter(u => u && !u.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
+                      const renderElevationImage = propPhotos.length > 0 
+                        ? propPhotos[0] 
+                        : 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=600&auto=format&fit=crop&q=60';
+                      
+                      const specFiles = project.specImage ? project.specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
+                      const primarySpec = specFiles.length > 0 ? specFiles[0] : null;
+                      const isSpecPdf = primarySpec ? primarySpec.toLowerCase().includes('.pdf') : false;
+                      const isSpecVideo = primarySpec ? primarySpec.match(/\.(mp4|webm|mov|avi)($|\?)/i) : false;
+                      const specPlanImage = primarySpec && !isSpecPdf && !isSpecVideo ? primarySpec : getSegmentFallbackSpecImage(project);
+
                       return (
                         <div key={project.id} className="premium-spec-card flex shadow-sm" style={{ display: 'flex', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-color)', backgroundColor: 'var(--white)' }}>
                           {/* Left Block: Render elevation & specs side by side */}
                           <div className="card-visual-images flex" style={{ display: 'flex', flex: 1, minWidth: '360px', position: 'relative' }}>
-                            <div className="visual-img-box" style={{ flex: 1, height: '240px', position: 'relative', overflow: 'hidden' }}>
+                            <div className="visual-img-box" style={{ flex: 1, height: '240px', position: 'relative', overflow: 'hidden', cursor: 'pointer' }} onClick={() => onNavigate('project-details', null, null, { id: project.id })}>
                               <img src={renderElevationImage} alt={project.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <div className="img-overlay-label">Render Elevation</div>
                             </div>
+                            
                             <div className="visual-img-box" style={{ flex: 1, height: '240px', position: 'relative', overflow: 'hidden', borderLeft: '2px solid var(--white)' }}>
-                              <img src={specPlanImage} alt="Specification Blueprint" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              {primarySpec && isSpecPdf ? (
+                                <div 
+                                  className="flex flex-col align-center justify-center text-center p-2" 
+                                  style={{ width: '100%', height: '100%', backgroundColor: '#0f172a', color: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+                                  onClick={() => window.open(primarySpec, '_blank')}
+                                  title="Click to view PDF Blueprint / Specs Sheet"
+                                >
+                                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                    <FileText size={26} />
+                                  </div>
+                                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f8fafc', maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    PDF Blueprint / Layout
+                                  </span>
+                                  <span style={{ fontSize: '0.68rem', color: '#38bdf8', marginTop: '4px', textDecoration: 'underline' }}>
+                                    Click to View PDF ↗
+                                  </span>
+                                </div>
+                              ) : primarySpec && isSpecVideo ? (
+                                <video src={primarySpec} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <img src={specPlanImage} alt="Specification Blueprint" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} onClick={() => primarySpec ? window.open(primarySpec, '_blank') : onNavigate('project-details', null, null, { id: project.id })} />
+                              )}
                               <div className="img-overlay-label">Specs Sheet / Plan</div>
                             </div>
+                            
                             <span className={`property-card-badge badge badge-${project.status.toLowerCase()}`} style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 10 }}>
                               {project.status}
                             </span>

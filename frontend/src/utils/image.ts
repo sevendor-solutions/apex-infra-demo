@@ -8,30 +8,19 @@ export const getProjectGalleryImages = (project: Project): string[] => {
   const propImages = (project.images || []).filter(url => !isMediaFile(url));
   
   let list: string[] = [];
-  if (project.isMarketing) {
-    // Marketing projects:
-    // Elevation Render Image (propImages[0]) is the main image.
-    // Spec images are shown next in the hero banner.
-    if (propImages.length > 0) {
-      list.push(propImages[0]);
-    }
-    list.push(...specImages);
-    if (propImages.length > 1) {
-      list.push(...propImages.slice(1));
-    }
-  } else {
-    // Standard projects:
-    // Blueprint/Specifications Image (specImages[0]) is the main image.
-    // Property images follow.
-    list.push(...specImages);
-    list.push(...propImages);
-  }
+  // Property elevation photo (propImages) comes FIRST as the main visual image
+  list.push(...propImages);
+  list.push(...specImages);
   
   // Deduplicate and filter empty
   return Array.from(new Set(list)).filter(Boolean);
 };
 
 export const getProjectMainImage = (project: Project): string => {
+  if (project.images && project.images.length > 0) {
+    const photo = project.images.find(url => url && !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
+    if (photo) return photo;
+  }
   const imgs = getProjectGalleryImages(project);
   if (imgs.length > 0) return imgs[0];
   
