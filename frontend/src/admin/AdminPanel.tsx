@@ -57,6 +57,10 @@ import { AdminMailConfig } from './AdminMailConfig';
 import { AdminMarketingAgents } from './AdminMarketingAgents';
 import { AdminExpenses } from './AdminExpenses';
 
+// Financial & Quality Inspection Subcomponents
+import { AdminCostAnalysis } from './AdminCostAnalysis';
+import { AdminStageChecklist } from './AdminStageChecklist';
+
 // JkFutureinfra accounting Subcomponents
 import { AdminWallets } from './AdminWallets';
 import { AdminQuotations } from './AdminQuotations';
@@ -96,7 +100,9 @@ import {
   
   // Accounting icons
   Landmark,
-  Coins
+  Coins,
+  Calculator,
+  ClipboardCheck
 } from 'lucide-react';
 
 interface AdminPanelProps {
@@ -233,6 +239,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       payments_pending: 'accounting',
       loans: 'accounting',
       auditor_reports: 'accounting',
+      cost_analysis: 'accounting',
+      stage_checklist: 'siteVisits',
       users: 'systemGovernance',
       masters: 'systemGovernance',
       audit_logs: 'systemGovernance',
@@ -600,6 +608,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'inventory':
       case 'suppliers':
         return currentUser.role === 'InventoryManager';
+      case 'cost_analysis':
+      case 'stage_checklist':
+        return true;
       default:
         return false;
     }
@@ -611,7 +622,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const savedTabs = localStorage.getItem(`admin_open_tabs_${currentUser.username}`);
       const savedActive = localStorage.getItem(`admin_active_tab_${currentUser.username}`);
       
-      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'borrowings', 'auditor_reports', 'invoices', 'customers', 'suppliers'];
+      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'borrowings', 'auditor_reports', 'invoices', 'customers', 'suppliers', 'cost_analysis', 'stage_checklist'];
       const allowed = allTabs.filter(tab => hasScreenAccess(tab));
 
       let loadedTabs = savedTabs ? JSON.parse(savedTabs) : ['dashboard'];
@@ -792,6 +803,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'payments_pending': return 'Pending Collections';
       case 'customers': return 'Customer Accounts';
       case 'suppliers': return 'Supplier Accounts';
+      case 'cost_analysis': return 'Project Cost Analysis';
+      case 'stage_checklist': return 'Stage Work Checklist';
       default: return tabKey;
     }
   };
@@ -1694,6 +1707,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <Mail size={16} /> <span className="admin-sidebar-link-text">Site Visit Emails</span>
                     </button>
                   </li>
+                  {hasScreenAccess('stage_checklist') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('stage_checklist')} 
+                        className={`admin-sidebar-link ${activeTab === 'stage_checklist' ? 'active' : ''}`}
+                        data-tooltip="Construction Checklist"
+                      >
+                        <ClipboardCheck size={16} /> <span className="admin-sidebar-link-text">Stage Work Checklist</span>
+                      </button>
+                    </li>
+                  )}
                 </>
               )}
             </div>
@@ -1876,6 +1900,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         data-tooltip="Auditor Reports"
                       >
                         <FileText size={16} /> <span className="admin-sidebar-link-text">Auditor Reports</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('cost_analysis') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('cost_analysis')} 
+                        className={`admin-sidebar-link ${activeTab === 'cost_analysis' ? 'active' : ''}`}
+                        data-tooltip="Project Cost Sheet"
+                      >
+                        <Calculator size={16} /> <span className="admin-sidebar-link-text">Project Cost Sheet</span>
                       </button>
                     </li>
                   )}
@@ -2176,6 +2211,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               inventoryItems={inventoryItems}
               loans={loans}
               quotations={quotations}
+              marketingAgents={marketingAgents}
             />
           )}
           
@@ -2476,6 +2512,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {activeTab === 'mail_config' && hasScreenAccess('mail_config') && (
             <AdminMailConfig 
               onAddToast={onAddToast}
+            />
+          )}
+
+          {activeTab === 'cost_analysis' && hasScreenAccess('cost_analysis') && (
+            <AdminCostAnalysis 
+              projects={projects}
+              onAddToast={onAddToast}
+              onConfirm={handleConfirmAction}
+            />
+          )}
+
+          {activeTab === 'stage_checklist' && hasScreenAccess('stage_checklist') && (
+            <AdminStageChecklist 
+              projects={projects}
+              onAddToast={onAddToast}
+              onConfirm={handleConfirmAction}
             />
           )}
         </main>

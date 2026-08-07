@@ -13,6 +13,7 @@ import {
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
+import { AgentSearchSelect } from './AgentSearchSelect';
 import { 
   Mail, 
   Phone, 
@@ -630,22 +631,13 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
 
                 <div className="form-group-premium" style={{ marginBottom: 0 }}>
                   <label className="form-label-premium">Assigned Agent (Optional)</label>
-                  <div className="input-with-icon">
-                    <User size={16} className="input-icon" />
-                    <input 
-                      type="text" 
-                      className="form-control-premium"
-                      value={formAgent}
-                      onChange={e => setFormAgent(e.target.value)}
-                      placeholder="Enter or select agent name"
-                      list="agent-suggestions"
-                    />
-                    <datalist id="agent-suggestions">
-                      {agents.map(a => (
-                        <option key={a.id} value={a.name} />
-                      ))}
-                    </datalist>
-                  </div>
+                  <AgentSearchSelect
+                    agents={agents}
+                    value={formAgent}
+                    onChange={setFormAgent}
+                    placeholder="Enter or select agent name"
+                    dropUp={true}
+                  />
                 </div>
               </div>
 

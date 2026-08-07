@@ -505,3 +505,89 @@ export interface PaymentOut {
   createdAt?: string;
   updatedAt?: string;
 }
+
+// Project Cost Analysis (Excel Model Structure)
+export interface ProjectCostAnalysis {
+  id: string;
+  projectId?: string;
+  projectName: string;
+  location?: string;
+  date?: string;
+  
+  // Section 1: Land Cost
+  siteAreaSqYards: number;
+  outRateCostPerSqYard: number;
+  outRateCostTotal: number; // Auto: siteArea * outRate
+  govtMarketValuePerSqYard: number;
+  registrationCost: number;
+  lrsVudaPercentage: number; // e.g. 14
+  lrsVudaCost: number; // Auto: (siteArea * govtMV * 9) * 14% or direct cost
+  totalLandCost: number; // Auto: outRateCostTotal + registrationCost + lrsVudaCost
+  
+  // Section 2: TDR & Plan Approval
+  gvmcPlanApprovalCost: number; // e.g. 500000
+  tdrPercentage: number; // e.g. 1
+  tdrAreaSft: number; // e.g. 600
+  tdrTotalCost: number; // e.g. 3552000
+  totalTdrPlanCost: number; // Auto: gvmcPlan + tdrTotalCost
+  
+  // Section 3: Construction Cost
+  totalFlatsAreaSft: number; // e.g. 22000
+  constructionCostPerSft: number; // e.g. 1500
+  totalConstructionCost: number; // Auto: totalFlatsAreaSft * constructionCostPerSft
+  
+  // Share Breakdown Ratios
+  ownerSharePercent: number; // e.g. 40
+  builderSharePercent: number; // e.g. 60
+  
+  // Section 4: Total Project Cost
+  totalProjectCost: number; // Auto: totalLandCost + totalTdrPlanCost + totalConstructionCost
+  
+  // Section 5: Saluable Cost / Sales Realization
+  totalSaluableAreaSft: number; // e.g. 22000
+  sellingPricePerSft: number; // e.g. 3000
+  totalAreaSaluableCost: number; // Auto: totalSaluableAreaSft * sellingPricePerSft
+  amenitiesCostPerUnit: number; // e.g. 100000
+  numberOfUnits: number; // e.g. 12
+  totalAmenitiesCost: number; // Auto: amenitiesCostPerUnit * numberOfUnits
+  totalSaleValue: number; // Auto: totalAreaSaluableCost + totalAmenitiesCost
+  
+  // Section 6: Unit Cost & Net Margin
+  costPerOneSft: number; // Auto: totalProjectCost / totalSaluableAreaSft
+  netMarginTotal: number; // Auto: totalSaleValue - totalProjectCost
+  
+  updatedAt?: string;
+}
+
+// Stage Checklist Types
+export interface ChecklistCheckpoint {
+  id: number | string;
+  item: string;
+  purpose: string;
+  status: 'OK' | 'Pending' | 'Issue';
+  remarks?: string;
+  photoUrl?: string;
+  verifiedBy?: string;
+  verifiedDate?: string;
+}
+
+export interface ChecklistStageData {
+  stageId: number;
+  stageName: string;
+  checkpoints: ChecklistCheckpoint[];
+}
+
+export interface ProjectInspectionRecord {
+  id: string;
+  projectId: string;
+  projectName: string;
+  builderName: string;
+  location: string;
+  reraNo: string;
+  checkedBy: string;
+  inspectionDate: string;
+  stages: ChecklistStageData[];
+  overallProgress: number; // Percentage
+  updatedAt?: string;
+}
+

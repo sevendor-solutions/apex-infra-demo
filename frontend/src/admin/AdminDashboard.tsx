@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { Project, Enquiry, Blog, Expense, Wallet, WalletTransaction, Invoice, Customer, Supplier, InventoryItem, Loan, Quotation, User, JobApplication, SiteVisit } from '../types';
+import type { Project, Enquiry, Blog, Expense, Wallet, WalletTransaction, Invoice, Customer, Supplier, InventoryItem, Loan, Quotation, User, JobApplication, SiteVisit, MarketingAgent } from '../types';
+import { AgentSearchSelect } from './AgentSearchSelect';
 import { 
   Building, 
   MessageSquare, 
@@ -59,6 +60,7 @@ interface AdminDashboardProps {
   inventoryItems?: InventoryItem[];
   loans?: Loan[];
   quotations?: Quotation[];
+  marketingAgents?: MarketingAgent[];
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -74,14 +76,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onAddToast,
   users = [],
   applications = [],
-  
   wallets = [],
   invoices = [],
   customers = [],
   suppliers = [],
   inventoryItems = [],
   loans = [],
-  quotations = []
+  quotations = [],
+  marketingAgents = []
 }) => {
   const [localSiteVisits, setLocalSiteVisits] = useState<SiteVisit[]>([]);
   const [latestTransactions, setLatestTransactions] = useState<WalletTransaction[]>([]);
@@ -954,7 +956,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
               <div style={formControlGroup}>
                 <label style={formLabelStyle(colors.textMuted)}>Assigned Marketing Agent</label>
-                <input type="text" style={formInputStyle(isLuxury, colors.border, colors.textMain)} value={svAgent} onChange={e => setSvAgent(e.target.value)} placeholder="Agent Name" />
+                <AgentSearchSelect
+                  agents={marketingAgents}
+                  value={svAgent}
+                  onChange={setSvAgent}
+                  placeholder="Enter or select agent name"
+                />
               </div>
             </div>
             <div style={formActionGroup}>

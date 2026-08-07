@@ -54,9 +54,9 @@ const INITIAL_USERS = [
     allowedScreens: [
       'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
       'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
-      'documents', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 
-      'loans', 'invoices', 'payments_in', 'payments_out', 'payments_pending', 'customers', 
-      'suppliers', 'auditor_reports'
+      'documents', 'marketing_agents', 'site_visits', 'mail_config', 'audit_logs', 'expenses', 
+      'wallets', 'quotations', 'inventory', 'loans', 'invoices', 'customers', 
+      'suppliers', 'auditor_reports', 'cost_analysis', 'stage_checklist'
     ]
   }
 ];
@@ -151,9 +151,9 @@ export async function seedDatabase() {
             u.allowedScreens = [
               'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
               'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
-              'documents', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 
-              'loans', 'invoices', 'payments_in', 'payments_out', 'payments_pending', 'customers', 
-              'suppliers', 'auditor_reports'
+              'documents', 'marketing_agents', 'site_visits', 'mail_config', 'audit_logs', 'expenses', 
+              'wallets', 'quotations', 'inventory', 'loans', 'invoices', 'customers', 
+              'suppliers', 'auditor_reports', 'cost_analysis', 'stage_checklist'
             ];
             await u.save();
           }

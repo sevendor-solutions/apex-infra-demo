@@ -1,4 +1,4 @@
-import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig, MarketingAgent, Expense, ExpenseCategory, Wallet, WalletTransaction, Customer, Supplier, InventoryItem, StockMovement, Quotation, Invoice, Loan, LoanPayment, PaymentIn, PaymentOut } from '../types';
+import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig, MarketingAgent, Expense, ExpenseCategory, Wallet, WalletTransaction, Customer, Supplier, InventoryItem, StockMovement, Quotation, Invoice, Loan, LoanPayment, PaymentIn, PaymentOut, ProjectCostAnalysis, ProjectInspectionRecord } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
@@ -1135,3 +1135,65 @@ export const getPendingPayments = async (): Promise<{ customerPending: Invoice[]
   const res = await fetch(`${API_BASE_URL}/payments/pending`, { headers: getAuthHeaders() });
   return handleResponse(res);
 };
+
+// Project Cost Analysis Local/Client Persistence
+export const getCostAnalyses = async (): Promise<ProjectCostAnalysis[]> => {
+  try {
+    const data = localStorage.getItem('jk_cost_analyses');
+    const list: ProjectCostAnalysis[] = data ? JSON.parse(data) : [];
+    return list.filter(c => c.projectName && c.projectName.toLowerCase() !== 'new project analysis' && c.projectName.toLowerCase() !== 'test');
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveCostAnalysis = async (costData: ProjectCostAnalysis): Promise<void> => {
+  const list = await getCostAnalyses();
+  const idx = list.findIndex(c => c.id === costData.id || (c.projectId && c.projectId === costData.projectId));
+  if (idx >= 0) {
+    list[idx] = { ...costData, updatedAt: new Date().toISOString() };
+  } else {
+    list.push({ ...costData, updatedAt: new Date().toISOString() });
+  }
+  localStorage.setItem('jk_cost_analyses', JSON.stringify(list));
+};
+
+export const deleteCostAnalysis = async (id: string): Promise<void> => {
+  const list = await getCostAnalyses();
+  const updated = list.filter(c => c.id !== id);
+  localStorage.setItem('jk_cost_analyses', JSON.stringify(updated));
+};
+
+// Stage Checklist Local/Client Persistence
+export const getProjectInspectionRecords = async (): Promise<ProjectInspectionRecord[]> => {
+  try {
+    const data = localStorage.getItem('jk_project_inspections');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const getProjectInspection = async (projectId: string): Promise<ProjectInspectionRecord | null> => {
+  const records = await getProjectInspectionRecords();
+  return records.find(r => r.projectId === projectId) || null;
+};
+
+export const saveProjectInspection = async (record: ProjectInspectionRecord): Promise<void> => {
+  const records = await getProjectInspectionRecords();
+  const idx = records.findIndex(r => r.id === record.id || (record.projectId && r.projectId === record.projectId));
+  const updatedRecord = { ...record, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    records[idx] = updatedRecord;
+  } else {
+    records.push(updatedRecord);
+  }
+  localStorage.setItem('jk_project_inspections', JSON.stringify(records));
+};
+
+export const deleteProjectInspection = async (id: string): Promise<void> => {
+  const records = await getProjectInspectionRecords();
+  const updated = records.filter(r => r.id !== id && r.projectId !== id);
+  localStorage.setItem('jk_project_inspections', JSON.stringify(updated));
+};
+

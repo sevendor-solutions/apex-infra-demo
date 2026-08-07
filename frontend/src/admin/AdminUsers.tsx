@@ -42,26 +42,34 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     ? users 
     : users.filter(u => u.id === currentUser?.id);
 
+  const ALL_SYSTEM_SCREENS = [
+    'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
+    'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'site_visits', 
+    'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'inventory', 'quotations', 
+    'invoices', 'loans', 'auditor_reports', 'users', 'masters', 'marketing_agents', 'audit_logs',
+    'cost_analysis', 'stage_checklist'
+  ];
+
   const getRoleDefaultScreens = (userRole: string): string[] => {
     if (userRole === 'Admin') {
-      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'documents', 'marketing_agents'];
+      return [...ALL_SYSTEM_SCREENS];
     } else if (userRole === 'ProjectOwner') {
-      return ['dashboard', 'projects', 'project_gallery', 'blogs', 'project_enquiries', 'careers'];
+      return ['dashboard', 'projects', 'project_gallery', 'blogs', 'documents', 'project_enquiries', 'careers', 'site_visits', 'stage_checklist', 'cost_analysis'];
     } else if (userRole === 'MarketingOwner') {
-      return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'careers'];
+      return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'careers', 'marketing_agents', 'site_visits', 'cost_analysis'];
     } else if (userRole === 'Architecture') {
-      return ['dashboard', 'documents', 'project_gallery'];
+      return ['dashboard', 'documents', 'project_gallery', 'projects', 'sites', 'stage_checklist'];
     } else if (userRole === 'MarketingAgent') {
-      return ['marketing_enquiries', 'marketing_agents'];
+      return ['dashboard', 'marketing_enquiries', 'marketing_agents', 'site_visits'];
     } else if (userRole === 'Accountant') {
-      return ['dashboard', 'expenses', 'wallets', 'payments_in', 'payments_out', 'payments_pending', 'loans', 'auditor_reports'];
+      return ['dashboard', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 'invoices', 'loans', 'auditor_reports', 'inventory', 'cost_analysis'];
     } else if (userRole === 'SalesUser') {
-      return ['dashboard', 'quotations', 'invoices', 'customers'];
+      return ['dashboard', 'quotations', 'invoices', 'customers', 'projects', 'sites'];
     } else if (userRole === 'InventoryManager') {
-      return ['dashboard', 'inventory', 'suppliers'];
+      return ['dashboard', 'inventory', 'suppliers', 'expenses', 'stage_checklist'];
     } else {
       // Moderator
-      return ['dashboard', 'project_gallery', 'blogs', 'project_enquiries', 'marketing_enquiries', 'careers'];
+      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'site_visits', 'stage_checklist', 'cost_analysis'];
     }
   };
 
@@ -190,12 +198,27 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     marketing_gallery: 'Mktg Gallery',
     gallery: 'Assets',
     blogs: 'Blogs',
+    documents: 'Documents',
     project_enquiries: 'Proj Leads',
     marketing_enquiries: 'Mktg Leads',
     careers: 'Careers',
+    site_visits: 'Site Visits',
+    mail_config: 'Settings',
+    expenses: 'Expenses',
+    wallets: 'Wallets',
+    customers: 'Customers',
+    suppliers: 'Suppliers',
+    inventory: 'Inventory',
+    quotations: 'Quotations',
+    invoices: 'Invoices',
+    loans: 'Loans',
+    auditor_reports: 'Auditor Reports',
     users: 'Staff',
     masters: 'Masters',
-    marketing_agents: 'Mktg Agents'
+    marketing_agents: 'Mktg Agents',
+    audit_logs: 'Audit Trail',
+    cost_analysis: 'Cost Sheet',
+    stage_checklist: 'Stage Checklist'
   };
 
   const columns: ALVColumn[] = [
@@ -457,23 +480,26 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'project_gallery', label: 'Project Gallery' },
                       { id: 'marketing_gallery', label: 'Marketing Gallery' },
                       { id: 'blogs', label: 'Blogs & News' },
+                      { id: 'documents', label: 'Document Storage' },
                       { id: 'project_enquiries', label: 'Project Leads' },
                       { id: 'marketing_enquiries', label: 'Marketing Leads' },
                       { id: 'careers', label: 'Job Applications' },
+                      { id: 'site_visits', label: 'Site Visit Emails' },
+                      { id: 'stage_checklist', label: 'Construction Checklist' },
+                      { id: 'mail_config', label: 'System Settings' },
                       { id: 'users', label: 'Staff Logins' },
                       { id: 'masters', label: 'Masters Config' },
                       { id: 'marketing_agents', label: 'Marketing Agents' },
+                      { id: 'audit_logs', label: 'System Audit Trail' },
                       
-                      // Accounting & Finance screens
+                      // Accounting & Financial Management
+                      { id: 'cost_analysis', label: 'Project Cost Sheet' },
                       { id: 'expenses', label: 'Expenses Ledger' },
                       { id: 'wallets', label: 'Digital Wallets' },
                       { id: 'quotations', label: 'Quotations Ledger' },
                       { id: 'inventory', label: 'Warehouse Stock' },
                       { id: 'loans', label: 'Commercial Loans' },
                       { id: 'invoices', label: 'Sales Invoices' },
-                      { id: 'payments_in', label: 'Customer Receipts (In)' },
-                      { id: 'payments_out', label: 'Supplier Payments (Out)' },
-                      { id: 'payments_pending', label: 'Pending Dues & Aging' },
                       { id: 'customers', label: 'Customers Accounts' },
                       { id: 'suppliers', label: 'Suppliers Accounts' },
                       { id: 'auditor_reports', label: 'Auditor Reports' }
