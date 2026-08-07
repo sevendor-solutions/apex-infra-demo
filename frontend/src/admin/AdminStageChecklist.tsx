@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Project, ProjectInspectionRecord, ChecklistStageData, ChecklistCheckpoint } from '../types';
+import type { Project, ProjectInspectionRecord, ChecklistStageData } from '../types';
 import { getProjectInspectionRecords, saveProjectInspection, deleteProjectInspection } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
@@ -10,12 +10,9 @@ import {
   AlertTriangle, 
   Save, 
   Printer, 
-  Check, 
   ShieldCheck, 
-  Building, 
   Plus, 
   Trash2, 
-  FolderOpen, 
   Edit,
   Layers,
   FileCheck
@@ -336,7 +333,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   // Filters & Active View
   const [activeStageId, setActiveStageId] = useState<number>(1);
   const [statusFilter, setStatusFilter] = useState<'All' | 'OK' | 'Pending' | 'Issue'>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Load saved inspection logs from DB
   const loadSavedInspections = async () => {
@@ -471,27 +467,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
   const overallProgressPct = Math.round((okCheckpointsCount / (totalCheckpoints || 1)) * 100);
 
-  // Update Status of a single checkpoint
-  const handleStatusChange = (stageId: number, cpId: number | string, newStatus: 'OK' | 'Pending' | 'Issue') => {
-    setStages(prevStages => 
-      prevStages.map(st => {
-        if (st.stageId !== stageId) return st;
-        return {
-          ...st,
-          checkpoints: st.checkpoints.map(cp => {
-            if (cp.id !== cpId) return cp;
-            return {
-              ...cp,
-              status: newStatus,
-              verifiedBy: checkedBy,
-              verifiedDate: new Date().toISOString().split('T')[0]
-            };
-          })
-        };
-      })
-    );
-  };
-
   // Update Remarks of a single checkpoint
   const handleRemarksChange = (stageId: number, cpId: number | string, remarksVal: string) => {
     setStages(prevStages => 
@@ -502,22 +477,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           checkpoints: st.checkpoints.map(cp => {
             if (cp.id !== cpId) return cp;
             return { ...cp, remarks: remarksVal };
-          })
-        };
-      })
-    );
-  };
-
-  // Update Photo URL of a single checkpoint
-  const handlePhotoUrlChange = (stageId: number, cpId: number | string, photoUrlVal: string) => {
-    setStages(prevStages => 
-      prevStages.map(st => {
-        if (st.stageId !== stageId) return st;
-        return {
-          ...st,
-          checkpoints: st.checkpoints.map(cp => {
-            if (cp.id !== cpId) return cp;
-            return { ...cp, photoUrl: photoUrlVal };
           })
         };
       })
@@ -655,7 +614,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const recId = selectedRecordId || 'insp_' + (selectedProjectId || Date.now());
     const record: ProjectInspectionRecord = {
       id: recId,
-      projectId: selectedProjectId || undefined,
+      projectId: selectedProjectId || '',
       projectName: projectName.trim(),
       builderName: builderName.trim(),
       location: location.trim(),
@@ -690,11 +649,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     if (!currentStage) return [];
     return currentStage.checkpoints.filter(cp => {
       const matchesStatus = statusFilter === 'All' || cp.status === statusFilter;
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = !q || cp.item.toLowerCase().includes(q) || cp.purpose.toLowerCase().includes(q) || cp.remarks?.toLowerCase().includes(q);
-      return matchesStatus && matchesSearch;
+      return matchesStatus;
     });
-  }, [currentStage, statusFilter, searchQuery]);
+  }, [currentStage, statusFilter]);
 
   // ALV Columns definition for Saved Inspection Records Table
   const columns: ALVColumn[] = [

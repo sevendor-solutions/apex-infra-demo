@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Project, ProjectCostAnalysis } from '../types';
 import { getCostAnalyses, saveCostAnalysis, deleteCostAnalysis } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
@@ -14,9 +14,7 @@ import {
   Building2, 
   ShieldCheck, 
   ArrowRightLeft, 
-  Edit,
-  FolderOpen,
-  CheckCircle2
+  Edit
 } from 'lucide-react';
 
 interface AdminCostAnalysisProps {
@@ -26,7 +24,7 @@ interface AdminCostAnalysisProps {
 }
 
 export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
-  projects,
+  projects: _projects,
   onAddToast,
   onConfirm
 }) => {
@@ -75,23 +73,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
     loadCostSheets();
   }, []);
 
-  // Sync with selected project if linked
-  const handleProjectSelect = (projId: string) => {
-    setSelectedProjectId(projId);
-    if (!projId) return;
 
-    const proj = projects.find(p => p.id === projId);
-    if (proj) {
-      setProjectName(proj.name);
-      setLocation(proj.location || '');
-    }
-
-    // Check if an analysis sheet already exists for this project
-    const existing = costSheets.find(c => c.projectId === projId);
-    if (existing) {
-      loadSheetData(existing);
-    }
-  };
 
   const loadSheetData = (sheet: ProjectCostAnalysis) => {
     setSelectedSheetId(sheet.id);
@@ -142,9 +124,6 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
 
   const totalProjectCost = totalLandCost + totalTdrPlanCost + totalConstructionCost;
   const totalProjectCostInCr = (totalProjectCost / 10000000).toFixed(2);
-
-  const ownerTotalProjectCostShare = (totalProjectCost * (ownerSharePercent || 0)) / 100;
-  const builderTotalProjectCostShare = (totalProjectCost * (builderSharePercent || 0)) / 100;
 
   const totalAreaSaluableCost = (totalSaluableAreaSft || 0) * (sellingPricePerSft || 0);
   const totalAmenitiesCost = (amenitiesCostPerUnit || 0) * (numberOfUnits || 0);
