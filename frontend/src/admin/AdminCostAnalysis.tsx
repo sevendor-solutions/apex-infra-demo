@@ -7,13 +7,11 @@ import {
   Calculator, 
   Save, 
   Printer, 
-  Plus, 
   Trash2, 
   PieChart, 
   DollarSign, 
   Building2, 
   ShieldCheck, 
-  ArrowRightLeft, 
   Edit
 } from 'lucide-react';
 
@@ -40,7 +38,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
   const [siteAreaSqYards, setSiteAreaSqYards] = useState<number>(0);
   const [outRateCostPerSqYard, setOutRateCostPerSqYard] = useState<number>(0);
   const [govtMarketValuePerSqYard, setGovtMarketValuePerSqYard] = useState<number>(0);
-  const [registrationCost, setRegistrationCost] = useState<number>(0);
+  const [registrationPercentage, setRegistrationPercentage] = useState<number>(7.5);
   const [lrsVudaPercentage, setLrsVudaPercentage] = useState<number>(0);
 
   // Section 2: TDR & Plan
@@ -53,7 +51,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
   const [totalFlatsAreaSft, setTotalFlatsAreaSft] = useState<number>(0);
   const [constructionCostPerSft, setConstructionCostPerSft] = useState<number>(0);
 
-  // Share Ratio
+  // Share Ratio (Dynamic)
   const [ownerSharePercent, setOwnerSharePercent] = useState<number>(40);
   const [builderSharePercent, setBuilderSharePercent] = useState<number>(60);
 
@@ -73,8 +71,6 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
     loadCostSheets();
   }, []);
 
-
-
   const loadSheetData = (sheet: ProjectCostAnalysis) => {
     setSelectedSheetId(sheet.id);
     setSelectedProjectId(sheet.projectId || '');
@@ -84,7 +80,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
     setSiteAreaSqYards(sheet.siteAreaSqYards || 0);
     setOutRateCostPerSqYard(sheet.outRateCostPerSqYard || 0);
     setGovtMarketValuePerSqYard(sheet.govtMarketValuePerSqYard || 0);
-    setRegistrationCost(sheet.registrationCost || 0);
+    setRegistrationPercentage(sheet.registrationPercentage ?? 7.5);
     setLrsVudaPercentage(sheet.lrsVudaPercentage ?? 14);
 
     setGvmcPlanApprovalCost(sheet.gvmcPlanApprovalCost || 0);
@@ -108,8 +104,15 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
 
   // Real-time Calculations
   const outRateCostTotal = (siteAreaSqYards || 0) * (outRateCostPerSqYard || 0);
-  const lrsVudaCost = Math.round((outRateCostTotal * ((lrsVudaPercentage || 0) / 100)));
-  const totalLandCost = outRateCostTotal + (registrationCost || 0) + lrsVudaCost;
+  const govtMarketValueTotal = (siteAreaSqYards || 0) * (govtMarketValuePerSqYard || 0);
+  
+  // Registration Cost (7.5%) calculated on Govt Market Value Total (A * D * registrationPercentage%) exact same as Excel
+  const registrationCost = Math.round((govtMarketValueTotal * ((registrationPercentage || 0) / 100)));
+
+  // LRS / VUDA (14%) calculated on Govt Market Value Total (A * D * lrsVudaPercentage%) exact same as Excel
+  const lrsVudaCost = Math.round((govtMarketValueTotal * ((lrsVudaPercentage || 0) / 100)));
+  
+  const totalLandCost = outRateCostTotal + registrationCost + lrsVudaCost;
   const landCostInCr = (totalLandCost / 10000000).toFixed(2);
 
   const totalTdrPlanCost = (gvmcPlanApprovalCost || 0) + (tdrTotalCost || 0);
@@ -117,6 +120,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
   const totalConstructionCost = (totalFlatsAreaSft || 0) * (constructionCostPerSft || 0);
   const constructionCostInCr = (totalConstructionCost / 10000000).toFixed(2);
 
+  // Dynamic share calculations based on ownerSharePercent and builderSharePercent
   const ownerConstructionShareCost = (totalConstructionCost * (ownerSharePercent || 0)) / 100;
   const builderConstructionShareCost = (totalConstructionCost * (builderSharePercent || 0)) / 100;
   const ownerConstructionAreaSft = ((totalFlatsAreaSft || 0) * (ownerSharePercent || 0)) / 100;
@@ -124,6 +128,9 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
 
   const totalProjectCost = totalLandCost + totalTdrPlanCost + totalConstructionCost;
   const totalProjectCostInCr = (totalProjectCost / 10000000).toFixed(2);
+
+  const ownerProjectCostShare = (totalProjectCost * (ownerSharePercent || 0)) / 100;
+  const builderProjectCostShare = (totalProjectCost * (builderSharePercent || 0)) / 100;
 
   const totalAreaSaluableCost = (totalSaluableAreaSft || 0) * (sellingPricePerSft || 0);
   const totalAmenitiesCost = (amenitiesCostPerUnit || 0) * (numberOfUnits || 0);
@@ -162,6 +169,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
       outRateCostPerSqYard,
       outRateCostTotal,
       govtMarketValuePerSqYard,
+      registrationPercentage,
       registrationCost,
       lrsVudaPercentage,
       lrsVudaCost,
@@ -225,7 +233,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
     setSiteAreaSqYards(0);
     setOutRateCostPerSqYard(0);
     setGovtMarketValuePerSqYard(0);
-    setRegistrationCost(0);
+    setRegistrationPercentage(7.5);
     setLrsVudaPercentage(0);
     setGvmcPlanApprovalCost(0);
     setTdrPercentage(0);
@@ -358,7 +366,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
 
   return (
     <div className="admin-cost-analysis-container">
-      {/* Top Header Card */}
+      {/* Top Header Card with Action Buttons */}
       <div className="admin-card mb-3">
         <div className="flex justify-between align-center flex-wrap gap-2">
           <div>
@@ -367,15 +375,11 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
               Project Cost & Profitability Analysis
             </h2>
             <p className="text-xs text-muted">
-              Real estate financial estimation model & 40%/60% landowner-builder split analysis
+              Real estate financial estimation model & {ownerSharePercent}%/{builderSharePercent}% landowner-builder split analysis
             </p>
           </div>
 
           <div className="flex align-center gap-1 flex-wrap">
-            <button onClick={handleNewSheet} className="btn btn-outline btn-sm flex align-center gap-0.5">
-              <Plus size={14} /> New Sheet
-            </button>
-
             <button onClick={handleSave} className="btn btn-secondary btn-sm flex align-center gap-0.5">
               <Save size={14} /> Save Analysis
             </button>
@@ -415,7 +419,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
           <div className="p-1.5 rounded" style={{ backgroundColor: '#fffbeb', color: '#d97706' }}>
             <PieChart size={22} />
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <div className="text-xs text-muted font-bold">Project Net Margin</div>
             <div className={`text-lg font-bold ${netMarginTotal >= 0 ? 'text-success' : 'text-danger'}`}>
               ₹{netMarginInCr} CR
@@ -436,7 +440,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
         </div>
       </div>
 
-      {/* Project Details Bar */}
+      {/* Project Details Metadata Inputs Bar */}
       <div className="admin-card mb-3">
         <div className="grid grid-2 gap-2 mobile-stack">
           <div className="form-group mb-0">
@@ -481,7 +485,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
         />
       </div>
 
-      {/* Excel Table Calculator Grid */}
+      {/* Excel Table Calculator Grid (With DYNAMIC Share Headers & Splits) */}
       <div className="admin-card mb-4 p-0" style={{ overflow: 'hidden' }}>
         <div className="admin-card-header" style={{ padding: '0.8rem 1.25rem', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3 className="font-bold text-white text-sm uppercase tracking-wider mb-0" style={{ margin: 0 }}>
@@ -500,17 +504,54 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
               <tr style={{ backgroundColor: '#f1f5f9', color: '#1e293b', fontWeight: 'bold' }}>
                 <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', width: '50px' }}>S.NO</th>
                 <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>PARTICULARS</th>
-                <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>SITE AREA SFT / SFT</th>
+                <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>SITE AREA / SFT / UNITS</th>
                 <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>RATE / COST PER SFT</th>
                 <th style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>TOTAL COST (RS)</th>
-                <th style={{ padding: '8px', textAlign: 'center', width: '250px' }}>OWNER / BUILDER SHARE SPLIT ({ownerSharePercent}% / {builderSharePercent}%)</th>
+                <th style={{ padding: '6px 8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', width: '150px', backgroundColor: '#fef9c3', color: '#854d0e' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <input 
+                      type="number" 
+                      className="form-control font-bold"
+                      style={{ width: '54px', textAlign: 'center', padding: '2px 4px', fontSize: '0.85rem', color: '#78350f', backgroundColor: '#ffffff', borderColor: '#d97706' }}
+                      value={ownerSharePercent} 
+                      onChange={e => {
+                        const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setOwnerSharePercent(val);
+                        setBuilderSharePercent(100 - val);
+                      }}
+                      min="0"
+                      max="100"
+                      title="Enter Landowner Share %"
+                    />
+                    <span style={{ whiteSpace: 'nowrap' }}>% SHARE</span>
+                  </div>
+                </th>
+                <th style={{ padding: '6px 8px', textAlign: 'center', width: '150px', backgroundColor: '#fef08a', color: '#713f12' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <input 
+                      type="number" 
+                      className="form-control font-bold"
+                      style={{ width: '54px', textAlign: 'center', padding: '2px 4px', fontSize: '0.85rem', color: '#713f12', backgroundColor: '#ffffff', borderColor: '#2563eb' }}
+                      value={builderSharePercent} 
+                      onChange={e => {
+                        const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setBuilderSharePercent(val);
+                        setOwnerSharePercent(100 - val);
+                      }}
+                      min="0"
+                      max="100"
+                      title="Enter Builder Share %"
+                    />
+                    <span style={{ whiteSpace: 'nowrap' }}>% SHARE</span>
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {/* SECTION 1: LAND COST */}
               <tr style={{ backgroundColor: '#fef3c7', fontWeight: 'bold', color: '#78350f' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>1</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={5}>LAND COST</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={6}>LAND COST</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -541,6 +582,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#1e293b' }}>
                   ₹{formatINR(outRateCostTotal)}
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
@@ -559,28 +601,36 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                     min="0"
                   />
                 </td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', color: '#64748b' }}>
-                  -
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#64748b' }}>
+                  ₹{formatINR(govtMarketValueTotal)}
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>C</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>REGISTRATION COST</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
-                  <input 
-                    type="number" 
-                    className="form-control"
-                    style={{ width: '130px', marginLeft: 'auto', textAlign: 'right', padding: '4px', fontSize: '0.8rem' }}
-                    value={registrationCost || ''} 
-                    onChange={e => setRegistrationCost(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    min="0"
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <input 
+                      type="number" 
+                      className="form-control"
+                      style={{ width: '65px', textAlign: 'center', padding: '4px', fontSize: '0.8rem' }}
+                      value={registrationPercentage || ''} 
+                      onChange={e => setRegistrationPercentage(parseFloat(e.target.value) || 0)}
+                      step="0.1"
+                      min="0"
+                      max="100"
+                    />
+                    <span>%</span>
+                  </div>
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 600, color: '#334155' }}>
+                  ₹{formatINR(registrationCost)}
+                </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
@@ -605,16 +655,17 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 600, color: '#334155' }}>
                   ₹{formatINR(lrsVudaCost)}
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
               <tr style={{ backgroundColor: '#fffbeb', fontWeight: 'bold', borderBottom: '1px solid #cbd5e1' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>RS IN CR</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL LAND COST</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL COST FOR SITE/LAND</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color: '#92400e' }}>
                   ₹{formatINR(totalLandCost)}
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }}>
+                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }} colSpan={2}>
                   {landCostInCr} CR
                 </td>
               </tr>
@@ -622,12 +673,12 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
               {/* SECTION 2: TDR & PLAN */}
               <tr style={{ backgroundColor: '#fef3c7', fontWeight: 'bold', color: '#78350f' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>2</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={5}>TDR & PLAN APPROVAL COST</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={6}>TDR & PLAN APPROVAL COST</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>A</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>GVMC / MUNICIPAL PLAN APPROVAL FEE</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>G</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>FOR GVMC Plan Approval</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
@@ -641,11 +692,12 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                     min="0"
                   />
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>B</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>G1-G3</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>TDR AREA & COST</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
@@ -679,6 +731,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                     min="0"
                   />
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
@@ -688,7 +741,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color: '#92400e' }}>
                   ₹{formatINR(totalTdrPlanCost)}
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }}>
+                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }} colSpan={2}>
                   {((totalTdrPlanCost) / 10000000).toFixed(2)} CR
                 </td>
               </tr>
@@ -696,12 +749,12 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
               {/* SECTION 3: CONSTRUCTION COST */}
               <tr style={{ backgroundColor: '#fef3c7', fontWeight: 'bold', color: '#78350f' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>3</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={5}>CONSTRUCTION COST</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={6}>CONSTRUCTION COST</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>A</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>TOTAL FLAT AREA SFT & CONSTRUCTION RATE</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>H & I</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>TOTAL FLATS AREA SFT & Construction Cost per SFT</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
                   <input 
                     type="number" 
@@ -709,7 +762,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                     style={{ width: '110px', margin: '0 auto', textAlign: 'center', padding: '4px', fontSize: '0.8rem' }}
                     value={totalFlatsAreaSft || ''} 
                     onChange={e => setTotalFlatsAreaSft(parseFloat(e.target.value) || 0)}
-                    placeholder="SFT Area"
+                    placeholder="Total SFT"
                     min="0"
                   />
                 </td>
@@ -727,17 +780,13 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#1e293b' }}>
                   ₹{formatINR(totalConstructionCost)}
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 'bold', fontSize: '0.78rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                    <div style={{ borderRight: '1px solid #fde68a' }}>
-                      <div>₹{formatINR(ownerConstructionShareCost)}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 'normal' }}>{ownerConstructionAreaSft} SFT</div>
-                    </div>
-                    <div>
-                      <div>₹{formatINR(builderConstructionShareCost)}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 'normal' }}>{builderConstructionAreaSft} SFT</div>
-                    </div>
-                  </div>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', backgroundColor: '#fef9c3', textAlign: 'center', fontWeight: 'bold' }}>
+                  <div>₹{formatINR(ownerConstructionShareCost)}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 'normal' }}>{ownerConstructionAreaSft} SFT</div>
+                </td>
+                <td style={{ padding: '8px', backgroundColor: '#fef08a', textAlign: 'center', fontWeight: 'bold' }}>
+                  <div>₹{formatINR(builderConstructionShareCost)}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#78350f', fontWeight: 'normal' }}>{builderConstructionAreaSft} SFT</div>
                 </td>
               </tr>
 
@@ -747,32 +796,38 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color: '#92400e' }}>
                   ₹{formatINR(totalConstructionCost)}
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }}>
+                <td style={{ padding: '8px', backgroundColor: '#fef3c7', textAlign: 'center', fontWeight: 900, color: '#78350f' }} colSpan={2}>
                   {constructionCostInCr} CR
                 </td>
               </tr>
 
-              {/* SECTION 4: TOTAL PROJECT COST */}
+              {/* SECTION 4: TOTAL PROJECT COST (Dynamically Split Based on Slider) */}
               <tr style={{ backgroundColor: '#fde047', fontWeight: 900, color: '#0f172a', borderBottom: '2px solid #cbd5e1' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>4</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL PROJECT COST (LAND + TDR + CONSTRUCTION)</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL PROJECT COST (1+2+3)</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900 }}>
                   ₹{formatINR(totalProjectCost)}
+                  <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#475569' }}>({totalProjectCostInCr} CR)</div>
                 </td>
-                <td style={{ padding: '8px', textAlign: 'center', fontWeight: 900, fontSize: '0.9rem' }}>
-                  {totalProjectCostInCr} CR
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 900, backgroundColor: '#fef08a' }}>
+                  ₹{formatINR(ownerProjectCostShare)}
+                  <div style={{ fontSize: '0.75rem', color: '#78350f' }}>({(ownerProjectCostShare / 10000000).toFixed(2)} CR)</div>
+                </td>
+                <td style={{ padding: '8px', textAlign: 'center', fontWeight: 900, backgroundColor: '#facc15' }}>
+                  ₹{formatINR(builderProjectCostShare)}
+                  <div style={{ fontSize: '0.75rem', color: '#78350f' }}>({(builderProjectCostShare / 10000000).toFixed(2)} CR)</div>
                 </td>
               </tr>
 
-              {/* SECTION 5: SALUABLE REALIZATION */}
+              {/* SECTION 5: SALUABLE COST / REVENUE REALIZATION */}
               <tr style={{ backgroundColor: '#d1fae5', fontWeight: 'bold', color: '#065f46' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>5</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={5}>SALUABLE COST & REVENUE REALIZATION</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={6}>SALUABLE COST & REVENUE REALIZATION</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>A</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>SALES AREA SFT & SELLING PRICE PER SFT</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>J-L</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>TOTAL AREA IN SFT / COST PER SFT</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
                   <input 
                     type="number" 
@@ -798,23 +853,19 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>
                   ₹{formatINR(totalAreaSaluableCost)}
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#ecfdf5', textAlign: 'center', fontWeight: 'bold', fontSize: '0.78rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                    <div style={{ borderRight: '1px solid #a7f3d0' }}>
-                      <div>₹{formatINR(ownerSaleShareValue)}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#065f46', fontWeight: 'normal' }}>{(ownerSaleShareValue / 10000000).toFixed(2)} CR</div>
-                    </div>
-                    <div>
-                      <div>₹{formatINR(builderSaleShareValue)}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#065f46', fontWeight: 'normal' }}>{(builderSaleShareValue / 10000000).toFixed(2)} CR</div>
-                    </div>
-                  </div>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', backgroundColor: '#ecfdf5', textAlign: 'center', fontWeight: 'bold' }}>
+                  <div>₹{formatINR(ownerSaleShareValue)}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#065f46' }}>{(ownerSaleShareValue / 10000000).toFixed(2)} CR</div>
+                </td>
+                <td style={{ padding: '8px', backgroundColor: '#a7f3d0', textAlign: 'center', fontWeight: 'bold' }}>
+                  <div>₹{formatINR(builderSaleShareValue)}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#065f46' }}>{(builderSaleShareValue / 10000000).toFixed(2)} CR</div>
                 </td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>B</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>AMENITIES & OTHER COLLECTION FEE</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>M-O</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }}>AMENITIES & No. OF UNITS</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                     <input 
@@ -843,24 +894,31 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 600, color: '#059669' }}>
                   ₹{formatINR(totalAmenitiesCost)}
                 </td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
               <tr style={{ backgroundColor: '#ecfdf5', fontWeight: 'bold', borderBottom: '1px solid #cbd5e1' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>RS IN CR</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL SALES REALIZATION VALUE</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>TOTAL SALES REALIZATION VALUE (L+O)</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 900, color: '#065f46' }}>
                   ₹{formatINR(totalSaleValue)}
+                  <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#047857' }}>({totalSaleValueInCr} CR)</div>
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#a7f3d0', textAlign: 'center', fontWeight: 900, color: '#064e3b' }}>
-                  {totalSaleValueInCr} CR
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', backgroundColor: '#a7f3d0', textAlign: 'center', fontWeight: 900, color: '#064e3b' }}>
+                  ₹{formatINR(ownerSaleShareValue)}
+                  <div style={{ fontSize: '0.75rem' }}>({(ownerSaleShareValue / 10000000).toFixed(2)} CR)</div>
+                </td>
+                <td style={{ padding: '8px', backgroundColor: '#6ee7b7', textAlign: 'center', fontWeight: 900, color: '#064e3b' }}>
+                  ₹{formatINR(builderSaleShareValue)}
+                  <div style={{ fontSize: '0.75rem' }}>({(builderSaleShareValue / 10000000).toFixed(2)} CR)</div>
                 </td>
               </tr>
 
-              {/* SECTION 6: COST PER SFT & NET PROFIT MARGIN */}
+              {/* SECTION 6: COST PER SFT */}
               <tr style={{ backgroundColor: '#a7f3d0', fontWeight: 'bold', color: '#064e3b' }}>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>6</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={5}>COST PER 1 SFT & NET PROFIT MARGIN ANALYSIS</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={6}>COST PER 1 SFT</td>
               </tr>
 
               <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
@@ -869,20 +927,25 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>{totalSaluableAreaSft} SFT</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold', color: '#7e22ce' }}>₹{formatINR(costPerOneSft)} / SFT</td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 'bold', color: '#1e293b' }}>₹{formatINR(totalProjectCost)}</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
               </tr>
 
+              {/* SECTION 7: MARGIN ANALYSIS (Dynamically Split Based on Slider) */}
               <tr style={{ backgroundColor: '#d1fae5', fontWeight: 900, color: '#064e3b' }}>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>RS IN CR</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>NET PROFIT MARGIN IN CRORES</td>
-                <td style={{ padding: '8px', textAlign: 'center', fontWeight: 900, fontSize: '0.9rem', color: '#047857', borderRight: '1px solid #cbd5e1' }}>
-                  ₹{netMarginInCr} CR
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>7</td>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1' }} colSpan={3}>MARGIN / NET PROFIT MARGIN IN CRORES</td>
+                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 900, fontSize: '0.9rem', color: '#047857', borderRight: '1px solid #cbd5e1' }}>
+                  ₹{formatINR(netMarginTotal)}
+                  <div style={{ fontSize: '0.8rem', color: '#064e3b' }}>({netMarginInCr} CR)</div>
                 </td>
-                <td style={{ padding: '8px', backgroundColor: '#fef08a', textAlign: 'center', color: '#0f172a', fontWeight: 'bold' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
-                    <div style={{ borderRight: '1px solid #fde047' }}>₹{(ownerMarginShare / 10000000).toFixed(2)} CR</div>
-                    <div>₹{(builderMarginShare / 10000000).toFixed(2)} CR</div>
-                  </div>
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', backgroundColor: '#fef08a', textAlign: 'center', color: '#0f172a', fontWeight: 'bold' }}>
+                  ₹{formatINR(ownerMarginShare)}
+                  <div style={{ fontSize: '0.75rem', color: '#854d0e' }}>({(ownerMarginShare / 10000000).toFixed(2)} CR)</div>
+                </td>
+                <td style={{ padding: '8px', backgroundColor: '#fde047', textAlign: 'center', color: '#0f172a', fontWeight: 'bold' }}>
+                  ₹{formatINR(builderMarginShare)}
+                  <div style={{ fontSize: '0.75rem', color: '#854d0e' }}>({(builderMarginShare / 10000000).toFixed(2)} CR)</div>
                 </td>
               </tr>
 
@@ -891,62 +954,19 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
         </div>
       </div>
 
-      {/* Share Ratio Adjuster Slider */}
-      <div className="admin-card">
-        <h4 className="border-bottom-title mb-2 flex align-center gap-1">
-          <ArrowRightLeft size={16} className="text-secondary" />
-          Customize Landowner / Developer Profit Sharing Ratio
-        </h4>
-
-        <div className="grid grid-3 gap-3 align-center mobile-stack">
-          <div>
-            <label className="form-label font-bold">Landowner Share Ratio (%)</label>
-            <div className="flex align-center gap-1">
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={ownerSharePercent}
-                onChange={e => {
-                  const val = Number(e.target.value);
-                  setOwnerSharePercent(val);
-                  setBuilderSharePercent(100 - val);
-                }}
-                style={{ flex: 1, accentColor: '#d97706' }}
-              />
-              <span className="font-bold text-amber-700 text-sm" style={{ width: '40px' }}>{ownerSharePercent}%</span>
-            </div>
+      {/* Dynamic Net Margin Split Summary Card Below Table (Row 7) */}
+      <div className="admin-card mb-4 p-3" style={{ backgroundColor: '#f8fafc', borderColor: '#cbd5e1' }}>
+        <div className="font-bold text-dark text-xs mb-1.5 uppercase tracking-wider">
+          Net Margin Split:
+        </div>
+        <div className="grid grid-2 gap-3 mobile-stack">
+          <div className="flex justify-between align-center p-2.5 rounded" style={{ backgroundColor: '#fef9c3', border: '1px solid #fde047' }}>
+            <span className="font-bold text-xs" style={{ color: '#854d0e' }}>Owner Share ({ownerSharePercent}%):</span>
+            <span className="font-bold text-sm" style={{ color: '#78350f' }}>₹{(ownerMarginShare / 10000000).toFixed(2)} CR</span>
           </div>
-
-          <div>
-            <label className="form-label font-bold">Builder / Developer Share Ratio (%)</label>
-            <div className="flex align-center gap-1">
-              <input 
-                type="range" 
-                min="0" 
-                max="100" 
-                value={builderSharePercent}
-                onChange={e => {
-                  const val = Number(e.target.value);
-                  setBuilderSharePercent(val);
-                  setOwnerSharePercent(100 - val);
-                }}
-                style={{ flex: 1, accentColor: '#2563eb' }}
-              />
-              <span className="font-bold text-blue-700 text-sm" style={{ width: '40px' }}>{builderSharePercent}%</span>
-            </div>
-          </div>
-
-          <div className="p-2 rounded border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
-            <div className="font-bold text-dark text-xs mb-0.5">Net Margin Split:</div>
-            <div className="flex justify-between text-xs text-muted">
-              <span>Owner Share ({ownerSharePercent}%):</span>
-              <span className="font-bold text-dark">₹{(ownerMarginShare / 10000000).toFixed(2)} CR</span>
-            </div>
-            <div className="flex justify-between text-xs text-muted mt-0.5">
-              <span>Builder Share ({builderSharePercent}%):</span>
-              <span className="font-bold text-dark">₹{(builderMarginShare / 10000000).toFixed(2)} CR</span>
-            </div>
+          <div className="flex justify-between align-center p-2.5 rounded" style={{ backgroundColor: '#fef08a', border: '1px solid #facc15' }}>
+            <span className="font-bold text-xs" style={{ color: '#713f12' }}>Builder Share ({builderSharePercent}%):</span>
+            <span className="font-bold text-sm" style={{ color: '#713f12' }}>₹{(builderMarginShare / 10000000).toFixed(2)} CR</span>
           </div>
         </div>
       </div>

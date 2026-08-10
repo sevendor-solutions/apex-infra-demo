@@ -519,6 +519,7 @@ export interface ProjectCostAnalysis {
   outRateCostPerSqYard: number;
   outRateCostTotal: number; // Auto: siteArea * outRate
   govtMarketValuePerSqYard: number;
+  registrationPercentage?: number; // e.g. 7.5
   registrationCost: number;
   lrsVudaPercentage: number; // e.g. 14
   lrsVudaCost: number; // Auto: (siteArea * govtMV * 9) * 14% or direct cost
