@@ -592,3 +592,34 @@ export interface ProjectInspectionRecord {
   updatedAt?: string;
 }
 
+// Master Construction Follow-up Matrix (Daily Agenda) Types
+export interface DailyAgendaTaskItem {
+  id: string;
+  colId: string;
+  title: string;
+  plannedDate: string; // e.g. "2026-08-14"
+  completedDate?: string;
+  status: 'Upcoming' | 'Active' | 'Completed' | 'Pending' | 'In Progress';
+}
+
+export interface DailyAgendaRow {
+  id: string;
+  date: string; // e.g. "2026-08-14"
+  statusColor?: 'green' | 'yellow' | 'blue' | 'white'; // Excel row status background
+  tasks: Record<string, string>; // columnId -> raw notes text
+}
+
+export interface DailyAgendaColumn {
+  id: string;
+  title: string;
+}
+
+export interface DailyAgendaMatrix {
+  id: string;
+  title: string;
+  columns: DailyAgendaColumn[];
+  rows: DailyAgendaRow[];
+  taskItems?: DailyAgendaTaskItem[];
+  updatedAt?: string;
+}
+

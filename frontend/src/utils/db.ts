@@ -1197,3 +1197,32 @@ export const deleteProjectInspection = async (id: string): Promise<void> => {
   localStorage.setItem('jk_project_inspections', JSON.stringify(updated));
 };
 
+// Daily Agenda / Master Construction Follow-up Matrix Local Persistence
+import type { DailyAgendaMatrix } from '../types';
+
+export const getDailyAgendaMatrices = async (): Promise<DailyAgendaMatrix[]> => {
+  try {
+    const data = localStorage.getItem('jk_daily_agenda_matrices');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const saveDailyAgendaMatrix = async (matrix: DailyAgendaMatrix): Promise<void> => {
+  const list = await getDailyAgendaMatrices();
+  const idx = list.findIndex(m => m.id === matrix.id);
+  const updatedMatrix = { ...matrix, updatedAt: new Date().toISOString() };
+  if (idx >= 0) {
+    list[idx] = updatedMatrix;
+  } else {
+    list.push(updatedMatrix);
+  }
+  localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify(list));
+};
+
+export const deleteDailyAgendaMatrix = async (id: string): Promise<void> => {
+  const list = await getDailyAgendaMatrices();
+  const updated = list.filter(m => m.id !== id);
+  localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify(updated));
+};

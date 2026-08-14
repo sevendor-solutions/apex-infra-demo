@@ -1712,9 +1712,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <button 
                         onClick={() => handleOpenTab('stage_checklist')} 
                         className={`admin-sidebar-link ${activeTab === 'stage_checklist' ? 'active' : ''}`}
-                        data-tooltip="Construction Checklist"
+                        data-tooltip="Daily Agenda Matrix"
                       >
-                        <ClipboardCheck size={16} /> <span className="admin-sidebar-link-text">Stage Work Checklist</span>
+                        <ClipboardCheck size={16} /> <span className="admin-sidebar-link-text">Daily Agenda Matrix</span>
                       </button>
                     </li>
                   )}
