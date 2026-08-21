@@ -593,6 +593,13 @@ export interface ProjectInspectionRecord {
 }
 
 // Master Construction Follow-up Matrix (Daily Agenda) Types
+export interface DailyAgendaChecklistItem {
+  id: string;
+  title: string;
+  completed: boolean;
+  completedDate?: string; // e.g. "2026-08-21" recorded when checked
+}
+
 export interface DailyAgendaTaskItem {
   id: string;
   colId: string;
@@ -612,6 +619,7 @@ export interface DailyAgendaRow {
 export interface DailyAgendaColumn {
   id: string;
   title: string;
+  defaultItems?: string[];
 }
 
 export interface DailyAgendaMatrix {
@@ -620,6 +628,8 @@ export interface DailyAgendaMatrix {
   columns: DailyAgendaColumn[];
   rows: DailyAgendaRow[];
   taskItems?: DailyAgendaTaskItem[];
+  cellChecklists?: Record<string, DailyAgendaChecklistItem[]>;
   updatedAt?: string;
 }
+
 

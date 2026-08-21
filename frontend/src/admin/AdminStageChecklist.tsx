@@ -1,12 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Project, DailyAgendaMatrix, DailyAgendaColumn, DailyAgendaRow, DailyAgendaTaskItem } from '../types';
+import type { Project, DailyAgendaMatrix, DailyAgendaColumn, DailyAgendaRow, DailyAgendaChecklistItem, DailyAgendaTaskItem } from '../types';
 import { getDailyAgendaMatrices, saveDailyAgendaMatrix } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { 
   Calendar, 
   Printer, 
-  Plus
+  Plus, 
+  Trash2, 
+  Edit2, 
+  Check, 
+  X,
+  ListChecks
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -18,59 +23,133 @@ interface AdminStageChecklistProps {
 // Helper to get formatted date YYYY-MM-DD
 const getTodayStr = () => new Date().toISOString().split('T')[0];
 
-// Standard default columns matching user specification exactly
+// Default 10 Checklist Items matching Image 1
+export const DEFAULT_CHECKLIST_TEMPLATE: string[] = [
+  'Determine date and time',
+  'Determine theme',
+  'Create a guest list',
+  'Send invitations',
+  'Plan activities',
+  'Plan menu',
+  'Make shopping list',
+  'Clean the house',
+  'Set out decorations',
+  'Prepare food & drinks'
+];
+
+// Helper to create fresh default checklist items - ALL UNCHECKED by default
+const createDefaultChecklistItems = (): DailyAgendaChecklistItem[] => {
+  return DEFAULT_CHECKLIST_TEMPLATE.map((title, idx) => ({
+    id: `chk_def_${idx}`,
+    title,
+    completed: false // All unchecked by default as requested
+  }));
+};
+
+// Standard default columns
 const STANDARD_DEFAULT_COLUMNS: DailyAgendaColumn[] = [
-  { id: 'c5', title: 'Regular follow-ups' }
+  { id: 'c_regular', title: 'Regular follow-ups' }
 ];
 
 export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   projects: _projects,
   onAddToast,
-  onConfirm: _onConfirm
+  onConfirm
 }) => {
   const [matrixTitle, setMatrixTitle] = useState('Daily Construction Follow-up Matrix');
 
-  // Columns State - Standard columns loaded by default
+  // Columns State
   const [columns, setColumns] = useState<DailyAgendaColumn[]>(STANDARD_DEFAULT_COLUMNS);
   const [newColumnTitle, setNewColumnTitle] = useState<string>('');
 
-  // Dynamic Tasks State (smart carry-forward model)
+  // Date Rows List
+  const [dateList, setDateList] = useState<string[]>([getTodayStr()]);
+
+  // Cell Checklists State: key is `${dateStr}__${colId}`
+  const [cellChecklists, setCellChecklists] = useState<Record<string, DailyAgendaChecklistItem[]>>({});
+
+  // Legacy taskItems fallback support
   const [taskItems, setTaskItems] = useState<DailyAgendaTaskItem[]>([]);
 
-  // Date Rows List (Explicit dates added or auto-detected)
-  const [dateList, setDateList] = useState<string[]>([]);
-
-  // Form state for logging today's / new work item
+  // Top Logger Form state
   const [newLogDate, setNewLogDate] = useState<string>(getTodayStr());
   const [newLogTitle, setNewLogTitle] = useState<string>('');
-
-  // Task inline edit state
-  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [editTaskTitle, setEditTaskTitle] = useState('');
-  const [editTaskDate, setEditTaskDate] = useState('');
+  const [newLogColId, setNewLogColId] = useState<string>('c_regular');
 
   // Date Row inline edit state
   const [editingDateRow, setEditingDateRow] = useState<string | null>(null);
   const [editDateValue, setEditDateValue] = useState<string>('');
 
-  // Active direct cell entry for empty cells in any column
-  const [activeCell, setActiveCell] = useState<{ colId: string; dateStr: string } | null>(null);
-  const [newCellText, setNewCellText] = useState('');
+  // Cell-level inline adding new option state
+  const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
 
-  // Auto-Load Saved Matrix State from Backend on Mount
+  // Editing checklist item state: key is `${dateStr}__${colId}__${itemId}`
+  const [editingItemKey, setEditingItemKey] = useState<string | null>(null);
+  const [editItemTitle, setEditItemTitle] = useState<string>('');
+
+  // Status Filter State ('ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING'>('ALL');
+
+  // Auto-Load Saved Matrix State from Backend / LocalStorage on Mount
   useEffect(() => {
     const loadBackendData = async () => {
       try {
         const matrices = await getDailyAgendaMatrices();
         if (matrices && matrices.length > 0) {
           const saved = matrices[0];
-          if (saved.columns && saved.columns.length > 0) setColumns(saved.columns);
-          if (saved.taskItems && saved.taskItems.length > 0) {
-            setTaskItems(saved.taskItems);
-            const dates = Array.from(new Set(saved.taskItems.map(t => t.plannedDate)));
-            if (dates.length > 0) setDateList(dates);
+          if (saved.columns && saved.columns.length > 0) {
+            setColumns(saved.columns);
+            if (saved.columns[0]) {
+              setNewLogColId(saved.columns[0].id);
+            }
           }
           if (saved.title) setMatrixTitle(saved.title);
+
+          // Restore cellChecklists if available
+          if (saved.cellChecklists && Object.keys(saved.cellChecklists).length > 0) {
+            setCellChecklists(saved.cellChecklists);
+            // Extract dates from cellChecklist keys
+            const keys = Object.keys(saved.cellChecklists);
+            const savedDates = Array.from(new Set(keys.map(k => k.split('__')[0]))).filter(Boolean);
+            if (savedDates.length > 0) {
+              setDateList(savedDates);
+            }
+          } else if (saved.taskItems && saved.taskItems.length > 0) {
+            // Legacy conversion: convert legacy taskItems into cellChecklists
+            setTaskItems(saved.taskItems);
+            const converted: Record<string, DailyAgendaChecklistItem[]> = {};
+            const dates = Array.from(new Set(saved.taskItems.map(t => t.plannedDate)));
+            if (dates.length > 0) setDateList(dates);
+
+            saved.taskItems.forEach(t => {
+              const cellKey = `${t.plannedDate}__${t.colId}`;
+              if (!converted[cellKey]) {
+                converted[cellKey] = [];
+              }
+              converted[cellKey].push({
+                id: t.id,
+                title: t.title,
+                completed: t.status === 'Completed'
+              });
+            });
+            setCellChecklists(converted);
+          } else {
+            // Initialize default items for today
+            const today = getTodayStr();
+            const initMap: Record<string, DailyAgendaChecklistItem[]> = {
+              [`${today}__c_regular`]: createDefaultChecklistItems()
+            };
+            setCellChecklists(initMap);
+            setDateList([today]);
+          }
+        } else {
+          // Initialize fresh default matrix with Image 1 checklist items
+          const today = getTodayStr();
+          const initMap: Record<string, DailyAgendaChecklistItem[]> = {
+            [`${today}__c_regular`]: createDefaultChecklistItems()
+          };
+          setCellChecklists(initMap);
+          setDateList([today]);
         }
       } catch (e) {
         console.error('Failed to auto-load backend matrix state:', e);
@@ -79,92 +158,30 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     loadBackendData();
   }, []);
 
-
-
-  // Single Entry Point: Add Task or Date Row
-  const handleAddWorkItem = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const targetDate = newLogDate || getTodayStr();
-    if (targetDate < getTodayStr()) {
-      onAddToast('Please select today or a future date.', 'error');
-      return;
+  // Update default selected column for logger form if columns change
+  useEffect(() => {
+    if (columns.length > 0 && !columns.some(c => c.id === newLogColId)) {
+      setNewLogColId(columns[0].id);
     }
-
-    if (!dateList.includes(targetDate)) {
-      setDateList(prev => [...prev, targetDate]);
-    }
-
-    if (newLogTitle.trim()) {
-      const targetCol = columns[0] ? columns[0].id : 'c1';
-      const initialStatus: DailyAgendaTaskItem['status'] = targetDate === getTodayStr() ? 'Active' : 'Upcoming';
-      const newTask: DailyAgendaTaskItem = {
-        id: 'task_' + Date.now(),
-        colId: targetCol,
-        title: newLogTitle.trim(),
-        plannedDate: targetDate,
-        status: initialStatus
-      };
-      setTaskItems(prev => [...prev, newTask]);
-      setNewLogTitle('');
-      onAddToast(`Added task for date ${targetDate}.`, 'success');
-    } else {
-      onAddToast(`Added date row for ${targetDate}.`, 'success');
-    }
-  };
-
-  // Update Task Status Option (Upcoming, Active, Completed)
-  const handleUpdateTaskStatus = (taskId: string, newStatus: DailyAgendaTaskItem['status']) => {
-    setTaskItems(prev => prev.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          status: newStatus,
-          completedDate: newStatus === 'Completed' ? getTodayStr() : undefined
-        };
-      }
-      return t;
-    }));
-    onAddToast(`Task status updated to ${newStatus}.`, 'info');
-  };
-
-
-
-  // Add Mandatory Project / Follow-up Column
-  const handleAddColumn = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!newColumnTitle.trim()) {
-      onAddToast('Please enter a Column Title (Mandatory).', 'error');
-      return;
-    }
-    const newCol: DailyAgendaColumn = {
-      id: 'col_' + Date.now(),
-      title: newColumnTitle.trim()
-    };
-    setColumns(prev => [...prev, newCol]);
-    setNewColumnTitle('');
-    onAddToast(`Added column "${newCol.title}".`, 'success');
-  };
-
-  // Print Handler
-  const handlePrint = () => {
-    window.print();
-  };
+  }, [columns, newLogColId]);
 
   // All Sorted Unique Dates in Chronological Order
   const sortedDates = useMemo(() => {
     const setOfDates = new Set<string>(dateList);
-    taskItems.forEach(t => {
-      if (t.plannedDate) setOfDates.add(t.plannedDate);
-      if (t.completedDate) setOfDates.add(t.completedDate);
+    Object.keys(cellChecklists).forEach(k => {
+      const d = k.split('__')[0];
+      if (d) setOfDates.add(d);
     });
-
+    if (setOfDates.size === 0) {
+      setOfDates.add(getTodayStr());
+    }
     return Array.from(setOfDates).sort((a, b) => a.localeCompare(b));
-  }, [dateList, taskItems]);
+  }, [dateList, cellChecklists]);
 
-  // Auto-Save Matrix to Backend on ANY Activity Change (Columns, Tasks, Dates, Title, Status)
+  // Auto-Save Matrix on ANY Change
   useEffect(() => {
     const autoSave = async () => {
-      if (columns.length === 0 && taskItems.length === 0 && dateList.length === 0) return;
+      if (columns.length === 0 && Object.keys(cellChecklists).length === 0 && dateList.length === 0) return;
 
       const snapshotRows: DailyAgendaRow[] = sortedDates.map(dateStr => ({
         id: 'r_' + dateStr,
@@ -178,6 +195,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         columns,
         rows: snapshotRows,
         taskItems,
+        cellChecklists,
         updatedAt: new Date().toISOString()
       };
 
@@ -188,40 +206,250 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       }
     };
     autoSave();
-  }, [columns, taskItems, dateList, matrixTitle, sortedDates]);
+  }, [columns, cellChecklists, dateList, matrixTitle, sortedDates, taskItems]);
 
-  /**
-   * SMART CARRY-FORWARD ALGORITHM:
-   * For a given date (currentDate) and column (colId):
-   * 1. Direct Tasks: Tasks planned on currentDate for colId.
-   * 2. Carried-over Overdue Tasks: Tasks planned on an EARLIER date (< currentDate)
-   *    that are NOT completed or were completed on/after currentDate.
-   */
-  const getCellTasks = (currentDate: string, colId: string) => {
-    return taskItems
-      .filter(t => t.colId === colId && t.plannedDate === currentDate)
-      .map(t => ({ task: t, isCarriedOver: false, plannedDate: t.plannedDate }));
+  // Get items for a given cell (Date + Column)
+  const getCellItems = (dateStr: string, colId: string): DailyAgendaChecklistItem[] => {
+    const cellKey = `${dateStr}__${colId}`;
+    if (cellChecklists[cellKey]) {
+      return cellChecklists[cellKey];
+    }
+    // If not initialized yet, return empty
+    return [];
   };
 
-  // Row status background color based on tasks status for that date
+  // Add Column Handler: automatically populates new column with default Image 1 checklist items
+  const handleAddColumn = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newColumnTitle.trim()) {
+      onAddToast('Please enter a Column Title (Mandatory).', 'error');
+      return;
+    }
+
+    const newColId = 'col_' + Date.now();
+    const newCol: DailyAgendaColumn = {
+      id: newColId,
+      title: newColumnTitle.trim()
+    };
+
+    // Pre-populate this new column with the default 10 checklist items for all active dates
+    setCellChecklists(prev => {
+      const next = { ...prev };
+      sortedDates.forEach(d => {
+        const cellKey = `${d}__${newColId}`;
+        if (!next[cellKey]) {
+          next[cellKey] = createDefaultChecklistItems();
+        }
+      });
+      return next;
+    });
+
+    setColumns(prev => [...prev, newCol]);
+    setNewColumnTitle('');
+    onAddToast(`Added column "${newCol.title}" with default checklist items.`, 'success');
+  };
+
+  // Delete Column Handler
+  const handleDeleteColumn = async (colId: string, colTitle: string) => {
+    if (columns.length <= 1) {
+      onAddToast('At least one column must remain in the matrix.', 'error');
+      return;
+    }
+    const confirmed = await onConfirm(`Are you sure you want to delete column "${colTitle}"? All associated checklist entries will be removed.`);
+    if (!confirmed) return;
+
+    setColumns(prev => prev.filter(c => c.id !== colId));
+    setCellChecklists(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => {
+        if (k.endsWith(`__${colId}`)) {
+          delete next[k];
+        }
+      });
+      return next;
+    });
+    onAddToast(`Deleted column "${colTitle}".`, 'info');
+  };
+
+  // Single Entry Point: Add Task/Checklist Item from top Logger Form
+  const handleAddWorkItem = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const targetDate = newLogDate || getTodayStr();
+    if (targetDate < getTodayStr()) {
+      onAddToast('Please select today or a future date.', 'error');
+      return;
+    }
+
+    if (!dateList.includes(targetDate)) {
+      setDateList(prev => [...prev, targetDate]);
+    }
+
+    const targetCol = newLogColId || (columns[0] ? columns[0].id : 'c_regular');
+
+    if (newLogTitle.trim()) {
+      const newItem: DailyAgendaChecklistItem = {
+        id: 'chk_' + Date.now(),
+        title: newLogTitle.trim(),
+        completed: false
+      };
+
+      setCellChecklists(prev => {
+        const cellKey = `${targetDate}__${targetCol}`;
+        const existing = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
+        return {
+          ...prev,
+          [cellKey]: [...existing, newItem]
+        };
+      });
+
+      setNewLogTitle('');
+      onAddToast(`Added "${newItem.title}" to ${targetDate}.`, 'success');
+    } else {
+      // Just ensure the date row exists with default items
+      setCellChecklists(prev => {
+        const next = { ...prev };
+        columns.forEach(col => {
+          const cellKey = `${targetDate}__${col.id}`;
+          if (!next[cellKey]) {
+            next[cellKey] = createDefaultChecklistItems();
+          }
+        });
+        return next;
+      });
+      onAddToast(`Added date row for ${targetDate}.`, 'success');
+    }
+  };
+
+  // Toggle Checkbox Done Status (Maintains completed date)
+  const handleToggleItem = (dateStr: string, colId: string, itemId: string) => {
+    const cellKey = `${dateStr}__${colId}`;
+    const today = getTodayStr();
+    setCellChecklists(prev => {
+      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
+      const updated = list.map((item, idx) => {
+        if (item.id === itemId || `chk_def_${idx}` === itemId) {
+          const nextCompleted = !item.completed;
+          return { 
+            ...item, 
+            completed: nextCompleted,
+            completedDate: nextCompleted ? (item.completedDate || today) : undefined
+          };
+        }
+        return item;
+      });
+      return { ...prev, [cellKey]: updated };
+    });
+  };
+
+  // Add Dynamic Checklist Option / Item inside a specific Cell or Column
+  const handleAddOptionToCell = (dateStr: string, colId: string) => {
+    const cellKey = `${dateStr}__${colId}`;
+    const text = (newOptionInputs[cellKey] || '').trim();
+    if (!text) return;
+
+    const newItem: DailyAgendaChecklistItem = {
+      id: 'chk_' + Date.now(),
+      title: text,
+      completed: false
+    };
+
+    setCellChecklists(prev => {
+      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
+      return {
+        ...prev,
+        [cellKey]: [...list, newItem]
+      };
+    });
+
+    setNewOptionInputs(prev => ({ ...prev, [cellKey]: '' }));
+    onAddToast(`Added option "${text}" with checkbox.`, 'success');
+  };
+
+  // Delete an Item from Cell
+  const handleDeleteItem = (dateStr: string, colId: string, itemId: string) => {
+    const cellKey = `${dateStr}__${colId}`;
+    setCellChecklists(prev => {
+      const list = prev[cellKey] || [];
+      return {
+        ...prev,
+        [cellKey]: list.filter(i => i.id !== itemId)
+      };
+    });
+  };
+
+  // Save Inline Edited Item Title
+  const handleSaveEditItem = (dateStr: string, colId: string, itemId: string) => {
+    if (!editItemTitle.trim()) {
+      setEditingItemKey(null);
+      return;
+    }
+    const cellKey = `${dateStr}__${colId}`;
+    setCellChecklists(prev => {
+      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
+      const updated = list.map((item, idx) => {
+        if (item.id === itemId || `chk_def_${idx}` === itemId) {
+          return { ...item, title: editItemTitle.trim() };
+        }
+        return item;
+      });
+      return {
+        ...prev,
+        [cellKey]: updated
+      };
+    });
+    setEditingItemKey(null);
+    setEditItemTitle('');
+  };
+
+  // Toggle All Items in Cell (Check All or Uncheck All with completedDate)
+  const handleToggleAllCell = (dateStr: string, colId: string, completeAll: boolean) => {
+    const cellKey = `${dateStr}__${colId}`;
+    const today = getTodayStr();
+    setCellChecklists(prev => {
+      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
+      const updated = list.map(item => ({ 
+        ...item, 
+        completed: completeAll,
+        completedDate: completeAll ? (item.completedDate || today) : undefined
+      }));
+      return { ...prev, [cellKey]: updated };
+    });
+  };
+
+  // Reset Cell to Default 10 Checklist Items
+  const handleResetCellToDefaults = (dateStr: string, colId: string) => {
+    const cellKey = `${dateStr}__${colId}`;
+    setCellChecklists(prev => ({
+      ...prev,
+      [cellKey]: createDefaultChecklistItems()
+    }));
+    onAddToast('Reset cell to default checklist items.', 'info');
+  };
+
+  // Print Handler
+  const handlePrint = () => {
+    window.print();
+  };
+
+  // Row status background color based on checklist completion
   const getDateRowStatus = (dateStr: string) => {
     const today = getTodayStr();
     const isToday = dateStr === today;
     const isPast = dateStr < today;
 
-    let totalTasks = 0;
-    let completedTasks = 0;
+    let totalItems = 0;
+    let completedItems = 0;
 
     columns.forEach(col => {
-      const items = getCellTasks(dateStr, col.id);
-      totalTasks += items.length;
-      completedTasks += items.filter(i => i.task.status === 'Completed').length;
+      const items = getCellItems(dateStr, col.id);
+      totalItems += items.length;
+      completedItems += items.filter(i => i.completed).length;
     });
 
-    if (totalTasks > 0 && completedTasks === totalTasks) {
+    if (totalItems > 0 && completedItems === totalItems) {
       return 'green';
     }
-    if (isToday || (totalTasks > 0 && completedTasks < totalTasks)) {
+    if (isToday || (totalItems > 0 && completedItems > 0)) {
       return 'yellow';
     }
     if (!isPast) {
@@ -230,9 +458,39 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return 'white';
   };
 
-  // Format data array for ALV Grid view
+  // Status Counts for Filter Badges/Buttons
+  const statusCounts = useMemo(() => {
+    let completed = 0;
+    let inProgress = 0;
+    let upcoming = 0;
+
+    sortedDates.forEach(dateStr => {
+      const status = getDateRowStatus(dateStr);
+      if (status === 'green') completed++;
+      else if (status === 'yellow') inProgress++;
+      else upcoming++;
+    });
+
+    return {
+      all: sortedDates.length,
+      completed,
+      inProgress,
+      upcoming
+    };
+  }, [sortedDates, columns, cellChecklists]);
+
+  // Format data array for ALV Grid view with Status Filtering
   const matrixALVData = useMemo(() => {
-    return sortedDates.map(dateStr => {
+    const filteredDates = sortedDates.filter(dateStr => {
+      if (statusFilter === 'ALL') return true;
+      const status = getDateRowStatus(dateStr);
+      if (statusFilter === 'COMPLETED') return status === 'green';
+      if (statusFilter === 'IN_PROGRESS') return status === 'yellow';
+      if (statusFilter === 'UPCOMING') return status === 'blue' || status === 'white';
+      return true;
+    });
+
+    return filteredDates.map(dateStr => {
       const rowObj: Record<string, unknown> = {
         id: 'row_' + dateStr,
         date: dateStr,
@@ -240,20 +498,23 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       };
 
       columns.forEach(col => {
-        rowObj[col.id] = getCellTasks(dateStr, col.id);
+        const cellKey = `${dateStr}__${col.id}`;
+        // Ensure cell has items or initialize defaults
+        const items = cellChecklists[cellKey] || createDefaultChecklistItems();
+        rowObj[col.id] = items;
       });
 
       return rowObj;
     });
-  }, [sortedDates, columns, taskItems]);
+  }, [sortedDates, columns, cellChecklists, statusFilter]);
 
-  // Construct dynamic ALV Grid columns for the Master Construction Matrix
+  // Construct dynamic ALV Grid columns
   const matrixALVColumns: ALVColumn[] = useMemo(() => {
     const cols: ALVColumn[] = [
       {
         key: 'date',
         label: 'Date',
-        width: '130px',
+        width: '140px',
         sortable: true,
         align: 'center',
         render: (_val, row) => {
@@ -275,7 +536,19 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     setEditDateValue(val);
                     if (val && val >= getTodayStr()) {
                       setDateList(prev => prev.map(d => d === dateStr ? val : d));
-                      setTaskItems(prev => prev.map(t => t.plannedDate === dateStr ? { ...t, plannedDate: val } : t));
+                      // Rename all keys for this date in cellChecklists
+                      setCellChecklists(prev => {
+                        const next: Record<string, DailyAgendaChecklistItem[]> = {};
+                        Object.entries(prev).forEach(([k, v]) => {
+                          if (k.startsWith(`${dateStr}__`)) {
+                            const rest = k.replace(`${dateStr}__`, '');
+                            next[`${val}__${rest}`] = v;
+                          } else {
+                            next[k] = v;
+                          }
+                        });
+                        return next;
+                      });
                     }
                   }}
                   onBlur={() => setEditingDateRow(null)}
@@ -290,7 +563,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
           return (
             <div 
-              className="flex flex-column align-center gap-0.5" 
+              className="flex flex-column align-center gap-0.5 p-1" 
               style={{ cursor: 'pointer' }}
               onClick={() => {
                 setEditingDateRow(dateStr);
@@ -298,13 +571,13 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               }}
               title="Click to edit date row"
             >
-              <span className="font-bold text-primary" style={{ fontSize: '0.85rem' }}>{dateStr}</span>
+              <span className="font-bold text-primary" style={{ fontSize: '0.88rem' }}>{dateStr}</span>
               {isToday ? (
-                <span className="badge" style={{ backgroundColor: '#16a34a', color: '#fff', fontSize: '0.65rem', padding: '1px 5px', fontWeight: 'bold' }}>
+                <span className="badge" style={{ backgroundColor: '#16a34a', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
                   TODAY
                 </span>
               ) : (
-                <span className="badge" style={{ backgroundColor: '#0284c7', color: '#fff', fontSize: '0.65rem', padding: '1px 5px', fontWeight: 'bold' }}>
+                <span className="badge" style={{ backgroundColor: '#0284c7', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
                   UPCOMING
                 </span>
               )}
@@ -314,7 +587,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       }
     ];
 
-    // Add columns for each Project / Follow-up category
+    // Add dynamic columns with Image 1 style checklist card
     columns.forEach(col => {
       cols.push({
         key: col.id,
@@ -322,182 +595,341 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         sortable: false,
         render: (_val, row) => {
           const dateStr = String(row.date);
-          const cellTasks = getCellTasks(dateStr, col.id);
-          const isCellCreating = activeCell?.colId === col.id && activeCell?.dateStr === dateStr;
+          const cellKey = `${dateStr}__${col.id}`;
+          const items = cellChecklists[cellKey] || createDefaultChecklistItems();
+          const completedCount = items.filter(i => i.completed).length;
+          const totalCount = items.length;
+          const isAllDone = totalCount > 0 && completedCount === totalCount;
+          const currentOptionInput = newOptionInputs[cellKey] || '';
 
           return (
             <div 
-              className="flex flex-column gap-1.5" 
-              style={{ minHeight: '60px', width: '100%', cursor: cellTasks.length === 0 && !isCellCreating ? 'pointer' : 'default' }}
-              onClick={() => {
-                if (cellTasks.length === 0 && !isCellCreating) {
-                  setActiveCell({ colId: col.id, dateStr });
-                  setNewCellText('');
-                }
+              className="daily-agenda-cell-card"
+              style={{
+                backgroundColor: '#ffffff',
+                border: isAllDone ? '1.5px solid #86efac' : '1.5px solid #cbd5e1',
+                borderRadius: '6px',
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                margin: '4px 0',
+                minWidth: '280px'
               }}
             >
-              {/* Task Items in Cell */}
-              {cellTasks.map(({ task, plannedDate }) => {
-                const isEditing = editingTaskId === task.id;
-                const currentStatus = task.status === 'Pending' || task.status === 'In Progress' ? (dateStr === getTodayStr() ? 'Active' : 'Upcoming') : task.status;
-                const isCompleted = currentStatus === 'Completed';
-                const isActive = currentStatus === 'Active';
+              {/* Checklist Header matching Image 1 styling */}
+              <div 
+                className="flex justify-between align-center px-2 py-1.5"
+                style={{
+                  backgroundColor: isAllDone ? '#dcfce7' : '#e0ecf8',
+                  borderBottom: '1px solid #cbd5e1'
+                }}
+              >
+                <div className="flex align-center gap-1">
+                  <ListChecks size={15} style={{ color: isAllDone ? '#166534' : '#1e40af' }} />
+                  <span 
+                    className="font-bold text-xs" 
+                    style={{ color: isAllDone ? '#166534' : '#1e3a8a', letterSpacing: '0.2px' }}
+                  >
+                    {col.title} Checklist
+                  </span>
+                </div>
 
-                // Status Theme Colors:
-                // Completed: Green (#dcfce7 bg, #86efac border, #166534 text)
-                // Active: Yellow (#fef9c3 bg, #fde047 border, #854d0e text)
-                // Upcoming: Blue (#e0f2fe bg, #7dd3fc border, #0369a1 text)
-                const cardBg = isCompleted ? '#dcfce7' : (isActive ? '#fef9c3' : '#e0f2fe');
-                const cardBorder = isCompleted ? '#86efac' : (isActive ? '#fde047' : '#7dd3fc');
-                const titleColor = isCompleted ? '#166534' : (isActive ? '#854d0e' : '#0369a1');
+                <div className="flex align-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleAllCell(dateStr, col.id, false);
+                    }}
+                    className="btn btn-ghost btn-xs p-0 text-muted"
+                    style={{ fontSize: '0.65rem', padding: '1px 5px', color: '#475569', textDecoration: 'none', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.6)' }}
+                    title="Uncheck all items in this cell"
+                  >
+                    Uncheck All
+                  </button>
 
-                return (
-                  <div 
-                    key={task.id}
+                  <span 
+                    className="badge font-bold"
                     style={{
-                      padding: '8px 10px',
-                      borderRadius: '6px',
-                      backgroundColor: cardBg,
-                      border: `1.5px solid ${cardBorder}`,
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                      transition: 'all 0.2s ease-in-out'
+                      fontSize: '0.68rem',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: isAllDone ? '#16a34a' : (completedCount > 0 ? '#eab308' : '#64748b'),
+                      color: '#ffffff'
                     }}
                   >
-                    {isEditing ? (
-                      <div className="w-full" style={{ padding: '1px' }}>
-                        <textarea 
-                          className="form-control font-bold"
-                          style={{ fontSize: '0.82rem', padding: '4px 8px', width: '100%', minHeight: '50px', borderColor: cardBorder, backgroundColor: '#ffffff', resize: 'vertical' }}
-                          value={editTaskTitle}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setEditTaskTitle(val);
-                            setTaskItems(prev => prev.map(t => t.id === task.id ? { ...t, title: val } : t));
-                          }}
-                          onBlur={() => setEditingTaskId(null)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              setEditingTaskId(null);
-                            }
-                          }}
-                          placeholder="Type task description..."
-                          autoFocus
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        {/* Task Title & Details - Direct click to edit */}
-                        <div 
-                          style={{ cursor: 'pointer' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingTaskId(task.id);
-                            setEditTaskTitle(task.title);
-                            setEditTaskDate(task.plannedDate);
-                          }}
-                          title="Click to edit task description"
-                        >
-                          <div style={{ 
-                            textDecoration: isCompleted ? 'line-through' : 'none', 
-                            color: titleColor,
-                            fontWeight: 700,
-                            fontSize: '0.84rem',
-                            lineHeight: '1.35',
-                            wordBreak: 'break-word',
-                            whiteSpace: 'pre-wrap'
-                          }}>
-                            {task.title}
-                          </div>
+                    {completedCount} / {totalCount} Done
+                  </span>
 
-                          <div className="mt-1 flex align-center justify-between" style={{ fontSize: '0.7rem' }}>
-                            <span style={{ color: titleColor, opacity: 0.85, fontWeight: 500 }}>
-                              Planned: {plannedDate}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Interactive Status Selector Dropdown */}
-                        <div className="flex align-center justify-end mt-1">
-                          {(() => {
-                            const currentVal = task.status === 'Pending' || task.status === 'In Progress' ? (dateStr === getTodayStr() ? 'Active' : 'Upcoming') : task.status;
-                            const isComp = currentVal === 'Completed';
-                            const isAct = currentVal === 'Active';
-                            
-                            return (
-                              <select 
-                                className="form-control font-bold"
-                                style={{
-                                  fontSize: '0.68rem',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px',
-                                  height: '22px',
-                                  cursor: 'pointer',
-                                  backgroundColor: isComp ? '#16a34a' : (isAct ? '#eab308' : '#0284c7'),
-                                  color: '#ffffff',
-                                  borderColor: 'transparent'
-                                }}
-                                value={currentVal}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => handleUpdateTaskStatus(task.id, e.target.value as DailyAgendaTaskItem['status'])}
-                              >
-                                <option value="Upcoming" style={{ backgroundColor: '#ffffff', color: '#0369a1' }}>Upcoming</option>
-                                <option value="Active" style={{ backgroundColor: '#ffffff', color: '#854d0e' }}>Active</option>
-                                <option value="Completed" style={{ backgroundColor: '#ffffff', color: '#166534' }}>Completed</option>
-                              </select>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Direct Cell Creation Box for Empty Cells in Any Column (e.g. ICONINC) */}
-              {isCellCreating && (
-                <div className="w-full p-1 bg-white border rounded" style={{ borderColor: '#0284c7' }}>
-                  <textarea 
-                    className="form-control font-bold"
-                    style={{ fontSize: '0.82rem', padding: '4px 8px', width: '100%', minHeight: '50px', borderColor: '#0284c7', backgroundColor: '#f0f9ff', resize: 'vertical' }}
-                    value={newCellText}
-                    onChange={e => setNewCellText(e.target.value)}
-                    onBlur={() => {
-                      if (newCellText.trim()) {
-                        const newTask: DailyAgendaTaskItem = {
-                          id: 'task_' + Date.now(),
-                          colId: col.id,
-                          title: newCellText.trim(),
-                          plannedDate: dateStr,
-                          status: dateStr === getTodayStr() ? 'Active' : 'Upcoming'
-                        };
-                        setTaskItems(prev => [...prev, newTask]);
-                      }
-                      setActiveCell(null);
-                      setNewCellText('');
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        if (newCellText.trim()) {
-                          const newTask: DailyAgendaTaskItem = {
-                            id: 'task_' + Date.now(),
-                            colId: col.id,
-                            title: newCellText.trim(),
-                            plannedDate: dateStr,
-                            status: dateStr === getTodayStr() ? 'Active' : 'Upcoming'
-                          };
-                          setTaskItems(prev => [...prev, newTask]);
-                        }
-                        setActiveCell(null);
-                        setNewCellText('');
-                      }
-                    }}
-                    placeholder={`Type work item for ${col.title}...`}
-                    autoFocus
-                  />
+                  {columns.length > 1 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteColumn(col.id, col.title);
+                      }}
+                      className="btn btn-ghost btn-xs text-danger p-0"
+                      title={`Delete column "${col.title}"`}
+                      style={{ height: '18px', width: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Checklist Items List (Exact visual format of Image 1) */}
+              <div className="checklist-items-table" style={{ maxHeight: '340px', overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.7rem', color: '#64748b' }}>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600 }}>Task / Checklist Item</th>
+                      <th style={{ textAlign: 'center', width: '45px', padding: '4px 8px', fontWeight: 600 }}>Done</th>
+                      <th style={{ width: '45px', padding: '4px 2px' }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item) => {
+                      const itemKey = `${dateStr}__${col.id}__${item.id}`;
+                      const isEditing = editingItemKey === itemKey;
+
+                      return (
+                        <tr 
+                          key={item.id}
+                          style={{
+                            borderBottom: '1px solid #f1f5f9',
+                            backgroundColor: isEditing ? '#eff6ff' : (item.completed ? '#f0fdf4' : '#ffffff'),
+                            transition: 'background-color 0.15s ease'
+                          }}
+                        >
+                          {/* Item Title or Inline Editor */}
+                          {isEditing ? (
+                            <td colSpan={2} style={{ padding: '4px 6px' }} onClick={e => e.stopPropagation()}>
+                              <div className="flex align-center gap-1">
+                                <input 
+                                  type="text"
+                                  className="form-control font-bold"
+                                  style={{ fontSize: '0.8rem', padding: '3px 7px', height: '28px', width: '100%', borderColor: '#0284c7', backgroundColor: '#ffffff' }}
+                                  value={editItemTitle}
+                                  onChange={e => setEditItemTitle(e.target.value)}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleSaveEditItem(dateStr, col.id, item.id);
+                                    }
+                                    if (e.key === 'Escape') setEditingItemKey(null);
+                                  }}
+                                  autoFocus
+                                  onFocus={e => e.target.select()}
+                                />
+                                <button 
+                                  type="button"
+                                  className="btn btn-primary btn-xs flex align-center justify-center"
+                                  style={{ padding: '3px 8px', height: '28px', backgroundColor: '#16a34a', borderColor: '#16a34a' }}
+                                  onClick={() => handleSaveEditItem(dateStr, col.id, item.id)}
+                                  title="Save Changes"
+                                >
+                                  <Check size={13} />
+                                </button>
+                                <button 
+                                  type="button"
+                                  className="btn btn-outline btn-xs flex align-center justify-center"
+                                  style={{ padding: '3px 8px', height: '28px' }}
+                                  onClick={() => setEditingItemKey(null)}
+                                  title="Cancel"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          ) : (
+                            <>
+                              {/* Title - Direct Click on Text to Edit */}
+                              <td 
+                                style={{ padding: '6px 8px', fontSize: '0.8rem', verticalAlign: 'middle', cursor: 'text' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingItemKey(itemKey);
+                                  setEditItemTitle(item.title);
+                                }}
+                                title="Click text to edit description"
+                              >
+                                <div 
+                                  style={{
+                                    color: item.completed ? '#166534' : '#1e293b',
+                                    fontWeight: item.completed ? 600 : 500,
+                                    userSelect: 'none',
+                                    cursor: 'text',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
+                                  }}
+                                >
+                                  <span>{item.title}</span>
+                                  {item.completed && item.completedDate && (
+                                    <span 
+                                      className="badge" 
+                                      style={{
+                                        fontSize: '0.62rem',
+                                        padding: '1px 5px',
+                                        backgroundColor: '#dcfce7',
+                                        color: '#166534',
+                                        border: '1px solid #86efac',
+                                        borderRadius: '3px',
+                                        fontWeight: 600
+                                      }}
+                                      title={`Task completed on ${item.completedDate}`}
+                                    >
+                                      Done on {item.completedDate}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Checkbox Column matching Image 1 */}
+                              <td 
+                                style={{ textAlign: 'center', verticalAlign: 'middle', padding: '4px 6px', cursor: 'pointer' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleItem(dateStr, col.id, item.id);
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '2px',
+                                    userSelect: 'none'
+                                  }}
+                                  title={item.completed ? 'Mark as Undone' : 'Mark as Done'}
+                                >
+                                  {item.completed ? (
+                                    <div 
+                                      style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        backgroundColor: '#000000',
+                                        borderRadius: '2px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#ffffff'
+                                      }}
+                                    >
+                                      <Check size={13} strokeWidth={3.5} />
+                                    </div>
+                                  ) : (
+                                    <div 
+                                      style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        border: '2px solid #334155',
+                                        borderRadius: '2px',
+                                        backgroundColor: '#ffffff'
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              </td>
+                            </>
+                          )}
+
+                          {/* Action Buttons (Edit & Delete) */}
+                          <td 
+                            style={{ textAlign: 'center', verticalAlign: 'middle', padding: '4px 2px' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <div className="flex align-center gap-0.5 justify-center">
+                              {!isEditing && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingItemKey(itemKey);
+                                    setEditItemTitle(item.title);
+                                  }}
+                                  className="btn btn-ghost btn-xs p-0 text-muted"
+                                  style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="Edit item title"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteItem(dateStr, col.id, item.id);
+                                }}
+                                className="btn btn-ghost btn-xs p-0 text-danger"
+                                style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="Remove item"
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '12px', color: '#94a3b8', fontSize: '0.75rem' }}>
+                          No checklist items yet.
+                          <div className="mt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleResetCellToDefaults(dateStr, col.id)}
+                              className="btn btn-outline btn-xs"
+                              style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                            >
+                              Load Default 10 Checklist Items
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Dynamic Add Option / Item Form with Checkbox (Prompt Requirement) */}
+              <div 
+                className="p-1.5" 
+                style={{ 
+                  backgroundColor: '#f8fafc', 
+                  borderTop: '1px solid #e2e8f0' 
+                }}
+              >
+                <form 
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAddOptionToCell(dateStr, col.id);
+                  }}
+                  className="flex align-center gap-1"
+                >
+                  <input 
+                    type="text"
+                    className="form-control"
+                    style={{ fontSize: '0.74rem', padding: '3px 7px', height: '26px' }}
+                    placeholder="+ Add checklist option / task..."
+                    value={currentOptionInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewOptionInputs(prev => ({ ...prev, [cellKey]: val }));
+                    }}
+                  />
+                  <button 
+                    type="submit"
+                    className="btn btn-primary btn-xs flex align-center gap-0.5"
+                    style={{ fontSize: '0.72rem', padding: '3px 8px', height: '26px', whiteSpace: 'nowrap', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                    title="Add new option with checkbox to this column"
+                  >
+                    <Plus size={12} /> Add
+                  </button>
+                </form>
+              </div>
             </div>
           );
         }
@@ -505,9 +937,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     });
 
     return cols;
-  }, [columns, sortedDates, taskItems, editingTaskId, editTaskTitle, editTaskDate, editingDateRow, editDateValue, activeCell, newCellText]);
-
-
+  }, [columns, sortedDates, cellChecklists, editingItemKey, editItemTitle, editingDateRow, editDateValue, newOptionInputs]);
 
   return (
     <div className="daily-agenda-matrix-container">
@@ -520,17 +950,17 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               Daily Construction Follow-up Matrix
             </h2>
             <p className="text-xs text-muted">
-              Real-time Project & Date-wise Follow-up Work Item Tracker
+              Real-time Project & Date-wise Follow-up Work Item Tracker with Interactive Checklists
             </p>
           </div>
 
           <div className="flex align-center gap-1 flex-wrap">
-            {/* Single Mandatory Column Input & Button */}
+            {/* Single Column Input & Button - Adds column with default checklist items */}
             <form onSubmit={handleAddColumn} className="flex align-center gap-0.5" style={{ backgroundColor: '#f1f5f9', padding: '3px 6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
               <input 
                 type="text"
                 className="form-control"
-                style={{ width: '190px', padding: '3px 8px', fontSize: '0.8rem' }}
+                style={{ width: '200px', padding: '3px 8px', fontSize: '0.8rem' }}
                 placeholder="Enter Column Title *"
                 value={newColumnTitle}
                 onChange={e => setNewColumnTitle(e.target.value)}
@@ -539,8 +969,8 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               <button 
                 type="submit"
                 className="btn btn-secondary btn-xs flex align-center gap-0.5"
-                style={{ fontSize: '0.78rem', padding: '4px 8px', whiteSpace: 'nowrap' }}
-                title="Add column to matrix"
+                style={{ fontSize: '0.78rem', padding: '4px 9px', whiteSpace: 'nowrap' }}
+                title="Add column to matrix (includes default checklist items)"
               >
                 <Plus size={13} /> Add Column
               </button>
@@ -552,7 +982,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           </div>
         </div>
 
-        {/* Smart Work Item Logger Form */}
+        {/* Smart Work Item / Task Logger Form */}
         <form onSubmit={handleAddWorkItem} className="mt-3 p-3 rounded border" style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' }}>
           <div className="font-bold text-xs mb-2 flex align-center gap-1" style={{ color: '#166534' }}>
             <Plus size={16} /> Log Follow-up Work Item
@@ -590,13 +1020,94 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           </div>
         </form>
 
-        {/* Status Legend Bar */}
-        <div className="flex justify-between align-center mt-3 p-2 rounded border flex-wrap gap-2" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
+        {/* Interactive Status Filter Buttons matching image */}
+        <div className="flex justify-between align-center mt-3 p-2.5 rounded border flex-wrap gap-2" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="flex align-center gap-2 text-xs flex-wrap">
-            <span className="font-bold text-muted">Status Legend:</span>
-            <span className="badge" style={{ backgroundColor: '#a3e635', color: '#1a2e05' }}>Completed</span>
-            <span className="badge" style={{ backgroundColor: '#fde047', color: '#713f12' }}>Today / Active</span>
-            <span className="badge" style={{ backgroundColor: '#38bdf8', color: '#0369a1' }}>Upcoming</span>
+            <span className="font-bold text-muted mr-1">Status Legend:</span>
+            
+            <button
+              type="button"
+              onClick={() => setStatusFilter('ALL')}
+              className="btn btn-xs"
+              style={{
+                backgroundColor: statusFilter === 'ALL' ? '#334155' : '#ffffff',
+                color: statusFilter === 'ALL' ? '#ffffff' : '#334155',
+                border: '1px solid #cbd5e1',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontWeight: statusFilter === 'ALL' ? 700 : 600,
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Show all date rows"
+            >
+              ALL ({statusCounts.all})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('COMPLETED')}
+              className="btn btn-xs"
+              style={{
+                backgroundColor: statusFilter === 'COMPLETED' ? '#84cc16' : '#ecfccb',
+                color: statusFilter === 'COMPLETED' ? '#ffffff' : '#3f6212',
+                border: statusFilter === 'COMPLETED' ? '1px solid #65a30d' : '1px solid #bef264',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontWeight: statusFilter === 'COMPLETED' ? 700 : 600,
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'COMPLETED' ? '0 1px 4px rgba(132, 204, 22, 0.4)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Show only rows where all checklist items are completed"
+            >
+              ALL COMPLETED ({statusCounts.completed})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('IN_PROGRESS')}
+              className="btn btn-xs"
+              style={{
+                backgroundColor: statusFilter === 'IN_PROGRESS' ? '#eab308' : '#fef9c3',
+                color: statusFilter === 'IN_PROGRESS' ? '#ffffff' : '#854d0e',
+                border: statusFilter === 'IN_PROGRESS' ? '1px solid #ca8a04' : '1px solid #fde047',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontWeight: statusFilter === 'IN_PROGRESS' ? 700 : 600,
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'IN_PROGRESS' ? '0 1px 4px rgba(234, 179, 8, 0.4)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Show rows in progress or scheduled for today"
+            >
+              IN PROGRESS / TODAY ({statusCounts.inProgress})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter('UPCOMING')}
+              className="btn btn-xs"
+              style={{
+                backgroundColor: statusFilter === 'UPCOMING' ? '#0ea5e9' : '#e0f2fe',
+                color: statusFilter === 'UPCOMING' ? '#ffffff' : '#0369a1',
+                border: statusFilter === 'UPCOMING' ? '1px solid #0284c7' : '1px solid #7dd3fc',
+                padding: '4px 10px',
+                borderRadius: '5px',
+                fontWeight: statusFilter === 'UPCOMING' ? 700 : 600,
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'UPCOMING' ? '0 1px 4px rgba(14, 165, 233, 0.4)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="Show upcoming scheduled dates"
+            >
+              UPCOMING ({statusCounts.upcoming})
+            </button>
+          </div>
+
+          <div className="text-xs text-muted">
+            Tip: Click a status button above to filter rows. When items are checked, their completion date is recorded.
           </div>
         </div>
       </div>
@@ -605,7 +1116,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       <div className="admin-card p-0 mb-4" style={{ border: '2px solid #0070c0', borderRadius: '6px', overflow: 'hidden' }}>
         <ALVGrid 
           title={matrixTitle}
-          subtitle="Project-wise & Date-wise Follow-up Tracker (SAP ALV Grid View)"
+          subtitle="Project-wise & Date-wise Follow-up Tracker with Interactive Checklists (SAP ALV Grid View)"
           columns={matrixALVColumns}
           data={matrixALVData}
           pageSize={10}
@@ -619,8 +1130,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
             dataToExport.forEach(r => {
               const rowDate = String(r.date);
               const colValues = columns.map(c => {
-                const cellTasks = getCellTasks(rowDate, c.id);
-                const text = cellTasks.map(t => `${t.isCarriedOver ? '[Carried Over from ' + t.plannedDate + '] ' : ''}${t.task.title} (${t.task.status})`).join('; ');
+                const cellKey = `${rowDate}__${c.id}`;
+                const items = cellChecklists[cellKey] || [];
+                const text = items.map(i => `[${i.completed ? 'DONE' : 'PENDING'}] ${i.title}`).join('; ');
                 return `"${text.replace(/"/g, '""')}"`;
               });
               csvRows.push([`"${rowDate}"`, ...colValues].join(','));
@@ -641,3 +1153,4 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     </div>
   );
 };
+
