@@ -36,6 +36,11 @@ import suppliersRoutes from "./routes/suppliers";
 import invoicesRoutes from "./routes/invoices";
 import paymentsRoutes from "./routes/payments";
 
+// Import Cost Analysis & Follow-up Matrix routes
+import costAnalysesRoutes from "./routes/costAnalyses";
+import dailyAgendaRoutes from "./routes/dailyAgenda";
+import projectInspectionsRoutes from "./routes/projectInspections";
+
 // Import seeder
 import { seedDatabase } from "./utils/seeder";
 
@@ -118,6 +123,11 @@ app.use("/api/customers", customersRoutes);
 app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/invoices", invoicesRoutes);
 app.use("/api/payments", paymentsRoutes);
+
+// Mount Cost Analysis & Follow-up Matrix routes
+app.use("/api/cost-analyses", costAnalysesRoutes);
+app.use("/api/daily-agenda", dailyAgendaRoutes);
+app.use("/api/project-inspections", projectInspectionsRoutes);
 
 // Root & Health Check routes for Dokploy / Load Balancers
 app.get("/", (req, res) => {

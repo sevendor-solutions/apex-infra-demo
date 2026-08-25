@@ -34,6 +34,9 @@ import { Loan } from "../models/Loan";
 import { LoanPayment } from "../models/LoanPayment";
 import { PaymentIn } from "../models/PaymentIn";
 import { PaymentOut } from "../models/PaymentOut";
+import { CostAnalysis } from "../models/CostAnalysis";
+import { DailyAgendaMatrix } from "../models/DailyAgendaMatrix";
+import { ProjectInspection } from "../models/ProjectInspection";
 
 dotenv.config();
 
@@ -74,7 +77,12 @@ const models = [
     Loan,
     LoanPayment,
     PaymentIn,
-    PaymentOut
+    PaymentOut,
+
+    // Cost Analysis & Follow-up Matrix models
+    CostAnalysis,
+    DailyAgendaMatrix,
+    ProjectInspection
 ];
 
 const poolConfig = {

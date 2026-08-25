@@ -1,4 +1,37 @@
-import type { Project, Blog, GalleryItem, Enquiry, User, JobApplication, City, LocationMaster, PropertyType, Facing, Amenity, Document, SiteVisit, MailConfig, MarketingAgent, Expense, ExpenseCategory, Wallet, WalletTransaction, Customer, Supplier, InventoryItem, StockMovement, Quotation, Invoice, Loan, LoanPayment, PaymentIn, PaymentOut, ProjectCostAnalysis, ProjectInspectionRecord } from '../types';
+import type {
+  Project,
+  Blog,
+  GalleryItem,
+  Enquiry,
+  User,
+  JobApplication,
+  City,
+  LocationMaster,
+  PropertyType,
+  Facing,
+  Amenity,
+  Document,
+  SiteVisit,
+  MailConfig,
+  MarketingAgent,
+  Expense,
+  ExpenseCategory,
+  Wallet,
+  WalletTransaction,
+  Customer,
+  Supplier,
+  InventoryItem,
+  StockMovement,
+  Quotation,
+  Invoice,
+  Loan,
+  LoanPayment,
+  PaymentIn,
+  PaymentOut,
+  ProjectCostAnalysis,
+  ProjectInspectionRecord,
+  DailyAgendaMatrix
+} from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
 
@@ -795,8 +828,6 @@ if (typeof window !== 'undefined') {
   });
 }
 
-
-
 // JkFutureinfra API Endpoints
 
 // Wallets
@@ -1136,93 +1167,121 @@ export const getPendingPayments = async (): Promise<{ customerPending: Invoice[]
   return handleResponse(res);
 };
 
-// Project Cost Analysis Local/Client Persistence
+// Project Cost Analysis Database Persistence
 export const getCostAnalyses = async (): Promise<ProjectCostAnalysis[]> => {
   try {
-    const data = localStorage.getItem('jk_cost_analyses');
-    const list: ProjectCostAnalysis[] = data ? JSON.parse(data) : [];
-    return list.filter(c => c.projectName && c.projectName.toLowerCase() !== 'new project analysis' && c.projectName.toLowerCase() !== 'test');
-  } catch (e) {
+    const res = await fetch(`${API_BASE_URL}/cost-analyses`, { headers: getAuthHeaders() });
+    const data = await handleResponse(res);
+    if (Array.isArray(data)) {
+      return data.filter(c => c.projectName && c.projectName.toLowerCase() !== 'new project analysis' && c.projectName.toLowerCase() !== 'test');
+    }
     return [];
+  } catch (e) {
+    console.warn('Backend cost analyses fetch failed, falling back to local cache:', e);
+    const localData = localStorage.getItem('jk_cost_analyses');
+    return localData ? JSON.parse(localData) : [];
   }
 };
 
 export const saveCostAnalysis = async (costData: ProjectCostAnalysis): Promise<void> => {
-  const list = await getCostAnalyses();
-  const idx = list.findIndex(c => c.id === costData.id || (c.projectId && c.projectId === costData.projectId));
-  if (idx >= 0) {
-    list[idx] = { ...costData, updatedAt: new Date().toISOString() };
-  } else {
-    list.push({ ...costData, updatedAt: new Date().toISOString() });
+  try {
+    const res = await fetch(`${API_BASE_URL}/cost-analyses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(costData)
+    });
+    await handleResponse(res);
+  } catch (e) {
+    console.error('Error saving cost analysis to DB:', e);
+    throw e;
   }
-  localStorage.setItem('jk_cost_analyses', JSON.stringify(list));
 };
 
 export const deleteCostAnalysis = async (id: string): Promise<void> => {
-  const list = await getCostAnalyses();
-  const updated = list.filter(c => c.id !== id);
-  localStorage.setItem('jk_cost_analyses', JSON.stringify(updated));
+  const res = await fetch(`${API_BASE_URL}/cost-analyses/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
 };
 
-// Stage Checklist Local/Client Persistence
+// Stage Checklist Database Persistence
 export const getProjectInspectionRecords = async (): Promise<ProjectInspectionRecord[]> => {
   try {
-    const data = localStorage.getItem('jk_project_inspections');
-    return data ? JSON.parse(data) : [];
+    const res = await fetch(`${API_BASE_URL}/project-inspections`, { headers: getAuthHeaders() });
+    const data = await handleResponse(res);
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    return [];
+    console.warn('Backend inspections fetch failed, falling back to local cache:', e);
+    const localData = localStorage.getItem('jk_project_inspections');
+    return localData ? JSON.parse(localData) : [];
   }
 };
 
 export const getProjectInspection = async (projectId: string): Promise<ProjectInspectionRecord | null> => {
-  const records = await getProjectInspectionRecords();
-  return records.find(r => r.projectId === projectId) || null;
+  try {
+    const res = await fetch(`${API_BASE_URL}/project-inspections/project/${projectId}`, { headers: getAuthHeaders() });
+    const data = await handleResponse(res);
+    return data || null;
+  } catch (e) {
+    const records = await getProjectInspectionRecords();
+    return records.find(r => r.projectId === projectId) || null;
+  }
 };
 
 export const saveProjectInspection = async (record: ProjectInspectionRecord): Promise<void> => {
-  const records = await getProjectInspectionRecords();
-  const idx = records.findIndex(r => r.id === record.id || (record.projectId && r.projectId === record.projectId));
-  const updatedRecord = { ...record, updatedAt: new Date().toISOString() };
-  if (idx >= 0) {
-    records[idx] = updatedRecord;
-  } else {
-    records.push(updatedRecord);
+  try {
+    const res = await fetch(`${API_BASE_URL}/project-inspections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(record)
+    });
+    await handleResponse(res);
+  } catch (e) {
+    console.error('Error saving project inspection to DB:', e);
+    throw e;
   }
-  localStorage.setItem('jk_project_inspections', JSON.stringify(records));
 };
 
 export const deleteProjectInspection = async (id: string): Promise<void> => {
-  const records = await getProjectInspectionRecords();
-  const updated = records.filter(r => r.id !== id && r.projectId !== id);
-  localStorage.setItem('jk_project_inspections', JSON.stringify(updated));
+  const res = await fetch(`${API_BASE_URL}/project-inspections/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
 };
 
-// Daily Agenda / Master Construction Follow-up Matrix Local Persistence
-import type { DailyAgendaMatrix } from '../types';
-
+// Daily Agenda / Master Construction Follow-up Matrix Database Persistence
 export const getDailyAgendaMatrices = async (): Promise<DailyAgendaMatrix[]> => {
   try {
-    const data = localStorage.getItem('jk_daily_agenda_matrices');
-    return data ? JSON.parse(data) : [];
+    const res = await fetch(`${API_BASE_URL}/daily-agenda`, { headers: getAuthHeaders() });
+    const data = await handleResponse(res);
+    return Array.isArray(data) ? data : [];
   } catch (e) {
-    return [];
+    console.warn('Backend daily agenda fetch failed, falling back to local cache:', e);
+    const localData = localStorage.getItem('jk_daily_agenda_matrices');
+    return localData ? JSON.parse(localData) : [];
   }
 };
 
 export const saveDailyAgendaMatrix = async (matrix: DailyAgendaMatrix): Promise<void> => {
-  const list = await getDailyAgendaMatrices();
-  const idx = list.findIndex(m => m.id === matrix.id);
-  const updatedMatrix = { ...matrix, updatedAt: new Date().toISOString() };
-  if (idx >= 0) {
-    list[idx] = updatedMatrix;
-  } else {
-    list.push(updatedMatrix);
+  try {
+    const res = await fetch(`${API_BASE_URL}/daily-agenda`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(matrix)
+    });
+    await handleResponse(res);
+  } catch (e) {
+    console.error('Error saving daily agenda matrix to DB:', e);
+    throw e;
   }
-  localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify(list));
 };
 
 export const deleteDailyAgendaMatrix = async (id: string): Promise<void> => {
-  const list = await getDailyAgendaMatrices();
-  const updated = list.filter(m => m.id !== id);
-  localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify(updated));
+  const res = await fetch(`${API_BASE_URL}/daily-agenda/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
 };

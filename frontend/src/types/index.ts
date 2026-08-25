@@ -593,11 +593,28 @@ export interface ProjectInspectionRecord {
 }
 
 // Master Construction Follow-up Matrix (Daily Agenda) Types
+export interface DailyAgendaChecklistItemHistory {
+  updatedBy: string;
+  updatedAt: string;
+  note?: string;
+  oldTitle?: string;
+  newTitle?: string;
+}
+
 export interface DailyAgendaChecklistItem {
   id: string;
+  carriedFromId?: string; // id of original task from source date
   title: string;
   completed: boolean;
-  completedDate?: string; // e.g. "2026-08-21" recorded when checked
+  completedDate?: string; // e.g. "2026-08-25" recorded when checked
+  completedBy?: string;   // username who marked completed
+  createdBy?: string;     // username who created the item
+  createdAt?: string;     // timestamp when created
+  updatedBy?: string;     // username who last updated/edited
+  updatedAt?: string;     // timestamp when last updated
+  updateCount?: number;   // number of times updated
+  updateHistory?: DailyAgendaChecklistItemHistory[]; // full update audit log
+  carriedFromDate?: string; // e.g. "2026-08-24" if forwarded from previous date
 }
 
 export interface DailyAgendaTaskItem {

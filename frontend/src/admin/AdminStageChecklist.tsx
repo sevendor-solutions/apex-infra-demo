@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Project, DailyAgendaMatrix, DailyAgendaColumn, DailyAgendaRow, DailyAgendaChecklistItem, DailyAgendaTaskItem } from '../types';
-import { getDailyAgendaMatrices, saveDailyAgendaMatrix } from '../utils/db';
+import type { 
+  Project, 
+  DailyAgendaMatrix, 
+  DailyAgendaColumn, 
+  DailyAgendaRow, 
+  DailyAgendaChecklistItem, 
+  DailyAgendaChecklistItemHistory, 
+  DailyAgendaTaskItem 
+} from '../types';
+import { getDailyAgendaMatrices, saveDailyAgendaMatrix, getSessionUser } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { 
@@ -10,8 +18,13 @@ import {
   Trash2, 
   Edit2, 
   Check, 
-  X,
-  ListChecks
+  X, 
+  ListChecks, 
+  User as UserIcon, 
+  Clock, 
+  Sparkles,
+  History,
+  Lock
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -20,8 +33,55 @@ interface AdminStageChecklistProps {
   onConfirm: (msg: string) => Promise<boolean>;
 }
 
-// Helper to get formatted date YYYY-MM-DD
-const getTodayStr = () => new Date().toISOString().split('T')[0];
+// Timezone-Safe helper to get formatted date YYYY-MM-DD
+const getTodayStr = (): string => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Timezone-Safe helper to get tomorrow date string YYYY-MM-DD
+const getTomorrowStr = (baseDateStr?: string): string => {
+  let target = new Date();
+  if (baseDateStr) {
+    const parts = baseDateStr.split('-').map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      target = new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+  }
+  target.setDate(target.getDate() + 1);
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, '0');
+  const d = String(target.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+// Helper to get current logged in username
+const getCurrentUserIdentifier = (): string => {
+  try {
+    const user = getSessionUser();
+    return user?.name || user?.username || 'admin';
+  } catch (e) {
+    return 'admin';
+  }
+};
+
+// Helper to format date & time nicely (e.g. 25-08-2026 09:15 AM)
+const getFormattedDateTime = (): string => {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const d = pad(now.getDate());
+  const m = pad(now.getMonth() + 1);
+  const y = now.getFullYear();
+  let hours = now.getHours();
+  const minutes = pad(now.getMinutes());
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${d}-${m}-${y} ${pad(hours)}:${minutes} ${ampm}`;
+};
 
 // Default 10 Checklist Items matching Image 1
 export const DEFAULT_CHECKLIST_TEMPLATE: string[] = [
@@ -37,12 +97,18 @@ export const DEFAULT_CHECKLIST_TEMPLATE: string[] = [
   'Prepare food & drinks'
 ];
 
-// Helper to create fresh default checklist items - ALL UNCHECKED by default
-const createDefaultChecklistItems = (): DailyAgendaChecklistItem[] => {
+// Helper to create fresh default checklist items - ALL UNCHECKED by default with creation audit
+const createDefaultChecklistItems = (author?: string): DailyAgendaChecklistItem[] => {
+  const user = author || getCurrentUserIdentifier();
+  const timestamp = getFormattedDateTime();
   return DEFAULT_CHECKLIST_TEMPLATE.map((title, idx) => ({
     id: `chk_def_${idx}`,
     title,
-    completed: false // All unchecked by default as requested
+    completed: false, // All unchecked by default as requested
+    createdBy: user,
+    createdAt: timestamp,
+    updateCount: 0,
+    updateHistory: []
   }));
 };
 
@@ -90,66 +156,143 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   // Status Filter State ('ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING'>('ALL');
 
-  // Auto-Load Saved Matrix State from Backend / LocalStorage on Mount
+  // Audit Update History Modal State
+  const [viewHistoryItem, setViewHistoryItem] = useState<{
+    title: string;
+    createdBy?: string;
+    createdAt?: string;
+    updateCount?: number;
+    history: DailyAgendaChecklistItemHistory[];
+  } | null>(null);
+
+  // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks from Today/Past to Tomorrow
+  const syncAutoRollover = (
+    baseCellChecklists: Record<string, DailyAgendaChecklistItem[]>,
+    cols: DailyAgendaColumn[]
+  ): { nextCellChecklists: Record<string, DailyAgendaChecklistItem[]>; nextDates: string[] } => {
+    const today = getTodayStr();
+    const tomorrow = getTomorrowStr(today);
+    const user = getCurrentUserIdentifier();
+    const timestamp = getFormattedDateTime();
+
+    const nextCellChecklists: Record<string, DailyAgendaChecklistItem[]> = { ...baseCellChecklists };
+    let hasRolledOverAny = false;
+
+    cols.forEach(col => {
+      const todayKey = `${today}__${col.id}`;
+      const tomorrowKey = `${tomorrow}__${col.id}`;
+
+      const todayItems = nextCellChecklists[todayKey] || [];
+      const tomorrowExisting = nextCellChecklists[tomorrowKey] ? [...nextCellChecklists[tomorrowKey]] : [];
+
+      // 1. Keep manual items created directly for tomorrow (without carriedFromDate)
+      const tomorrowManualItems = tomorrowExisting.filter(tItem => !tItem.carriedFromDate);
+
+      // 2. Only forward tasks that are currently INCOMPLETE on today (completed === false)
+      // Any task that is completed (completed === true) on today is NEVER forwarded to tomorrow!
+      const incompleteToday = todayItems.filter(i => !i.completed);
+
+      const carriedForwardItems: DailyAgendaChecklistItem[] = incompleteToday.map(incItem => {
+        // Match existing carried forward item in tomorrow by carriedFromId or ID
+        const existingCarried = tomorrowExisting.find(tItem => 
+          (tItem.carriedFromId && tItem.carriedFromId === incItem.id) ||
+          tItem.id === `chk_fwd_${incItem.id}_${tomorrow}`
+        );
+
+        return {
+          id: existingCarried?.id || `chk_fwd_${incItem.id}_${tomorrow}`,
+          carriedFromId: incItem.id,
+          title: incItem.title, // Always synchronize the latest title from today
+          completed: false, // Incomplete on tomorrow until worked on
+          carriedFromDate: today,
+          createdBy: incItem.createdBy || user,
+          createdAt: incItem.createdAt || timestamp,
+          updatedBy: existingCarried?.updatedBy || incItem.updatedBy,
+          updatedAt: existingCarried?.updatedAt || incItem.updatedAt,
+          updateCount: incItem.updateCount || 0,
+          updateHistory: incItem.updateHistory || []
+        };
+      });
+
+      if (carriedForwardItems.length > 0) {
+        hasRolledOverAny = true;
+      }
+
+      nextCellChecklists[tomorrowKey] = [...tomorrowManualItems, ...carriedForwardItems];
+    });
+
+    // Build all unique dates
+    const allDateKeys = new Set<string>();
+    allDateKeys.add(today);
+    if (hasRolledOverAny || (nextCellChecklists[`${tomorrow}__${cols[0]?.id}`] && nextCellChecklists[`${tomorrow}__${cols[0]?.id}`].length > 0)) {
+      allDateKeys.add(tomorrow);
+    }
+    Object.keys(nextCellChecklists).forEach(k => {
+      const d = k.split('__')[0];
+      if (d) allDateKeys.add(d);
+    });
+
+    return {
+      nextCellChecklists,
+      nextDates: Array.from(allDateKeys).sort((a, b) => a.localeCompare(b))
+    };
+  };
+
+  // Auto-Load Saved Matrix State from Backend on Mount with Auto-Rollover
   useEffect(() => {
     const loadBackendData = async () => {
       try {
         const matrices = await getDailyAgendaMatrices();
         if (matrices && matrices.length > 0) {
           const saved = matrices[0];
-          if (saved.columns && saved.columns.length > 0) {
-            setColumns(saved.columns);
-            if (saved.columns[0]) {
-              setNewLogColId(saved.columns[0].id);
-            }
+          const loadedCols = (saved.columns && saved.columns.length > 0) ? saved.columns : STANDARD_DEFAULT_COLUMNS;
+          setColumns(loadedCols);
+          if (loadedCols[0]) {
+            setNewLogColId(loadedCols[0].id);
           }
           if (saved.title) setMatrixTitle(saved.title);
 
-          // Restore cellChecklists if available
-          if (saved.cellChecklists && Object.keys(saved.cellChecklists).length > 0) {
-            setCellChecklists(saved.cellChecklists);
-            // Extract dates from cellChecklist keys
-            const keys = Object.keys(saved.cellChecklists);
-            const savedDates = Array.from(new Set(keys.map(k => k.split('__')[0]))).filter(Boolean);
-            if (savedDates.length > 0) {
-              setDateList(savedDates);
-            }
-          } else if (saved.taskItems && saved.taskItems.length > 0) {
-            // Legacy conversion: convert legacy taskItems into cellChecklists
-            setTaskItems(saved.taskItems);
-            const converted: Record<string, DailyAgendaChecklistItem[]> = {};
-            const dates = Array.from(new Set(saved.taskItems.map(t => t.plannedDate)));
-            if (dates.length > 0) setDateList(dates);
+          let initialCellChecklists: Record<string, DailyAgendaChecklistItem[]> = {};
 
+          if (saved.cellChecklists && Object.keys(saved.cellChecklists).length > 0) {
+            initialCellChecklists = saved.cellChecklists;
+          } else if (saved.taskItems && saved.taskItems.length > 0) {
+            setTaskItems(saved.taskItems);
             saved.taskItems.forEach(t => {
               const cellKey = `${t.plannedDate}__${t.colId}`;
-              if (!converted[cellKey]) {
-                converted[cellKey] = [];
+              if (!initialCellChecklists[cellKey]) {
+                initialCellChecklists[cellKey] = [];
               }
-              converted[cellKey].push({
+              initialCellChecklists[cellKey].push({
                 id: t.id,
                 title: t.title,
-                completed: t.status === 'Completed'
+                completed: t.status === 'Completed',
+                createdBy: 'admin',
+                createdAt: getFormattedDateTime(),
+                updateCount: 0,
+                updateHistory: []
               });
             });
-            setCellChecklists(converted);
           } else {
-            // Initialize default items for today
             const today = getTodayStr();
-            const initMap: Record<string, DailyAgendaChecklistItem[]> = {
+            initialCellChecklists = {
               [`${today}__c_regular`]: createDefaultChecklistItems()
             };
-            setCellChecklists(initMap);
-            setDateList([today]);
           }
+
+          // Execute Auto-Rollover on load
+          const { nextCellChecklists, nextDates } = syncAutoRollover(initialCellChecklists, loadedCols);
+          setCellChecklists(nextCellChecklists);
+          setDateList(nextDates);
         } else {
           // Initialize fresh default matrix with Image 1 checklist items
           const today = getTodayStr();
           const initMap: Record<string, DailyAgendaChecklistItem[]> = {
             [`${today}__c_regular`]: createDefaultChecklistItems()
           };
-          setCellChecklists(initMap);
-          setDateList([today]);
+          const { nextCellChecklists, nextDates } = syncAutoRollover(initMap, STANDARD_DEFAULT_COLUMNS);
+          setCellChecklists(nextCellChecklists);
+          setDateList(nextDates);
         }
       } catch (e) {
         console.error('Failed to auto-load backend matrix state:', e);
@@ -214,7 +357,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     if (cellChecklists[cellKey]) {
       return cellChecklists[cellKey];
     }
-    // If not initialized yet, return empty
     return [];
   };
 
@@ -232,19 +374,22 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       title: newColumnTitle.trim()
     };
 
+    const user = getCurrentUserIdentifier();
+    const newColsList = [...columns, newCol];
+
     // Pre-populate this new column with the default 10 checklist items for all active dates
-    setCellChecklists(prev => {
-      const next = { ...prev };
-      sortedDates.forEach(d => {
-        const cellKey = `${d}__${newColId}`;
-        if (!next[cellKey]) {
-          next[cellKey] = createDefaultChecklistItems();
-        }
-      });
-      return next;
+    const nextCells = { ...cellChecklists };
+    sortedDates.forEach(d => {
+      const cellKey = `${d}__${newColId}`;
+      if (!nextCells[cellKey]) {
+        nextCells[cellKey] = createDefaultChecklistItems(user);
+      }
     });
 
-    setColumns(prev => [...prev, newCol]);
+    const { nextCellChecklists, nextDates } = syncAutoRollover(nextCells, newColsList);
+    setColumns(newColsList);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
     setNewColumnTitle('');
     onAddToast(`Added column "${newCol.title}" with default checklist items.`, 'success');
   };
@@ -258,20 +403,20 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const confirmed = await onConfirm(`Are you sure you want to delete column "${colTitle}"? All associated checklist entries will be removed.`);
     if (!confirmed) return;
 
-    setColumns(prev => prev.filter(c => c.id !== colId));
-    setCellChecklists(prev => {
-      const next = { ...prev };
-      Object.keys(next).forEach(k => {
-        if (k.endsWith(`__${colId}`)) {
-          delete next[k];
-        }
-      });
-      return next;
+    const remainingCols = columns.filter(c => c.id !== colId);
+    const nextCells = { ...cellChecklists };
+    Object.keys(nextCells).forEach(k => {
+      if (k.endsWith(`__${colId}`)) {
+        delete nextCells[k];
+      }
     });
+
+    setColumns(remainingCols);
+    setCellChecklists(nextCells);
     onAddToast(`Deleted column "${colTitle}".`, 'info');
   };
 
-  // Single Entry Point: Add Task/Checklist Item from top Logger Form
+  // Single Entry Point: Add Task/Checklist Item from top Logger Form with Audit Tracking and Auto-Rollover
   const handleAddWorkItem = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const targetDate = newLogDate || getTodayStr();
@@ -280,149 +425,203 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       return;
     }
 
-    if (!dateList.includes(targetDate)) {
-      setDateList(prev => [...prev, targetDate]);
-    }
-
     const targetCol = newLogColId || (columns[0] ? columns[0].id : 'c_regular');
+    const user = getCurrentUserIdentifier();
+    const timestamp = getFormattedDateTime();
+
+    const nextCells = { ...cellChecklists };
 
     if (newLogTitle.trim()) {
       const newItem: DailyAgendaChecklistItem = {
         id: 'chk_' + Date.now(),
         title: newLogTitle.trim(),
-        completed: false
+        completed: false,
+        createdBy: user,
+        createdAt: timestamp,
+        updateCount: 0,
+        updateHistory: []
       };
 
-      setCellChecklists(prev => {
-        const cellKey = `${targetDate}__${targetCol}`;
-        const existing = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
-        return {
-          ...prev,
-          [cellKey]: [...existing, newItem]
-        };
-      });
+      const cellKey = `${targetDate}__${targetCol}`;
+      const existing = nextCells[cellKey] ? [...nextCells[cellKey]] : createDefaultChecklistItems(user);
+      nextCells[cellKey] = [...existing, newItem];
 
+      const { nextCellChecklists, nextDates } = syncAutoRollover(nextCells, columns);
+      setCellChecklists(nextCellChecklists);
+      setDateList(nextDates);
       setNewLogTitle('');
       onAddToast(`Added "${newItem.title}" to ${targetDate}.`, 'success');
     } else {
-      // Just ensure the date row exists with default items
-      setCellChecklists(prev => {
-        const next = { ...prev };
-        columns.forEach(col => {
-          const cellKey = `${targetDate}__${col.id}`;
-          if (!next[cellKey]) {
-            next[cellKey] = createDefaultChecklistItems();
-          }
-        });
-        return next;
+      columns.forEach(col => {
+        const cellKey = `${targetDate}__${col.id}`;
+        if (!nextCells[cellKey]) {
+          nextCells[cellKey] = createDefaultChecklistItems(user);
+        }
       });
+      const { nextCellChecklists, nextDates } = syncAutoRollover(nextCells, columns);
+      setCellChecklists(nextCellChecklists);
+      setDateList(nextDates);
       onAddToast(`Added date row for ${targetDate}.`, 'success');
     }
   };
 
-  // Toggle Checkbox Done Status (Maintains completed date)
+  // Toggle Checkbox Done Status (Maintains completed date, audit, and automatically synchronizes rollover to tomorrow)
   const handleToggleItem = (dateStr: string, colId: string, itemId: string) => {
     const cellKey = `${dateStr}__${colId}`;
     const today = getTodayStr();
-    setCellChecklists(prev => {
-      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
-      const updated = list.map((item, idx) => {
-        if (item.id === itemId || `chk_def_${idx}` === itemId) {
-          const nextCompleted = !item.completed;
-          return { 
-            ...item, 
-            completed: nextCompleted,
-            completedDate: nextCompleted ? (item.completedDate || today) : undefined
-          };
-        }
-        return item;
-      });
-      return { ...prev, [cellKey]: updated };
+    const user = getCurrentUserIdentifier();
+
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const updated = list.map((item, idx) => {
+      if (item.id === itemId || `chk_def_${idx}` === itemId) {
+        const nextCompleted = !item.completed;
+        return { 
+          ...item, 
+          completed: nextCompleted,
+          completedDate: nextCompleted ? (item.completedDate || today) : undefined,
+          completedBy: nextCompleted ? user : undefined
+        };
+      }
+      return item;
     });
+
+    const updatedBase = { ...cellChecklists, [cellKey]: updated };
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
   };
 
-  // Add Dynamic Checklist Option / Item inside a specific Cell or Column
+  // Add Dynamic Checklist Option / Item inside a specific Cell with Audit Tracking & Auto-Rollover
   const handleAddOptionToCell = (dateStr: string, colId: string) => {
     const cellKey = `${dateStr}__${colId}`;
     const text = (newOptionInputs[cellKey] || '').trim();
     if (!text) return;
 
+    const user = getCurrentUserIdentifier();
+    const timestamp = getFormattedDateTime();
+
     const newItem: DailyAgendaChecklistItem = {
       id: 'chk_' + Date.now(),
       title: text,
-      completed: false
+      completed: false,
+      createdBy: user,
+      createdAt: timestamp,
+      updateCount: 0,
+      updateHistory: []
     };
 
-    setCellChecklists(prev => {
-      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
-      return {
-        ...prev,
-        [cellKey]: [...list, newItem]
-      };
-    });
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const updatedBase = {
+      ...cellChecklists,
+      [cellKey]: [...list, newItem]
+    };
 
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
     setNewOptionInputs(prev => ({ ...prev, [cellKey]: '' }));
-    onAddToast(`Added option "${text}" with checkbox.`, 'success');
+    onAddToast(`Added option "${text}".`, 'success');
   };
 
   // Delete an Item from Cell
   const handleDeleteItem = (dateStr: string, colId: string, itemId: string) => {
     const cellKey = `${dateStr}__${colId}`;
-    setCellChecklists(prev => {
-      const list = prev[cellKey] || [];
-      return {
-        ...prev,
-        [cellKey]: list.filter(i => i.id !== itemId)
-      };
-    });
+    const list = cellChecklists[cellKey] || [];
+    const updatedBase = {
+      ...cellChecklists,
+      [cellKey]: list.filter(i => i.id !== itemId)
+    };
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
   };
 
-  // Save Inline Edited Item Title
+  // Save Inline Edited Item Title with Update Count & History Log (Completed Records CANNOT be modified)
   const handleSaveEditItem = (dateStr: string, colId: string, itemId: string) => {
     if (!editItemTitle.trim()) {
       setEditingItemKey(null);
       return;
     }
     const cellKey = `${dateStr}__${colId}`;
-    setCellChecklists(prev => {
-      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
-      const updated = list.map((item, idx) => {
-        if (item.id === itemId || `chk_def_${idx}` === itemId) {
-          return { ...item, title: editItemTitle.trim() };
+    const user = getCurrentUserIdentifier();
+    const timestamp = getFormattedDateTime();
+
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const updated = list.map((item, idx) => {
+      if (item.id === itemId || `chk_def_${idx}` === itemId) {
+        // Guard: Completed records cannot be updated
+        if (item.completed) {
+          onAddToast('Completed tasks cannot be modified.', 'error');
+          return item;
         }
-        return item;
-      });
-      return {
-        ...prev,
-        [cellKey]: updated
-      };
+
+        const isTitleChanged = item.title !== editItemTitle.trim();
+        const currentCount = item.updateCount || 0;
+        const nextCount = isTitleChanged ? currentCount + 1 : currentCount;
+
+        const newHistoryEntry: DailyAgendaChecklistItemHistory = {
+          updatedBy: user,
+          updatedAt: timestamp,
+          oldTitle: item.title,
+          newTitle: editItemTitle.trim(),
+          note: `Title changed from "${item.title}" to "${editItemTitle.trim()}"`
+        };
+
+        const existingHistory = item.updateHistory || [];
+        const nextHistory = isTitleChanged ? [...existingHistory, newHistoryEntry] : existingHistory;
+
+        return { 
+          ...item, 
+          title: editItemTitle.trim(),
+          updatedBy: user,
+          updatedAt: timestamp,
+          updateCount: nextCount,
+          updateHistory: nextHistory
+        };
+      }
+      return item;
     });
+
+    const updatedBase = { ...cellChecklists, [cellKey]: updated };
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
     setEditingItemKey(null);
     setEditItemTitle('');
+    onAddToast('Task updated successfully.', 'success');
   };
 
-  // Toggle All Items in Cell (Check All or Uncheck All with completedDate)
+  // Toggle All Items in Cell (Check All or Uncheck All with completedDate and Auto-Rollover)
   const handleToggleAllCell = (dateStr: string, colId: string, completeAll: boolean) => {
     const cellKey = `${dateStr}__${colId}`;
     const today = getTodayStr();
-    setCellChecklists(prev => {
-      const list = prev[cellKey] ? [...prev[cellKey]] : createDefaultChecklistItems();
-      const updated = list.map(item => ({ 
-        ...item, 
-        completed: completeAll,
-        completedDate: completeAll ? (item.completedDate || today) : undefined
-      }));
-      return { ...prev, [cellKey]: updated };
-    });
+    const user = getCurrentUserIdentifier();
+
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const updated = list.map(item => ({ 
+      ...item, 
+      completed: completeAll,
+      completedDate: completeAll ? (item.completedDate || today) : undefined,
+      completedBy: completeAll ? user : undefined
+    }));
+
+    const updatedBase = { ...cellChecklists, [cellKey]: updated };
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
   };
 
   // Reset Cell to Default 10 Checklist Items
   const handleResetCellToDefaults = (dateStr: string, colId: string) => {
     const cellKey = `${dateStr}__${colId}`;
-    setCellChecklists(prev => ({
-      ...prev,
-      [cellKey]: createDefaultChecklistItems()
-    }));
+    const user = getCurrentUserIdentifier();
+    const updatedBase = {
+      ...cellChecklists,
+      [cellKey]: createDefaultChecklistItems(user)
+    };
+    const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
     onAddToast('Reset cell to default checklist items.', 'info');
   };
 
@@ -458,35 +657,60 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return 'white';
   };
 
-  // Status Counts for Filter Badges/Buttons
+  // Live Task Counts for Status Legend & Filtering
   const statusCounts = useMemo(() => {
-    let completed = 0;
-    let inProgress = 0;
-    let upcoming = 0;
+    let totalCompletedTasks = 0;
+    let todayPendingTasks = 0;
+    let totalUpcomingRows = 0;
+    const today = getTodayStr();
 
     sortedDates.forEach(dateStr => {
-      const status = getDateRowStatus(dateStr);
-      if (status === 'green') completed++;
-      else if (status === 'yellow') inProgress++;
-      else upcoming++;
+      if (dateStr > today) totalUpcomingRows++;
+      columns.forEach(col => {
+        const cellKey = `${dateStr}__${col.id}`;
+        const items = cellChecklists[cellKey] || [];
+        totalCompletedTasks += items.filter(i => i.completed).length;
+        if (dateStr === today) {
+          todayPendingTasks += items.filter(i => !i.completed).length;
+        }
+      });
     });
 
     return {
       all: sortedDates.length,
-      completed,
-      inProgress,
-      upcoming
+      completed: totalCompletedTasks,
+      inProgress: todayPendingTasks,
+      upcoming: totalUpcomingRows
     };
   }, [sortedDates, columns, cellChecklists]);
 
   // Format data array for ALV Grid view with Status Filtering
   const matrixALVData = useMemo(() => {
+    const today = getTodayStr();
+
     const filteredDates = sortedDates.filter(dateStr => {
       if (statusFilter === 'ALL') return true;
-      const status = getDateRowStatus(dateStr);
-      if (statusFilter === 'COMPLETED') return status === 'green';
-      if (statusFilter === 'IN_PROGRESS') return status === 'yellow';
-      if (statusFilter === 'UPCOMING') return status === 'blue' || status === 'white';
+
+      if (statusFilter === 'COMPLETED') {
+        // Include any date row that contains completed tasks
+        let hasCompleted = false;
+        columns.forEach(col => {
+          const cellKey = `${dateStr}__${col.id}`;
+          const items = cellChecklists[cellKey] || [];
+          if (items.some(i => i.completed)) hasCompleted = true;
+        });
+        return hasCompleted;
+      }
+
+      if (statusFilter === 'IN_PROGRESS') {
+        // Only show TODAY's row for In Progress / Today filter (tomorrow is not shown)
+        return dateStr === today;
+      }
+
+      if (statusFilter === 'UPCOMING') {
+        return dateStr > today;
+      }
+
       return true;
     });
 
@@ -499,8 +723,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
       columns.forEach(col => {
         const cellKey = `${dateStr}__${col.id}`;
-        // Ensure cell has items or initialize defaults
-        const items = cellChecklists[cellKey] || createDefaultChecklistItems();
+        let items = cellChecklists[cellKey] || createDefaultChecklistItems();
+
+        // If filtering by COMPLETED, show only the completed tasks in the cell!
+        if (statusFilter === 'COMPLETED') {
+          items = items.filter(i => i.completed);
+        } else if (statusFilter === 'IN_PROGRESS') {
+          items = items.filter(i => !i.completed);
+        }
+
         rowObj[col.id] = items;
       });
 
@@ -520,6 +751,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         render: (_val, row) => {
           const dateStr = String(row.date);
           const isToday = dateStr === getTodayStr();
+          const isTomorrow = dateStr === getTomorrowStr(getTodayStr());
           const isEditingDate = editingDateRow === dateStr;
 
           if (isEditingDate) {
@@ -536,7 +768,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     setEditDateValue(val);
                     if (val && val >= getTodayStr()) {
                       setDateList(prev => prev.map(d => d === dateStr ? val : d));
-                      // Rename all keys for this date in cellChecklists
                       setCellChecklists(prev => {
                         const next: Record<string, DailyAgendaChecklistItem[]> = {};
                         Object.entries(prev).forEach(([k, v]) => {
@@ -562,25 +793,33 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           }
 
           return (
-            <div 
-              className="flex flex-column align-center gap-0.5 p-1" 
-              style={{ cursor: 'pointer' }}
-              onClick={() => {
-                setEditingDateRow(dateStr);
-                setEditDateValue(dateStr);
-              }}
-              title="Click to edit date row"
-            >
-              <span className="font-bold text-primary" style={{ fontSize: '0.88rem' }}>{dateStr}</span>
-              {isToday ? (
-                <span className="badge" style={{ backgroundColor: '#16a34a', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
-                  TODAY
-                </span>
-              ) : (
-                <span className="badge" style={{ backgroundColor: '#0284c7', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
-                  UPCOMING
-                </span>
-              )}
+            <div className="flex flex-column align-center gap-1 p-1">
+              <div 
+                className="flex flex-column align-center gap-0.5" 
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  setEditingDateRow(dateStr);
+                  setEditDateValue(dateStr);
+                }}
+                title="Click to edit date row"
+              >
+                <span className="font-bold text-primary" style={{ fontSize: '0.88rem' }}>{dateStr}</span>
+                {isToday && (
+                  <span className="badge" style={{ backgroundColor: '#16a34a', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
+                    TODAY
+                  </span>
+                )}
+                {!isToday && isTomorrow && (
+                  <span className="badge" style={{ backgroundColor: '#f59e0b', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
+                    TOMORROW
+                  </span>
+                )}
+                {!isToday && !isTomorrow && (
+                  <span className="badge" style={{ backgroundColor: '#0284c7', color: '#fff', fontSize: '0.65rem', padding: '2px 6px', fontWeight: 'bold', borderRadius: '4px' }}>
+                    UPCOMING
+                  </span>
+                )}
+              </div>
             </div>
           );
         }
@@ -596,11 +835,16 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         render: (_val, row) => {
           const dateStr = String(row.date);
           const cellKey = `${dateStr}__${col.id}`;
-          const items = cellChecklists[cellKey] || createDefaultChecklistItems();
-          const completedCount = items.filter(i => i.completed).length;
-          const totalCount = items.length;
+          const allCellItems = cellChecklists[cellKey] || createDefaultChecklistItems();
+          const completedCount = allCellItems.filter(i => i.completed).length;
+          const totalCount = allCellItems.length;
           const isAllDone = totalCount > 0 && completedCount === totalCount;
           const currentOptionInput = newOptionInputs[cellKey] || '';
+
+          // Items to display (filtered when statusFilter is active)
+          const displayItems: DailyAgendaChecklistItem[] = Array.isArray(row[col.id]) 
+            ? (row[col.id] as DailyAgendaChecklistItem[]) 
+            : allCellItems;
 
           return (
             <div 
@@ -612,12 +856,12 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 overflow: 'hidden',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                 margin: '4px 0',
-                minWidth: '280px'
+                minWidth: '320px'
               }}
             >
-              {/* Checklist Header matching Image 1 styling */}
+              {/* Checklist Header */}
               <div 
-                className="flex justify-between align-center px-2 py-1.5"
+                className="flex justify-between align-center px-2 py-1.5 flex-wrap gap-1"
                 style={{
                   backgroundColor: isAllDone ? '#dcfce7' : '#e0ecf8',
                   borderBottom: '1px solid #cbd5e1'
@@ -629,22 +873,24 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     className="font-bold text-xs" 
                     style={{ color: isAllDone ? '#166534' : '#1e3a8a', letterSpacing: '0.2px' }}
                   >
-                    {col.title} Checklist
+                    {col.title} {statusFilter === 'COMPLETED' ? 'Completed Tasks' : (statusFilter === 'IN_PROGRESS' ? 'Pending Tasks' : 'Checklist')}
                   </span>
                 </div>
 
-                <div className="flex align-center gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleAllCell(dateStr, col.id, false);
-                    }}
-                    className="btn btn-ghost btn-xs p-0 text-muted"
-                    style={{ fontSize: '0.65rem', padding: '1px 5px', color: '#475569', textDecoration: 'none', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.6)' }}
-                    title="Uncheck all items in this cell"
-                  >
-                    Uncheck All
-                  </button>
+                <div className="flex align-center gap-1 flex-wrap">
+                  {statusFilter === 'ALL' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleAllCell(dateStr, col.id, false);
+                      }}
+                      className="btn btn-ghost btn-xs p-0 text-muted"
+                      style={{ fontSize: '0.65rem', padding: '1px 5px', color: '#475569', textDecoration: 'none', borderRadius: '3px', backgroundColor: 'rgba(255,255,255,0.6)' }}
+                      title="Uncheck all items in this cell"
+                    >
+                      Uncheck All
+                    </button>
+                  )}
 
                   <span 
                     className="badge font-bold"
@@ -659,7 +905,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     {completedCount} / {totalCount} Done
                   </span>
 
-                  {columns.length > 1 && (
+                  {columns.length > 1 && statusFilter === 'ALL' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -675,31 +921,32 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 </div>
               </div>
 
-              {/* Checklist Items List (Exact visual format of Image 1) */}
-              <div className="checklist-items-table" style={{ maxHeight: '340px', overflowY: 'auto' }}>
+              {/* Checklist Items List with Complete Audit Trail & Update History */}
+              <div className="checklist-items-table" style={{ maxHeight: '360px', overflowY: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.7rem', color: '#64748b' }}>
-                      <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600 }}>Task / Checklist Item</th>
+                      <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600 }}>Task / Checklist Item & Audit Details</th>
                       <th style={{ textAlign: 'center', width: '45px', padding: '4px 8px', fontWeight: 600 }}>Done</th>
                       <th style={{ width: '45px', padding: '4px 2px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((item) => {
+                    {displayItems.map((item) => {
                       const itemKey = `${dateStr}__${col.id}__${item.id}`;
                       const isEditing = editingItemKey === itemKey;
+                      const isCompleted = !!item.completed;
 
                       return (
                         <tr 
                           key={item.id}
                           style={{
                             borderBottom: '1px solid #f1f5f9',
-                            backgroundColor: isEditing ? '#eff6ff' : (item.completed ? '#f0fdf4' : '#ffffff'),
+                            backgroundColor: isEditing ? '#eff6ff' : (isCompleted ? '#f0fdf4' : '#ffffff'),
                             transition: 'background-color 0.15s ease'
                           }}
                         >
-                          {/* Item Title or Inline Editor */}
+                          {/* Item Title & Audit Info or Inline Editor */}
                           {isEditing ? (
                             <td colSpan={2} style={{ padding: '4px 6px' }} onClick={e => e.stopPropagation()}>
                               <div className="flex align-center gap-1">
@@ -741,46 +988,134 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                             </td>
                           ) : (
                             <>
-                              {/* Title - Direct Click on Text to Edit */}
+                              {/* Title + Audit Trail Metadata (Completed Records are locked from editing) */}
                               <td 
-                                style={{ padding: '6px 8px', fontSize: '0.8rem', verticalAlign: 'middle', cursor: 'text' }}
+                                style={{ 
+                                  padding: '6px 8px', 
+                                  fontSize: '0.8rem', 
+                                  verticalAlign: 'middle', 
+                                  cursor: isCompleted ? 'default' : 'text' 
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  if (isCompleted) {
+                                    onAddToast('Completed tasks cannot be updated. Uncheck to edit.', 'info');
+                                    return;
+                                  }
                                   setEditingItemKey(itemKey);
                                   setEditItemTitle(item.title);
                                 }}
-                                title="Click text to edit description"
+                                title={isCompleted ? 'Completed record (Locked from editing)' : 'Click text to edit description'}
                               >
-                                <div 
-                                  style={{
-                                    color: item.completed ? '#166534' : '#1e293b',
-                                    fontWeight: item.completed ? 600 : 500,
-                                    userSelect: 'none',
-                                    cursor: 'text',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    flexWrap: 'wrap'
-                                  }}
-                                >
-                                  <span>{item.title}</span>
-                                  {item.completed && item.completedDate && (
-                                    <span 
-                                      className="badge" 
-                                      style={{
-                                        fontSize: '0.62rem',
-                                        padding: '1px 5px',
-                                        backgroundColor: '#dcfce7',
-                                        color: '#166534',
-                                        border: '1px solid #86efac',
-                                        borderRadius: '3px',
-                                        fontWeight: 600
-                                      }}
-                                      title={`Task completed on ${item.completedDate}`}
-                                    >
-                                      Done on {item.completedDate}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                  {/* Task Title & Status Badges */}
+                                  <div 
+                                    style={{
+                                      color: isCompleted ? '#166534' : '#1e293b',
+                                      fontWeight: isCompleted ? 600 : 500,
+                                      userSelect: 'none',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      flexWrap: 'wrap'
+                                    }}
+                                  >
+                                    <span>{item.title}</span>
+
+                                    {/* Carried Forward Tag */}
+                                    {item.carriedFromDate && (
+                                      <span 
+                                        className="badge"
+                                        style={{
+                                          fontSize: '0.62rem',
+                                          padding: '1px 5px',
+                                          backgroundColor: '#e0e7ff',
+                                          color: '#3730a3',
+                                          border: '1px solid #c7d2fe',
+                                          borderRadius: '3px',
+                                          fontWeight: 600
+                                        }}
+                                        title={`Task automatically carried forward from ${item.carriedFromDate}`}
+                                      >
+                                        ↪️ From {item.carriedFromDate}
+                                      </span>
+                                    )}
+
+                                    {/* Completed Badge & Lock indicator */}
+                                    {isCompleted && item.completedDate && (
+                                      <span 
+                                        className="badge flex align-center gap-0.5" 
+                                        style={{
+                                          fontSize: '0.62rem',
+                                          padding: '1px 5px',
+                                          backgroundColor: '#dcfce7',
+                                          color: '#166534',
+                                          border: '1px solid #86efac',
+                                          borderRadius: '3px',
+                                          fontWeight: 600
+                                        }}
+                                        title={`Completed on ${item.completedDate} by ${item.completedBy || 'admin'}. Record is locked.`}
+                                      >
+                                        <Lock size={9} /> Done on {item.completedDate} {item.completedBy ? `by ${item.completedBy}` : ''}
+                                      </span>
+                                    )}
+
+                                    {/* Update History Badge (Interactive count button) */}
+                                    {item.updateCount && item.updateCount > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setViewHistoryItem({
+                                            title: item.title,
+                                            createdBy: item.createdBy,
+                                            createdAt: item.createdAt,
+                                            updateCount: item.updateCount,
+                                            history: item.updateHistory || []
+                                          });
+                                        }}
+                                        className="badge flex align-center gap-0.5"
+                                        style={{
+                                          fontSize: '0.62rem',
+                                          padding: '1px 6px',
+                                          backgroundColor: '#fef3c7',
+                                          color: '#92400e',
+                                          border: '1px solid #fde68a',
+                                          borderRadius: '4px',
+                                          fontWeight: 700,
+                                          cursor: 'pointer'
+                                        }}
+                                        title={`Updated ${item.updateCount} time${item.updateCount > 1 ? 's' : ''}. Click to view update history.`}
+                                      >
+                                        <History size={10} /> Updated ({item.updateCount}x)
+                                      </button>
+                                    ) : null}
+                                  </div>
+
+                                  {/* Audit Metadata Line (Who Created, When Created, Who Updated, When Updated) */}
+                                  <div 
+                                    style={{ 
+                                      fontSize: '0.66rem', 
+                                      color: '#64748b', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '8px', 
+                                      flexWrap: 'wrap',
+                                      lineHeight: 1.2
+                                    }}
+                                  >
+                                    <span title="Created details" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                      <UserIcon size={10} className="text-muted" />
+                                      <span>Created: <strong>{item.createdBy || 'admin'}</strong> ({item.createdAt || 'Default'})</span>
                                     </span>
-                                  )}
+
+                                    {item.updatedBy && item.updatedAt && (
+                                      <span title="Last updated details" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#b45309' }}>
+                                        <Clock size={10} />
+                                        <span>Last Updated: <strong>{item.updatedBy}</strong> ({item.updatedAt})</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
 
@@ -801,7 +1136,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                                     padding: '2px',
                                     userSelect: 'none'
                                   }}
-                                  title={item.completed ? 'Mark as Undone' : 'Mark as Done'}
+                                  title={item.completed ? 'Mark as Undone (Unlocks for editing)' : 'Mark as Done'}
                                 >
                                   {item.completed ? (
                                     <div 
@@ -834,13 +1169,13 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                             </>
                           )}
 
-                          {/* Action Buttons (Edit & Delete) */}
+                          {/* Action Buttons (Edit & Delete - Edit disabled for completed records) */}
                           <td 
                             style={{ textAlign: 'center', verticalAlign: 'middle', padding: '4px 2px' }}
                             onClick={e => e.stopPropagation()}
                           >
                             <div className="flex align-center gap-0.5 justify-center">
-                              {!isEditing && (
+                              {!isEditing && !isCompleted && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -854,6 +1189,14 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                                 >
                                   <Edit2 size={12} />
                                 </button>
+                              )}
+                              {!isEditing && isCompleted && (
+                                <span 
+                                  style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}
+                                  title="Completed record is locked from editing"
+                                >
+                                  <Lock size={11} />
+                                </span>
                               )}
                               <button
                                 type="button"
@@ -873,20 +1216,28 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                       );
                     })}
 
-                    {items.length === 0 && (
+                    {displayItems.length === 0 && (
                       <tr>
-                        <td colSpan={3} style={{ textAlign: 'center', padding: '12px', color: '#94a3b8', fontSize: '0.75rem' }}>
-                          No checklist items yet.
-                          <div className="mt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleResetCellToDefaults(dateStr, col.id)}
-                              className="btn btn-outline btn-xs"
-                              style={{ fontSize: '0.7rem', padding: '2px 6px' }}
-                            >
-                              Load Default 10 Checklist Items
-                            </button>
-                          </div>
+                        <td colSpan={3} style={{ textAlign: 'center', padding: '14px', color: '#94a3b8', fontSize: '0.78rem' }}>
+                          {statusFilter === 'COMPLETED' ? (
+                            <span>No completed tasks on this date yet. Check tasks to complete them.</span>
+                          ) : statusFilter === 'IN_PROGRESS' ? (
+                            <span className="text-success font-bold">🎉 All tasks completed for this date!</span>
+                          ) : (
+                            <div>
+                              <span>No checklist items yet.</span>
+                              <div className="mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleResetCellToDefaults(dateStr, col.id)}
+                                  className="btn btn-outline btn-xs"
+                                  style={{ fontSize: '0.7rem', padding: '2px 6px' }}
+                                >
+                                  Load Default 10 Checklist Items
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
@@ -894,42 +1245,44 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 </table>
               </div>
 
-              {/* Dynamic Add Option / Item Form with Checkbox (Prompt Requirement) */}
-              <div 
-                className="p-1.5" 
-                style={{ 
-                  backgroundColor: '#f8fafc', 
-                  borderTop: '1px solid #e2e8f0' 
-                }}
-              >
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddOptionToCell(dateStr, col.id);
+              {/* Dynamic Add Option / Item Form with Checkbox (Hidden in COMPLETED filter mode) */}
+              {statusFilter !== 'COMPLETED' && (
+                <div 
+                  className="p-1.5" 
+                  style={{ 
+                    backgroundColor: '#f8fafc', 
+                    borderTop: '1px solid #e2e8f0' 
                   }}
-                  className="flex align-center gap-1"
                 >
-                  <input 
-                    type="text"
-                    className="form-control"
-                    style={{ fontSize: '0.74rem', padding: '3px 7px', height: '26px' }}
-                    placeholder="+ Add checklist option / task..."
-                    value={currentOptionInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewOptionInputs(prev => ({ ...prev, [cellKey]: val }));
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddOptionToCell(dateStr, col.id);
                     }}
-                  />
-                  <button 
-                    type="submit"
-                    className="btn btn-primary btn-xs flex align-center gap-0.5"
-                    style={{ fontSize: '0.72rem', padding: '3px 8px', height: '26px', whiteSpace: 'nowrap', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
-                    title="Add new option with checkbox to this column"
+                    className="flex align-center gap-1"
                   >
-                    <Plus size={12} /> Add
-                  </button>
-                </form>
-              </div>
+                    <input 
+                      type="text"
+                      className="form-control"
+                      style={{ fontSize: '0.74rem', padding: '3px 7px', height: '26px' }}
+                      placeholder="+ Add checklist option / task..."
+                      value={currentOptionInput}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewOptionInputs(prev => ({ ...prev, [cellKey]: val }));
+                      }}
+                    />
+                    <button 
+                      type="submit"
+                      className="btn btn-primary btn-xs flex align-center gap-0.5"
+                      style={{ fontSize: '0.72rem', padding: '3px 8px', height: '26px', whiteSpace: 'nowrap', backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                      title="Add new option with checkbox to this column"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
           );
         }
@@ -937,7 +1290,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     });
 
     return cols;
-  }, [columns, sortedDates, cellChecklists, editingItemKey, editItemTitle, editingDateRow, editDateValue, newOptionInputs]);
+  }, [columns, sortedDates, cellChecklists, editingItemKey, editItemTitle, editingDateRow, editDateValue, newOptionInputs, statusFilter]);
 
   return (
     <div className="daily-agenda-matrix-container">
@@ -950,7 +1303,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               Daily Construction Follow-up Matrix
             </h2>
             <p className="text-xs text-muted">
-              Real-time Project & Date-wise Follow-up Work Item Tracker with Interactive Checklists
+              Real-time Project & Date-wise Follow-up Work Item Tracker with Automatic Carry-Forward, Update History & Locked Completed Records
             </p>
           </div>
 
@@ -1020,10 +1373,10 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           </div>
         </form>
 
-        {/* Interactive Status Filter Buttons matching image */}
+        {/* Interactive Status Filter Buttons */}
         <div className="flex justify-between align-center mt-3 p-2.5 rounded border flex-wrap gap-2" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="flex align-center gap-2 text-xs flex-wrap">
-            <span className="font-bold text-muted mr-1">Status Legend:</span>
+            <span className="font-bold text-muted mr-1">Status Filters:</span>
             
             <button
               type="button"
@@ -1040,7 +1393,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 boxShadow: statusFilter === 'ALL' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 transition: 'all 0.15s ease'
               }}
-              title="Show all date rows"
+              title="Show all date rows and all tasks"
             >
               ALL ({statusCounts.all})
             </button>
@@ -1050,19 +1403,19 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               onClick={() => setStatusFilter('COMPLETED')}
               className="btn btn-xs"
               style={{
-                backgroundColor: statusFilter === 'COMPLETED' ? '#84cc16' : '#ecfccb',
-                color: statusFilter === 'COMPLETED' ? '#ffffff' : '#3f6212',
-                border: statusFilter === 'COMPLETED' ? '1px solid #65a30d' : '1px solid #bef264',
+                backgroundColor: statusFilter === 'COMPLETED' ? '#16a34a' : '#dcfce7',
+                color: statusFilter === 'COMPLETED' ? '#ffffff' : '#166534',
+                border: statusFilter === 'COMPLETED' ? '1px solid #15803d' : '1px solid #86efac',
                 padding: '4px 10px',
                 borderRadius: '5px',
                 fontWeight: statusFilter === 'COMPLETED' ? 700 : 600,
                 cursor: 'pointer',
-                boxShadow: statusFilter === 'COMPLETED' ? '0 1px 4px rgba(132, 204, 22, 0.4)' : 'none',
+                boxShadow: statusFilter === 'COMPLETED' ? '0 1px 4px rgba(22, 163, 74, 0.4)' : 'none',
                 transition: 'all 0.15s ease'
               }}
-              title="Show only rows where all checklist items are completed"
+              title="Show only completed tasks"
             >
-              ALL COMPLETED ({statusCounts.completed})
+              COMPLETED ({statusCounts.completed})
             </button>
 
             <button
@@ -1080,7 +1433,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 boxShadow: statusFilter === 'IN_PROGRESS' ? '0 1px 4px rgba(234, 179, 8, 0.4)' : 'none',
                 transition: 'all 0.15s ease'
               }}
-              title="Show rows in progress or scheduled for today"
+              title="Show pending incomplete tasks"
             >
               IN PROGRESS / TODAY ({statusCounts.inProgress})
             </button>
@@ -1106,8 +1459,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
             </button>
           </div>
 
-          <div className="text-xs text-muted">
-            Tip: Click a status button above to filter rows. When items are checked, their completion date is recorded.
+          <div className="text-xs text-muted flex align-center gap-1">
+            <Sparkles size={13} style={{ color: '#0284c7' }} />
+            <span><strong>Filters Active:</strong> Click <strong>COMPLETED ({statusCounts.completed})</strong> to view all finished tasks.</span>
           </div>
         </div>
       </div>
@@ -1132,7 +1486,12 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               const colValues = columns.map(c => {
                 const cellKey = `${rowDate}__${c.id}`;
                 const items = cellChecklists[cellKey] || [];
-                const text = items.map(i => `[${i.completed ? 'DONE' : 'PENDING'}] ${i.title}`).join('; ');
+                const text = items.map(i => {
+                  const status = i.completed ? `DONE (${i.completedDate || ''} by ${i.completedBy || ''})` : 'PENDING';
+                  const audit = `Created by: ${i.createdBy || ''} (${i.createdAt || ''}), Updates: ${i.updateCount || 0}`;
+                  const fwd = i.carriedFromDate ? ` [Forwarded from ${i.carriedFromDate}]` : '';
+                  return `[${status}] ${i.title}${fwd} - ${audit}`;
+                }).join('; ');
                 return `"${text.replace(/"/g, '""')}"`;
               });
               csvRows.push([`"${rowDate}"`, ...colValues].join(','));
@@ -1150,7 +1509,109 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           }}
         />
       </div>
+
+      {/* Update Audit History Modal */}
+      {viewHistoryItem && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setViewHistoryItem(null)}
+        >
+          <div 
+            className="admin-card p-4"
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #cbd5e1'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between align-center mb-3 border-bottom pb-2">
+              <div className="flex align-center gap-1.5">
+                <History size={20} className="text-primary" />
+                <h3 className="m-0 text-base font-bold" style={{ color: '#0f172a' }}>Task Update Audit History</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-sm p-1 text-muted"
+                onClick={() => setViewHistoryItem(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mb-3 p-2.5 rounded bg-light border">
+              <div className="font-bold text-sm text-dark mb-1">{viewHistoryItem.title}</div>
+              <div className="text-xs text-muted flex align-center gap-1">
+                <UserIcon size={12} />
+                <span>Originally Created by: <strong>{viewHistoryItem.createdBy || 'admin'}</strong> on {viewHistoryItem.createdAt || 'Initial setup'}</span>
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="text-xs font-bold text-muted mb-1.5 uppercase" style={{ letterSpacing: '0.5px' }}>
+                Revision History ({viewHistoryItem.history.length} update{viewHistoryItem.history.length === 1 ? '' : 's'})
+              </div>
+
+              {viewHistoryItem.history.length === 0 ? (
+                <div className="p-3 text-center text-xs text-muted border rounded" style={{ backgroundColor: '#f8fafc' }}>
+                  No historical updates recorded yet. Task has its original title.
+                </div>
+              ) : (
+                <div style={{ maxHeight: '240px', overflowY: 'auto' }} className="border rounded">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                        <th style={{ padding: '6px 8px', textAlign: 'left' }}>#</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'left' }}>Updated By</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'left' }}>Date & Time</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'left' }}>Change Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {viewHistoryItem.history.map((h, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '6px 8px', fontWeight: 600, color: '#64748b' }}>{idx + 1}</td>
+                          <td style={{ padding: '6px 8px', fontWeight: 600, color: '#0f172a' }}>{h.updatedBy}</td>
+                          <td style={{ padding: '6px 8px', color: '#475569' }}>{h.updatedAt}</td>
+                          <td style={{ padding: '6px 8px', color: '#1e293b' }}>
+                            {h.note || (h.oldTitle ? `"${h.oldTitle}" ➔ "${h.newTitle}"` : 'Updated task')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm px-3"
+                onClick={() => setViewHistoryItem(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
