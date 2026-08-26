@@ -32,7 +32,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             if (cellChecklists !== undefined) matrix.cellChecklists = cellChecklists;
             if (taskItems !== undefined) matrix.taskItems = taskItems;
             await matrix.save();
-            await logAuditAction(req, "Update Daily Agenda Matrix", `Updated follow-up matrix: ${matrix.title}`, "Success", { matrixId: matrix.id });
+            logAuditAction(req, "Update Daily Agenda Matrix", `Updated follow-up matrix: ${matrix.title}`, "Success", { matrixId: matrix.id }).catch(err => console.error("Audit log error:", err));
             return res.json({ success: true, data: matrix });
         } else {
             const created = await DailyAgendaMatrix.create({
@@ -43,7 +43,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
                 cellChecklists: cellChecklists || {},
                 taskItems: taskItems || []
             });
-            await logAuditAction(req, "Create Daily Agenda Matrix", `Created follow-up matrix: ${created.title}`, "Success", { matrixId: created.id });
+            logAuditAction(req, "Create Daily Agenda Matrix", `Created follow-up matrix: ${created.title}`, "Success", { matrixId: created.id }).catch(err => console.error("Audit log error:", err));
             return res.status(201).json({ success: true, data: created });
         }
     } catch (error) {

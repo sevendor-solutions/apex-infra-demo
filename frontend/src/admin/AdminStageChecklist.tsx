@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { 
   Project, 
   DailyAgendaMatrix, 
@@ -24,7 +24,8 @@ import {
   Clock, 
   Sparkles,
   History,
-  Lock
+  Lock,
+  Save
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -68,7 +69,7 @@ const getCurrentUserIdentifier = (): string => {
   }
 };
 
-// Helper to format date & time nicely (e.g. 25-08-2026 09:15 AM)
+// Helper to format date & time nicely (e.g. 26-08-2026 03:55 PM)
 const getFormattedDateTime = (): string => {
   const now = new Date();
   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -117,25 +118,63 @@ const STANDARD_DEFAULT_COLUMNS: DailyAgendaColumn[] = [
   { id: 'c_regular', title: 'Regular follow-ups' }
 ];
 
+// Fast 0ms initial state from localStorage cache for instant page refresh
+const getInitialStateFromCache = () => {
+  const today = getTodayStr();
+  try {
+    const raw = localStorage.getItem('jk_daily_agenda_matrices');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const m = parsed[0];
+        const loadedCols = (m.columns && m.columns.length > 0) ? m.columns : STANDARD_DEFAULT_COLUMNS;
+        const checklists = m.cellChecklists || {};
+        const dates = Object.keys(checklists).map(k => k.split('__')[0]).filter(Boolean);
+        const uniqueDates = Array.from(new Set([today, ...dates])).sort();
+        return {
+          title: m.title || 'Daily Construction Follow-up Matrix',
+          columns: loadedCols,
+          dateList: uniqueDates,
+          cellChecklists: checklists,
+          taskItems: m.taskItems || []
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Cache read error:', e);
+  }
+  return {
+    title: 'Daily Construction Follow-up Matrix',
+    columns: STANDARD_DEFAULT_COLUMNS,
+    dateList: [today],
+    cellChecklists: {
+      [`${today}__c_regular`]: createDefaultChecklistItems()
+    },
+    taskItems: []
+  };
+};
+
 export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   projects: _projects,
   onAddToast,
   onConfirm
 }) => {
-  const [matrixTitle, setMatrixTitle] = useState('Daily Construction Follow-up Matrix');
+  const cachedInitial = useMemo(() => getInitialStateFromCache(), []);
+
+  const [matrixTitle, setMatrixTitle] = useState(cachedInitial.title);
 
   // Columns State
-  const [columns, setColumns] = useState<DailyAgendaColumn[]>(STANDARD_DEFAULT_COLUMNS);
+  const [columns, setColumns] = useState<DailyAgendaColumn[]>(cachedInitial.columns);
   const [newColumnTitle, setNewColumnTitle] = useState<string>('');
 
   // Date Rows List
-  const [dateList, setDateList] = useState<string[]>([getTodayStr()]);
+  const [dateList, setDateList] = useState<string[]>(cachedInitial.dateList);
 
   // Cell Checklists State: key is `${dateStr}__${colId}`
-  const [cellChecklists, setCellChecklists] = useState<Record<string, DailyAgendaChecklistItem[]>>({});
+  const [cellChecklists, setCellChecklists] = useState<Record<string, DailyAgendaChecklistItem[]>>(cachedInitial.cellChecklists);
 
   // Legacy taskItems fallback support
-  const [taskItems, setTaskItems] = useState<DailyAgendaTaskItem[]>([]);
+  const [taskItems, setTaskItems] = useState<DailyAgendaTaskItem[]>(cachedInitial.taskItems);
 
   // Top Logger Form state
   const [newLogDate, setNewLogDate] = useState<string>(getTodayStr());
@@ -156,6 +195,12 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   // Status Filter State ('ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING'>('ALL');
 
+  // Saving state indicator
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Critical: Tracks if initial load from database has finished before allowing auto-saves
+  const isLoadedRef = useRef(false);
+
   // Audit Update History Modal State
   const [viewHistoryItem, setViewHistoryItem] = useState<{
     title: string;
@@ -165,7 +210,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     history: DailyAgendaChecklistItemHistory[];
   } | null>(null);
 
-  // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks from Today/Past to Tomorrow
+  // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks across past dates, today, and tomorrow
   const syncAutoRollover = (
     baseCellChecklists: Record<string, DailyAgendaChecklistItem[]>,
     cols: DailyAgendaColumn[]
@@ -178,6 +223,58 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const nextCellChecklists: Record<string, DailyAgendaChecklistItem[]> = { ...baseCellChecklists };
     let hasRolledOverAny = false;
 
+    // Step 1: Forward incomplete tasks from past dates (< today) to TODAY
+    const allKnownDates = new Set<string>();
+    Object.keys(nextCellChecklists).forEach(k => {
+      const d = k.split('__')[0];
+      if (d) allKnownDates.add(d);
+    });
+
+    const pastDates = Array.from(allKnownDates).filter(d => d < today).sort();
+
+    cols.forEach(col => {
+      const todayKey = `${today}__${col.id}`;
+      const todayExisting = nextCellChecklists[todayKey] ? [...nextCellChecklists[todayKey]] : [];
+
+      // Collect all incomplete tasks from past dates
+      pastDates.forEach(pDate => {
+        const pKey = `${pDate}__${col.id}`;
+        const pItems = nextCellChecklists[pKey] || [];
+        const incompletePast = pItems.filter(i => !i.completed);
+
+        incompletePast.forEach(pItem => {
+          // Check if today already has this carried task
+          const alreadyInToday = todayExisting.some(tItem => 
+            tItem.carriedFromId === pItem.id ||
+            tItem.id === `chk_fwd_${pItem.id}_${today}` ||
+            (tItem.carriedFromDate === pDate && tItem.title.trim().toLowerCase() === pItem.title.trim().toLowerCase())
+          );
+
+          if (!alreadyInToday) {
+            hasRolledOverAny = true;
+            todayExisting.push({
+              id: `chk_fwd_${pItem.id}_${today}`,
+              carriedFromId: pItem.id,
+              title: pItem.title,
+              completed: false,
+              carriedFromDate: pDate,
+              createdBy: pItem.createdBy || user,
+              createdAt: pItem.createdAt || timestamp,
+              updatedBy: user,
+              updatedAt: `${timestamp} (Carried from ${pDate})`,
+              updateCount: pItem.updateCount || 0,
+              updateHistory: pItem.updateHistory || []
+            });
+          }
+        });
+      });
+
+      if (todayExisting.length > 0) {
+        nextCellChecklists[todayKey] = todayExisting;
+      }
+    });
+
+    // Step 2: Forward currently incomplete tasks from TODAY to TOMORROW
     cols.forEach(col => {
       const todayKey = `${today}__${col.id}`;
       const tomorrowKey = `${tomorrow}__${col.id}`;
@@ -238,7 +335,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     };
   };
 
-  // Auto-Load Saved Matrix State from Backend on Mount with Auto-Rollover
+  // Auto-Load Saved Matrix State from Backend on Mount
   useEffect(() => {
     const loadBackendData = async () => {
       try {
@@ -296,6 +393,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         }
       } catch (e) {
         console.error('Failed to auto-load backend matrix state:', e);
+      } finally {
+        // Mark loading as complete so subsequent user changes trigger auto-save
+        isLoadedRef.current = true;
       }
     };
     loadBackendData();
@@ -321,34 +421,59 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return Array.from(setOfDates).sort((a, b) => a.localeCompare(b));
   }, [dateList, cellChecklists]);
 
-  // Auto-Save Matrix on ANY Change
-  useEffect(() => {
-    const autoSave = async () => {
-      if (columns.length === 0 && Object.keys(cellChecklists).length === 0 && dateList.length === 0) return;
+  // Explicit Save Matrix Helper (Backend DB + Local Backup)
+  const saveMatrixToDatabase = async (showToast = false) => {
+    if (columns.length === 0 && Object.keys(cellChecklists).length === 0 && dateList.length === 0) return;
 
-      const snapshotRows: DailyAgendaRow[] = sortedDates.map(dateStr => ({
-        id: 'r_' + dateStr,
-        date: dateStr,
-        tasks: {}
-      }));
+    setIsSaving(true);
+    const snapshotRows: DailyAgendaRow[] = sortedDates.map(dateStr => ({
+      id: 'r_' + dateStr,
+      date: dateStr,
+      tasks: {}
+    }));
 
-      const matrixData: DailyAgendaMatrix = {
-        id: 'main_daily_matrix',
-        title: matrixTitle,
-        columns,
-        rows: snapshotRows,
-        taskItems,
-        cellChecklists,
-        updatedAt: new Date().toISOString()
-      };
-
-      try {
-        await saveDailyAgendaMatrix(matrixData);
-      } catch (e) {
-        console.error('Auto-save matrix error:', e);
-      }
+    const matrixData: DailyAgendaMatrix = {
+      id: 'main_daily_matrix',
+      title: matrixTitle,
+      columns,
+      rows: snapshotRows,
+      taskItems,
+      cellChecklists,
+      updatedAt: new Date().toISOString()
     };
-    autoSave();
+
+    // Save to local storage as immediate backup
+    try {
+      localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify([matrixData]));
+    } catch (e) {
+      console.warn('LocalStorage backup error:', e);
+    }
+
+    try {
+      await saveDailyAgendaMatrix(matrixData);
+      if (showToast) {
+        onAddToast('Matrix saved to database successfully.', 'success');
+      }
+    } catch (e) {
+      console.error('Error saving matrix to backend DB:', e);
+      if (showToast) {
+        onAddToast('Saved to local backup (backend sync pending).', 'info');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Debounced Auto-Save on ANY Change (Runs ONLY AFTER initial data load is complete)
+  useEffect(() => {
+    if (!isLoadedRef.current) return;
+    if (columns.length === 0 && Object.keys(cellChecklists).length === 0) return;
+
+    const timer = setTimeout(() => {
+      saveMatrixToDatabase(false);
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [columns, cellChecklists, dateList, matrixTitle, sortedDates, taskItems]);
 
   // Get items for a given cell (Date + Column)
@@ -360,7 +485,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return [];
   };
 
-  // Add Column Handler: automatically populates new column with default Image 1 checklist items
+  // Add Column Handler
   const handleAddColumn = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!newColumnTitle.trim()) {
@@ -377,7 +502,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const user = getCurrentUserIdentifier();
     const newColsList = [...columns, newCol];
 
-    // Pre-populate this new column with the default 10 checklist items for all active dates
     const nextCells = { ...cellChecklists };
     sortedDates.forEach(d => {
       const cellKey = `${d}__${newColId}`;
@@ -416,7 +540,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast(`Deleted column "${colTitle}".`, 'info');
   };
 
-  // Single Entry Point: Add Task/Checklist Item from top Logger Form with Audit Tracking and Auto-Rollover
+  // Add Task/Checklist Item from top Logger Form
   const handleAddWorkItem = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const targetDate = newLogDate || getTodayStr();
@@ -465,7 +589,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     }
   };
 
-  // Toggle Checkbox Done Status (Maintains completed date, audit, and automatically synchronizes rollover to tomorrow)
+  // Toggle Checkbox Done Status
   const handleToggleItem = (dateStr: string, colId: string, itemId: string) => {
     const cellKey = `${dateStr}__${colId}`;
     const today = getTodayStr();
@@ -491,7 +615,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setDateList(nextDates);
   };
 
-  // Add Dynamic Checklist Option / Item inside a specific Cell with Audit Tracking & Auto-Rollover
+  // Add Dynamic Checklist Option / Item inside a specific Cell
   const handleAddOptionToCell = (dateStr: string, colId: string) => {
     const cellKey = `${dateStr}__${colId}`;
     const text = (newOptionInputs[cellKey] || '').trim();
@@ -536,7 +660,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setDateList(nextDates);
   };
 
-  // Save Inline Edited Item Title with Update Count & History Log (Completed Records CANNOT be modified)
+  // Save Inline Edited Item Title (Completed Records CANNOT be modified)
   const handleSaveEditItem = (dateStr: string, colId: string, itemId: string) => {
     if (!editItemTitle.trim()) {
       setEditingItemKey(null);
@@ -591,7 +715,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast('Task updated successfully.', 'success');
   };
 
-  // Toggle All Items in Cell (Check All or Uncheck All with completedDate and Auto-Rollover)
+  // Toggle All Items in Cell
   const handleToggleAllCell = (dateStr: string, colId: string, completeAll: boolean) => {
     const cellKey = `${dateStr}__${colId}`;
     const today = getTodayStr();
@@ -1329,6 +1453,17 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               </button>
             </form>
 
+            <button 
+              type="button" 
+              onClick={() => saveMatrixToDatabase(true)} 
+              className="btn btn-primary btn-sm flex align-center gap-0.5"
+              disabled={isSaving}
+              style={{ backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+              title="Manually save matrix state to Database"
+            >
+              <Save size={14} /> {isSaving ? 'Saving...' : 'Save to DB'}
+            </button>
+
             <button onClick={handlePrint} className="btn btn-outline btn-sm flex align-center gap-0.5">
               <Printer size={14} /> Print Report
             </button>
@@ -1433,7 +1568,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 boxShadow: statusFilter === 'IN_PROGRESS' ? '0 1px 4px rgba(234, 179, 8, 0.4)' : 'none',
                 transition: 'all 0.15s ease'
               }}
-              title="Show pending incomplete tasks"
+              title="Show today's pending incomplete tasks"
             >
               IN PROGRESS / TODAY ({statusCounts.inProgress})
             </button>
@@ -1461,7 +1596,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
           <div className="text-xs text-muted flex align-center gap-1">
             <Sparkles size={13} style={{ color: '#0284c7' }} />
-            <span><strong>Filters Active:</strong> Click <strong>COMPLETED ({statusCounts.completed})</strong> to view all finished tasks.</span>
+            <span><strong>Real-time Auto-Save Active:</strong> Every update is auto-synced directly to the backend database.</span>
           </div>
         </div>
       </div>
