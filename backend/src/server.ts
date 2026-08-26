@@ -90,8 +90,13 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads", (req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "*");
+  res.header("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(__dirname, "../uploads")));
 
 
 console.log("🛠️ Loading JK Future Infra Routes...");

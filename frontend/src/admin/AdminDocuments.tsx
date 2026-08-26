@@ -656,30 +656,114 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
     }
   }, [files, selectedDocIds, onConfirm, deleteDocument, onAddToast, onRefresh]);
 
+  // Helper to get absolute full document URL
+  const getFullDocUrl = (url?: string): string => {
+    if (!url || url === '#' || url.startsWith('data:')) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const apiBase = (import.meta.env.VITE_API_URL || origin).replace(/\/api\/?$/, '');
+    if (url.startsWith('/')) return `${apiBase}${url}`;
+    return `${apiBase}/${url}`;
+  };
+
+  // Helper to prepare real File objects for physical attachment sharing
+  const prepareFileObjects = async (docs: DocEntry[]): Promise<File[]> => {
+    const fileObjects: File[] = [];
+    for (const doc of docs) {
+      if (!doc.fileUrl || doc.fileUrl === '#') continue;
+      try {
+        let blob: Blob;
+        if (doc.fileUrl.startsWith('data:')) {
+          const res = await fetch(doc.fileUrl);
+          blob = await res.blob();
+        } else {
+          const fullUrl = getFullDocUrl(doc.fileUrl);
+          const res = await fetch(fullUrl, { mode: 'cors' });
+          blob = await res.blob();
+        }
+
+        const ext = doc.fileUrl.split('.').pop()?.split('?')[0] || doc.fileType || 'pdf';
+        const cleanTitle = (doc.title || 'document').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `${cleanTitle}.${ext}`;
+        const mimeType = blob.type || (ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : ext === 'jpeg' || ext === 'jpg' ? 'image/jpeg' : 'application/octet-stream');
+        const fileObj = new File([blob], fileName, { type: mimeType });
+        fileObjects.push(fileObj);
+      } catch (e) {
+        console.warn('Error fetching file blob for attachment:', doc.fileUrl, e);
+      }
+    }
+    return fileObjects;
+  };
+
   const getFormattedShareMessage = useCallback(() => {
     if (!shareModalDocs || shareModalDocs.length === 0) return '';
-    let msg = `*JK Future Infra - Shared Documents*\n`;
+    let msg = `📄 *JK Future Infra - Shared Documents*\n`;
     if (shareNote.trim()) {
       msg += `\n📝 *Note:* ${shareNote.trim()}\n`;
     }
     msg += `\n📁 *Files (${shareModalDocs.length}):*\n`;
     shareModalDocs.forEach((doc, idx) => {
-      msg += `${idx + 1}. *${doc.title}* (${(doc.fileType || 'file').toUpperCase()})\n`;
+      const type = (doc.fileType || 'file').toUpperCase();
+      msg += `${idx + 1}. *${doc.title}* (${type})\n`;
     });
+    msg += `\n─────────────────────\n_JK Future Infra Document Storage_`;
     return msg;
   }, [shareModalDocs, shareNote]);
 
-  const handleWhatsAppShare = useCallback(() => {
+  const handleWhatsAppShare = useCallback(async () => {
+    if (!shareModalDocs || shareModalDocs.length === 0) return;
+
+    // 1. Try Native File Attachment Sharing (Mobile / WhatsApp App / OS Share Sheet)
+    if (navigator.share) {
+      try {
+        onAddToast('Attaching document file(s)...', 'info');
+        const fileObjects = await prepareFileObjects(shareModalDocs);
+
+        if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
+          await navigator.share({
+            title: shareModalDocs[0]?.title || 'Shared Documents',
+            text: shareNote.trim() || undefined,
+            files: fileObjects,
+          });
+          onAddToast('Document attached and shared successfully!', 'success');
+          return;
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // 2. Desktop Web Fallback: Automatically download the physical files for instant drag & drop / 📎 attach, and open WhatsApp
+    handleDownloadShareModalDocs();
+    onAddToast('📎 File(s) downloaded! Attach or drag them directly into WhatsApp chat.', 'info');
     const text = encodeURIComponent(getFormattedShareMessage());
     const url = `https://api.whatsapp.com/send?text=${text}`;
     window.open(url, '_blank');
-  }, [getFormattedShareMessage]);
+  }, [shareModalDocs, shareNote, getFormattedShareMessage, onAddToast]);
 
-  const handleEmailShare = useCallback(() => {
+  const handleEmailShare = useCallback(async () => {
+    if (!shareModalDocs || shareModalDocs.length === 0) return;
+
+    if (navigator.share) {
+      try {
+        const fileObjects = await prepareFileObjects(shareModalDocs);
+        if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
+          await navigator.share({
+            title: `Shared Documents - JK Future Infra`,
+            text: shareNote.trim() || undefined,
+            files: fileObjects,
+          });
+          return;
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
     const subject = encodeURIComponent(`Shared Documents (${shareModalDocs?.length || 0}) - JK Future Infra`);
     const body = encodeURIComponent(getFormattedShareMessage());
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  }, [shareModalDocs, getFormattedShareMessage]);
+  }, [shareModalDocs, shareNote, getFormattedShareMessage]);
 
   const handleCopyShareMessage = useCallback(() => {
     const text = getFormattedShareMessage();
@@ -709,26 +793,12 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
     if (navigator.share) {
       try {
         onAddToast('Preparing files for direct attachment...', 'info');
-        const fileObjects: File[] = [];
-        for (const doc of shareModalDocs) {
-          if (doc.fileUrl && doc.fileUrl !== '#') {
-            try {
-              const res = await fetch(doc.fileUrl);
-              const blob = await res.blob();
-              const ext = doc.fileUrl.split('.').pop()?.split('?')[0] || doc.fileType || 'bin';
-              const fileName = `${doc.title}.${ext}`;
-              const fileObj = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
-              fileObjects.push(fileObj);
-            } catch (err) {
-              console.warn('Could not fetch file blob for share:', doc.fileUrl, err);
-            }
-          }
-        }
+        const fileObjects = await prepareFileObjects(shareModalDocs);
 
         if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
           await navigator.share({
             title: 'Shared Documents - JK Future Infra',
-            text: shareNote.trim() || 'Attached documents from JK Future Infra:',
+            text: shareNote.trim() || undefined,
             files: fileObjects,
           });
           onAddToast('Documents attached and shared successfully!', 'success');
@@ -746,9 +816,9 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
         }
       }
     } else {
-      handleCopyShareMessage();
+      handleDownloadShareModalDocs();
     }
-  }, [shareModalDocs, shareNote, getFormattedShareMessage, onAddToast, handleCopyShareMessage]);
+  }, [shareModalDocs, shareNote, getFormattedShareMessage, onAddToast, handleCopyShareMessage, handleDownloadShareModalDocs]);
 
 
 

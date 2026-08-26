@@ -16,16 +16,14 @@ import {
   Printer, 
   Plus, 
   Trash2, 
-  Edit2, 
   Check, 
   X, 
   ListChecks, 
   User as UserIcon, 
   Clock, 
-  Sparkles,
-  History,
-  Lock,
-  Save
+  Sparkles, 
+  History, 
+  Lock
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -194,9 +192,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
   // Status Filter State ('ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING'>('ALL');
-
-  // Saving state indicator
-  const [isSaving, setIsSaving] = useState(false);
 
   // Critical: Tracks if initial load from database has finished before allowing auto-saves
   const isLoadedRef = useRef(false);
@@ -425,7 +420,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   const saveMatrixToDatabase = async (showToast = false) => {
     if (columns.length === 0 && Object.keys(cellChecklists).length === 0 && dateList.length === 0) return;
 
-    setIsSaving(true);
     const snapshotRows: DailyAgendaRow[] = sortedDates.map(dateStr => ({
       id: 'r_' + dateStr,
       date: dateStr,
@@ -459,8 +453,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       if (showToast) {
         onAddToast('Saved to local backup (backend sync pending).', 'info');
       }
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -471,7 +463,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
     const timer = setTimeout(() => {
       saveMatrixToDatabase(false);
-    }, 400);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [columns, cellChecklists, dateList, matrixTitle, sortedDates, taskItems]);
@@ -647,10 +639,16 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast(`Added option "${text}".`, 'success');
   };
 
-  // Delete an Item from Cell
+  // Delete an Item from Cell (Protected: Completed items cannot be deleted)
   const handleDeleteItem = (dateStr: string, colId: string, itemId: string) => {
     const cellKey = `${dateStr}__${colId}`;
     const list = cellChecklists[cellKey] || [];
+    const itemToDelete = list.find(i => i.id === itemId);
+    if (itemToDelete?.completed) {
+      onAddToast('Completed tasks cannot be deleted.', 'error');
+      return;
+    }
+
     const updatedBase = {
       ...cellChecklists,
       [cellKey]: list.filter(i => i.id !== itemId)
@@ -658,6 +656,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
+    onAddToast('Task removed.', 'info');
   };
 
   // Save Inline Edited Item Title (Completed Records CANNOT be modified)
@@ -1051,8 +1050,8 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: '0.7rem', color: '#64748b' }}>
                       <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 600 }}>Task / Checklist Item & Audit Details</th>
-                      <th style={{ textAlign: 'center', width: '45px', padding: '4px 8px', fontWeight: 600 }}>Done</th>
-                      <th style={{ width: '45px', padding: '4px 2px' }}></th>
+                      <th style={{ textAlign: 'center', width: '45px', padding: '4px 6px', fontWeight: 600 }}>Done</th>
+                      <th style={{ textAlign: 'center', width: '65px', padding: '4px 6px', fontWeight: 600 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1293,47 +1292,46 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                             </>
                           )}
 
-                          {/* Action Buttons (Edit & Delete - Edit disabled for completed records) */}
+                          {/* Action Column: Completed = Clean Lock icon; Unchecked = Clean Delete Trash icon (No colored boxes) */}
                           <td 
-                            style={{ textAlign: 'center', verticalAlign: 'middle', padding: '4px 2px' }}
+                            style={{ textAlign: 'center', verticalAlign: 'middle', padding: '4px 4px', width: '50px' }}
                             onClick={e => e.stopPropagation()}
                           >
-                            <div className="flex align-center gap-0.5 justify-center">
-                              {!isEditing && !isCompleted && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingItemKey(itemKey);
-                                    setEditItemTitle(item.title);
-                                  }}
-                                  className="btn btn-ghost btn-xs p-0 text-muted"
-                                  style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                  title="Edit item title"
-                                >
-                                  <Edit2 size={12} />
-                                </button>
-                              )}
-                              {!isEditing && isCompleted && (
+                            <div className="flex align-center justify-center">
+                              {isCompleted ? (
                                 <span 
-                                  style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}
-                                  title="Completed record is locked from editing"
+                                  style={{ color: '#94a3b8', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="Completed task is locked (Cannot be deleted or edited)"
                                 >
-                                  <Lock size={11} />
+                                  <Lock size={15} />
                                 </span>
+                              ) : (
+                                <>
+                                  {!isEditing && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteItem(dateStr, col.id, item.id);
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '4px',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#ef4444',
+                                        outline: 'none'
+                                      }}
+                                      title="Delete task"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
+                                </>
                               )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteItem(dateStr, col.id, item.id);
-                                }}
-                                className="btn btn-ghost btn-xs p-0 text-danger"
-                                style={{ height: '20px', width: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Remove item"
-                              >
-                                <X size={13} />
-                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1452,17 +1450,6 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 <Plus size={13} /> Add Column
               </button>
             </form>
-
-            <button 
-              type="button" 
-              onClick={() => saveMatrixToDatabase(true)} 
-              className="btn btn-primary btn-sm flex align-center gap-0.5"
-              disabled={isSaving}
-              style={{ backgroundColor: '#0284c7', borderColor: '#0284c7' }}
-              title="Manually save matrix state to Database"
-            >
-              <Save size={14} /> {isSaving ? 'Saving...' : 'Save to DB'}
-            </button>
 
             <button onClick={handlePrint} className="btn btn-outline btn-sm flex align-center gap-0.5">
               <Printer size={14} /> Print Report
