@@ -185,41 +185,51 @@ UPLOAD_SUBFOLDERS.forEach((folder) => {
   }
 });
 
-// Initialize Database & Start Express Server
-const isProduction = process.env.NODE_ENV === "production";
-sequelize.sync({ alter: !isProduction })
-  .then(async () => {
-    console.log(`🔥 Sequelize Database Connected & Synced (${isProduction ? 'Standard Mode' : 'Alter Mode'})!`);
+// Initialize Database & Start Express Server (Fast Non-Blocking Startup)
+const startServer = async () => {
+  try {
+    // 1. Authenticate DB connection quickly
+    await sequelize.authenticate();
+    console.log("🔥 Sequelize Database Connected successfully!");
 
-    // Alter existing table columns to TEXT to prevent VARCHAR(255) length errors
-    try {
-      await sequelize.query(`
-        ALTER TABLE "projects" ALTER COLUMN "specImage" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "brochureUrl" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "location" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "microLocation" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "city" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "availabilityDetails" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "marketingResult" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "name" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "category" TYPE TEXT;
-        ALTER TABLE "projects" ALTER COLUMN "subCategory" TYPE TEXT;
-        ALTER TABLE "gallery_items" ALTER COLUMN "url" TYPE TEXT;
-        ALTER TABLE "gallery_items" ALTER COLUMN "thumbnail" TYPE TEXT;
-        ALTER TABLE "documents" ALTER COLUMN "fileUrl" TYPE TEXT;
-      `);
-      console.log("✅ Database column types updated to TEXT successfully.");
-    } catch (migErr: any) {
-      console.log("ℹ️ Column migration info:", migErr?.message || migErr);
-    }
+    // 2. Fast Schema Sync (Standard Mode)
+    await sequelize.sync();
+    console.log("✅ Sequelize Database Models Synced!");
 
-    // Run the data seeder
-    await seedDatabase();
-
+    // 3. Start Express HTTP server immediately
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
-      
-      // Start background task timer (every 10 minutes) for site visit reminders
+    });
+
+    // 4. Run migrations, seeder and background intervals asynchronously without blocking server
+    (async () => {
+      try {
+        await sequelize.query(`
+          ALTER TABLE "projects" ALTER COLUMN "specImage" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "brochureUrl" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "location" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "microLocation" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "city" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "availabilityDetails" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "marketingResult" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "name" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "category" TYPE TEXT;
+          ALTER TABLE "projects" ALTER COLUMN "subCategory" TYPE TEXT;
+          ALTER TABLE "gallery_items" ALTER COLUMN "url" TYPE TEXT;
+          ALTER TABLE "gallery_items" ALTER COLUMN "thumbnail" TYPE TEXT;
+          ALTER TABLE "documents" ALTER COLUMN "fileUrl" TYPE TEXT;
+        `);
+      } catch (migErr: any) {
+        // Silently continue if columns already altered
+      }
+
+      try {
+        await seedDatabase();
+      } catch (seedErr: any) {
+        console.warn("ℹ️ Seeder note:", seedErr?.message || seedErr);
+      }
+
+      // Background task timer (every 10 minutes) for site visit reminders
       const TEN_MINUTES = 10 * 60 * 1000;
       setInterval(async () => {
         try {
@@ -229,16 +239,19 @@ sequelize.sync({ alter: !isProduction })
         }
       }, TEN_MINUTES);
 
-      // Also run reminders once immediately on server start to catch up
+      // Also run reminders once after 5s
       setTimeout(async () => {
         try {
           await runAutomatedSiteVisitReminders();
         } catch (err) {
           console.error("Failed to run immediate automated reminders on startup:", err);
         }
-      }, 5000); // Wait 5 seconds after startup to ensure everything is stable
-    });
-  })
-  .catch((err) => {
-    console.error("❌ Error during Database synchronization or startup:", err);
-  });
+      }, 5000);
+    })();
+
+  } catch (err) {
+    console.error("❌ Error during Database connection or startup:", err);
+  }
+};
+
+startServer();

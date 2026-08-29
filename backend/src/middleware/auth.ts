@@ -40,7 +40,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
         // Check active status in database
         const dbUser = await User.findByPk(decoded.id);
         if (!dbUser || !dbUser.isActive) {
-            return res.status(403).json({ success: false, message: "Access Denied: Your account is currently inactive." });
+            return res.status(401).json({ success: false, message: "Access Denied: Your account is inactive or session has ended." });
         }
 
         if (decoded.username) {
@@ -50,7 +50,7 @@ export const authenticateToken = async (req: AuthRequest, res: Response, next: N
         req.user = decoded;
         next();
     } catch (error) {
-        return res.status(403).json({ success: false, message: "Access Denied: Invalid or expired authentication token." });
+        return res.status(401).json({ success: false, message: "Access Denied: Invalid or expired authentication token." });
     }
 };
 

@@ -120,6 +120,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
+  // Session Inactivity & Expiry Reason State
+  const [sessionExpiredReason, setSessionExpiredReason] = useState<string | null>(() => {
+    return sessionStorage.getItem('jk_session_expired_msg') || null;
+  });
+
   // Login credentials states
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -542,8 +547,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   useEffect(() => {
     const session = getSessionUser();
     const token = sessionStorage.getItem('jk_infra_logged_user_token');
+    const lastActivity = sessionStorage.getItem('jk_last_activity_time');
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+
     if (session && token) {
+      if (lastActivity && Date.now() - parseInt(lastActivity, 10) >= ONE_HOUR_MS) {
+        const reason = "Your session expired due to 1 hour of inactivity. Please log in again to continue.";
+        sessionStorage.setItem('jk_session_expired_msg', reason);
+        setSessionExpiredReason(reason);
+        setSessionUser(null);
+        setCurrentUser(null);
+        return;
+      }
       setCurrentUser(session);
+      sessionStorage.setItem('jk_last_activity_time', String(Date.now()));
       syncDBData();
     } else if (session) {
       // Clear legacy session that has no token, force re-login
@@ -551,6 +568,70 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       setCurrentUser(null);
     }
   }, []);
+
+  // 1-Hour User Inactivity Auto-Logout Tracker
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const ONE_HOUR_MS = 60 * 60 * 1000; // 1 hour inactivity threshold (3,600,000 ms)
+
+    const updateActivity = () => {
+      sessionStorage.setItem('jk_last_activity_time', String(Date.now()));
+    };
+
+    const checkInactivity = () => {
+      const lastStr = sessionStorage.getItem('jk_last_activity_time');
+      if (lastStr) {
+        const lastTime = parseInt(lastStr, 10);
+        if (Date.now() - lastTime >= ONE_HOUR_MS) {
+          const reason = "Your session expired due to 1 hour of inactivity. Please log in again to continue.";
+          sessionStorage.setItem('jk_session_expired_msg', reason);
+          setSessionExpiredReason(reason);
+          setSessionUser(null);
+          setCurrentUser(null);
+          onAddToast(reason, 'error');
+        }
+      }
+    };
+
+    // User activity listeners
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    
+    // Throttle activity updates so we don't spam storage on every pixel move
+    let lastRecorded = 0;
+    const throttledUpdate = () => {
+      const now = Date.now();
+      if (now - lastRecorded > 3000) {
+        lastRecorded = now;
+        updateActivity();
+      }
+    };
+
+    activityEvents.forEach(evt => window.addEventListener(evt, throttledUpdate, { passive: true }));
+
+    // Periodic check every 15 seconds
+    const interval = setInterval(checkInactivity, 15000);
+
+    // Also check immediately when tab/window gains focus or visibility (e.g. returning after sleep)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        checkInactivity();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleVisibility);
+
+    if (!sessionStorage.getItem('jk_last_activity_time')) {
+      updateActivity();
+    }
+
+    return () => {
+      activityEvents.forEach(evt => window.removeEventListener(evt, throttledUpdate));
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleVisibility);
+    };
+  }, [currentUser, onAddToast]);
 
   // Helper for screen permissions
   const hasScreenAccess = (screenId: string): boolean => {
@@ -668,6 +749,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     try {
       const loggedUser = await loginUser(usernameInput, passwordInput);
+      sessionStorage.setItem('jk_last_activity_time', String(Date.now()));
+      sessionStorage.removeItem('jk_session_expired_msg');
+      setSessionExpiredReason(null);
       setSessionUser(loggedUser);
       setCurrentUser(loggedUser);
       await syncDBData();
@@ -689,6 +773,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     } catch (err) {
       console.error("Failed to track logout session:", err);
     }
+    sessionStorage.removeItem('jk_session_expired_msg');
+    sessionStorage.removeItem('jk_last_activity_time');
+    setSessionExpiredReason(null);
     setSessionUser(null);
     setCurrentUser(null);
     onAddToast('Logged out from Admin Session.', 'info');
@@ -888,6 +975,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
             
             <div className="login-card-body">
+              {sessionExpiredReason && (
+                <div style={{
+                  background: '#fff1f2',
+                  border: '1px solid #fda4af',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginBottom: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  color: '#9f1239',
+                  fontSize: '0.84rem',
+                  fontWeight: 500,
+                  lineHeight: 1.4
+                }}>
+                  <AlertTriangle size={18} style={{ color: '#e11d48', flexShrink: 0 }} />
+                  <span>{sessionExpiredReason}</span>
+                </div>
+              )}
               <form onSubmit={handleLoginSubmit}>
                 <div className="login-form-group">
                   <input 
