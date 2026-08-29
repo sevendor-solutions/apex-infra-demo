@@ -462,13 +462,17 @@ export const uploadMultipleImages = async (files: FileList | File[], module: str
   return json.urls;
 };
 
-export const logoutUser = async (username: string): Promise<void> => {
-  const res = await fetch(`${API_BASE_URL}/auth/logout`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify({ username })
-  });
-  await handleResponse(res);
+export const logoutUser = async (username: string, reason?: string): Promise<void> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({ username, reason })
+    });
+    await handleResponse(res);
+  } catch (err) {
+    console.warn("Logout tracking error:", err);
+  }
 };
 
 // Property Types

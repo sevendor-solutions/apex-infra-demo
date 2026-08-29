@@ -548,13 +548,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     const session = getSessionUser();
     const token = sessionStorage.getItem('jk_infra_logged_user_token');
     const lastActivity = sessionStorage.getItem('jk_last_activity_time');
-    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const INACTIVITY_LIMIT_MS = 45 * 60 * 1000; // 45 minutes inactivity threshold
 
     if (session && token) {
-      if (lastActivity && Date.now() - parseInt(lastActivity, 10) >= ONE_HOUR_MS) {
-        const reason = "Your session expired due to 1 hour of inactivity. Please log in again to continue.";
+      if (lastActivity && Date.now() - parseInt(lastActivity, 10) >= INACTIVITY_LIMIT_MS) {
+        const reason = "Your session expired due to 45 minutes of inactivity. Please log in again to continue.";
         sessionStorage.setItem('jk_session_expired_msg', reason);
         setSessionExpiredReason(reason);
+        logoutUser(session.username, 'Inactivity (45 minutes)');
         setSessionUser(null);
         setCurrentUser(null);
         return;
@@ -569,11 +570,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   }, []);
 
-  // 1-Hour User Inactivity Auto-Logout Tracker
+  // 45-Minutes User Inactivity Auto-Logout Tracker
   useEffect(() => {
     if (!currentUser) return;
 
-    const ONE_HOUR_MS = 60 * 60 * 1000; // 1 hour inactivity threshold (3,600,000 ms)
+    const INACTIVITY_LIMIT_MS = 45 * 60 * 1000; // 45 minutes inactivity threshold (2,700,000 ms)
 
     const updateActivity = () => {
       sessionStorage.setItem('jk_last_activity_time', String(Date.now()));
@@ -583,10 +584,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const lastStr = sessionStorage.getItem('jk_last_activity_time');
       if (lastStr) {
         const lastTime = parseInt(lastStr, 10);
-        if (Date.now() - lastTime >= ONE_HOUR_MS) {
-          const reason = "Your session expired due to 1 hour of inactivity. Please log in again to continue.";
+        if (Date.now() - lastTime >= INACTIVITY_LIMIT_MS) {
+          const reason = "Your session expired due to 45 minutes of inactivity. Please log in again to continue.";
           sessionStorage.setItem('jk_session_expired_msg', reason);
           setSessionExpiredReason(reason);
+          logoutUser(currentUser.username, 'Inactivity (45 minutes)');
           setSessionUser(null);
           setCurrentUser(null);
           onAddToast(reason, 'error');
@@ -597,11 +599,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     // User activity listeners
     const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     
-    // Throttle activity updates so we don't spam storage on every pixel move
+    // Throttle activity updates so we don't spam storage
     let lastRecorded = 0;
     const throttledUpdate = () => {
       const now = Date.now();
-      if (now - lastRecorded > 3000) {
+      if (now - lastRecorded > 2000) {
         lastRecorded = now;
         updateActivity();
       }
@@ -612,7 +614,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     // Periodic check every 15 seconds
     const interval = setInterval(checkInactivity, 15000);
 
-    // Also check immediately when tab/window gains focus or visibility (e.g. returning after sleep)
+    // Also check immediately when tab/window gains focus or visibility (e.g. returning to tab)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         checkInactivity();
