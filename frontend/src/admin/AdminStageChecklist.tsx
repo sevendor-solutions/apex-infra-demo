@@ -23,7 +23,12 @@ import {
   Clock, 
   Sparkles, 
   History, 
-  Lock
+  Lock,
+  Share2,
+  Copy,
+  MessageCircle,
+  Mail,
+  CheckCheck
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -204,6 +209,14 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     updateCount?: number;
     history: DailyAgendaChecklistItemHistory[];
   } | null>(null);
+
+  // Date-wise Share Modal State
+  const [shareModalDate, setShareModalDate] = useState<string | null>(null);
+  const [shareFilter, setShareFilter] = useState<'ALL' | 'INCOMPLETE' | 'COMPLETED'>('ALL');
+  const [shareIncludeAudit, setShareIncludeAudit] = useState<boolean>(false);
+  const [shareRecipientPhone, setShareRecipientPhone] = useState<string>('');
+  const [shareCustomNote, setShareCustomNote] = useState<string>('');
+  const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
 
   // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks across past dates, today, and tomorrow
   const syncAutoRollover = (
@@ -753,6 +766,204 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     window.print();
   };
 
+  // Formatted date helper for display: e.g. "Mon, 31 Aug 2026"
+  const formatReadableDate = (dateStr: string): string => {
+    try {
+      const parts = dateStr.split('-').map(Number);
+      if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+      }
+    } catch (e) {
+      // fallback
+    }
+    return dateStr;
+  };
+
+  // Generate WhatsApp / Clipboard formatted text for a given date
+  const generateDateShareText = (
+    targetDate: string,
+    filter: 'ALL' | 'INCOMPLETE' | 'COMPLETED' = shareFilter,
+    includeAudit: boolean = shareIncludeAudit,
+    customNote: string = shareCustomNote
+  ): string => {
+    const today = getTodayStr();
+    const isToday = targetDate === today;
+    const isTomorrow = targetDate === getTomorrowStr(today);
+    const dateTag = isToday ? 'TODAY' : (isTomorrow ? 'TOMORROW' : 'UPCOMING');
+    const readableDate = formatReadableDate(targetDate);
+
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let pendingTasks = 0;
+
+    // Count all tasks across all columns for this date
+    columns.forEach(col => {
+      const cellKey = `${targetDate}__${col.id}`;
+      const items = cellChecklists[cellKey] || [];
+      totalTasks += items.length;
+      completedTasks += items.filter(i => i.completed).length;
+      pendingTasks += items.filter(i => !i.completed).length;
+    });
+
+    const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    const lines: string[] = [];
+    lines.push(`🏗️ *JK FUTURE INFRA - DAILY WORK FOLLOW-UP*`);
+    lines.push(`📅 *Date:* ${readableDate} (${targetDate} • ${dateTag})`);
+    lines.push(`📊 *Progress Status:* ${completedTasks}/${totalTasks} Tasks Done (${completionPercent}%)`);
+
+    if (customNote && customNote.trim()) {
+      lines.push(`💬 *Note:* ${customNote.trim()}`);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+    let anyItemsIncluded = false;
+
+    columns.forEach(col => {
+      const cellKey = `${targetDate}__${col.id}`;
+      let items = cellChecklists[cellKey] || [];
+
+      if (filter === 'INCOMPLETE') {
+        items = items.filter(i => !i.completed);
+      } else if (filter === 'COMPLETED') {
+        items = items.filter(i => i.completed);
+      }
+
+      if (items.length > 0) {
+        anyItemsIncluded = true;
+        const filterSuffix = filter === 'INCOMPLETE' ? ' - Pending Only' : (filter === 'COMPLETED' ? ' - Completed Only' : '');
+        lines.push(`📋 *${col.title.toUpperCase()}${filterSuffix}* (${items.length}):`);
+
+        items.forEach((item, idx) => {
+          const statusIcon = item.completed ? '✅' : '🔲';
+          let itemLine = `${statusIcon} ${idx + 1}. ${item.title}`;
+
+          if (item.carriedFromDate) {
+            itemLine += ` _(↪️ From ${item.carriedFromDate})_`;
+          }
+
+          if (item.completed && item.completedDate) {
+            itemLine += ` _[Done ${item.completedDate}${item.completedBy ? ` by ${item.completedBy}` : ''}]_`;
+          }
+
+          lines.push(itemLine);
+
+          if (includeAudit) {
+            const auditParts: string[] = [];
+            if (item.createdBy || item.createdAt) {
+              auditParts.push(`Created: ${item.createdBy || 'admin'} (${item.createdAt || ''})`);
+            }
+            if (item.updatedBy && item.updatedAt) {
+              auditParts.push(`Updated: ${item.updatedBy} (${item.updatedAt})`);
+            }
+            if (auditParts.length > 0) {
+              lines.push(`   └ ℹ️ ${auditParts.join(' | ')}`);
+            }
+          }
+        });
+        lines.push(``);
+      }
+    });
+
+    if (!anyItemsIncluded) {
+      lines.push(`_No tasks matching filter: ${filter === 'INCOMPLETE' ? 'Pending Tasks' : (filter === 'COMPLETED' ? 'Completed Tasks' : 'All Tasks')}._`);
+      lines.push(``);
+    }
+
+    lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    lines.push(`📌 *Summary:* ✅ ${completedTasks} Completed | ⏳ ${pendingTasks} Pending | 🎯 ${totalTasks} Total`);
+    lines.push(`🏢 *JK Future Infra* | 🌐 https://jkfutureinfra.com`);
+    lines.push(`🕒 _Generated: ${getFormattedDateTime()}_`);
+
+    return lines.join('\n');
+  };
+
+  // Direct WhatsApp Share Handler
+  const handleShareToWhatsApp = (
+    targetDate: string, 
+    filter = shareFilter, 
+    includeAudit = shareIncludeAudit, 
+    customNote = shareCustomNote, 
+    phone = shareRecipientPhone
+  ) => {
+    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    let url = '';
+    if (cleanPhone) {
+      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`;
+    } else {
+      url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    }
+    window.open(url, '_blank');
+    onAddToast(`Opening WhatsApp for date ${targetDate}...`, 'info');
+  };
+
+  // Copy formatted text to clipboard
+  const handleCopyDateShareText = async (
+    targetDate: string, 
+    filter = shareFilter, 
+    includeAudit = shareIncludeAudit, 
+    customNote = shareCustomNote
+  ) => {
+    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopiedSuccess(true);
+      setTimeout(() => setCopiedSuccess(false), 2500);
+      onAddToast(`Date ${targetDate} follow-up checklist copied to clipboard!`, 'success');
+    } catch (e) {
+      onAddToast('Failed to copy text to clipboard.', 'error');
+    }
+  };
+
+  // Native Device Share (Mobile & Supported Browsers)
+  const handleNativeDeviceShare = async (
+    targetDate: string, 
+    filter = shareFilter, 
+    includeAudit = shareIncludeAudit, 
+    customNote = shareCustomNote
+  ) => {
+    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `JK Future Infra Follow-up - ${targetDate}`,
+          text: text
+        });
+        onAddToast('Shared successfully.', 'success');
+      } catch (e) {
+        // User cancelled share dialog
+      }
+    } else {
+      handleCopyDateShareText(targetDate, filter, includeAudit, customNote);
+    }
+  };
+
+  // Email Share Handler
+  const handleEmailShare = (
+    targetDate: string, 
+    filter = shareFilter, 
+    includeAudit = shareIncludeAudit, 
+    customNote = shareCustomNote
+  ) => {
+    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
+    const subject = `JK Future Infra - Daily Construction Follow-up for ${targetDate}`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+    window.open(mailtoUrl, '_blank');
+  };
+
   // Row status background color based on checklist completion
   const getDateRowStatus = (dateStr: string) => {
     const today = getTodayStr();
@@ -868,7 +1079,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       {
         key: 'date',
         label: 'Date',
-        width: '140px',
+        width: '150px',
         sortable: true,
         align: 'center',
         render: (_val, row) => {
@@ -916,7 +1127,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           }
 
           return (
-            <div className="flex flex-column align-center gap-1 p-1">
+            <div className="flex flex-column align-center gap-1.5 p-1">
               <div 
                 className="flex flex-column align-center gap-0.5" 
                 style={{ cursor: 'pointer' }}
@@ -942,6 +1153,36 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     UPCOMING
                   </span>
                 )}
+              </div>
+
+              {/* Clean Single Date Share Button */}
+              <div className="mt-1" onClick={e => e.stopPropagation()}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShareModalDate(dateStr);
+                    setShareFilter('ALL');
+                    setShareIncludeAudit(false);
+                    setShareCustomNote('');
+                    setCopiedSuccess(false);
+                  }}
+                  className="btn btn-xs flex align-center gap-1"
+                  style={{
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    padding: '3px 10px',
+                    fontSize: '0.72rem',
+                    borderRadius: '4px',
+                    fontWeight: 700,
+                    boxShadow: '0 1px 3px rgba(2, 132, 199, 0.3)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={`Share options for ${dateStr}`}
+                >
+                  <Share2 size={12} /> Share
+                </button>
               </div>
             </div>
           );
@@ -1451,6 +1692,22 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               </button>
             </form>
 
+            <button 
+              type="button"
+              onClick={() => {
+                setShareModalDate(getTodayStr());
+                setShareFilter('ALL');
+                setShareIncludeAudit(false);
+                setShareCustomNote('');
+                setCopiedSuccess(false);
+              }} 
+              className="btn btn-primary btn-sm flex align-center gap-1"
+              style={{ backgroundColor: '#0284c7', borderColor: '#0284c7', color: '#ffffff' }}
+              title="Open Date-wise Share Dialog"
+            >
+              <Share2 size={14} /> Share Date Agenda
+            </button>
+
             <button onClick={handlePrint} className="btn btn-outline btn-sm flex align-center gap-0.5">
               <Printer size={14} /> Print Report
             </button>
@@ -1734,6 +1991,497 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           </div>
         </div>
       )}
+
+      {/* Date-wise Follow-up Share Modal */}
+      {shareModalDate && (() => {
+        const targetDate = shareModalDate;
+        const isToday = targetDate === getTodayStr();
+        const isTomorrow = targetDate === getTomorrowStr(getTodayStr());
+        const readableDate = formatReadableDate(targetDate);
+
+        let totalTasks = 0;
+        let completedTasks = 0;
+        let pendingTasks = 0;
+
+        columns.forEach(col => {
+          const cellKey = `${targetDate}__${col.id}`;
+          const items = cellChecklists[cellKey] || [];
+          totalTasks += items.length;
+          completedTasks += items.filter(i => i.completed).length;
+          pendingTasks += items.filter(i => !i.completed).length;
+        });
+
+        const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        const currentShareText = generateDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote);
+
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '16px'
+            }}
+            onClick={() => setShareModalDate(null)}
+          >
+            <div 
+              style={{
+                maxWidth: '540px',
+                width: '100%',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: '#ffffff',
+                borderRadius: '12px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+                border: '1px solid #cbd5e1',
+                overflow: 'hidden'
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div 
+                style={{
+                  padding: '14px 18px',
+                  borderBottom: '1px solid #e2e8f0',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div 
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      backgroundColor: '#e0f2fe',
+                      color: '#0284c7',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}
+                  >
+                    <Share2 size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                      Share Follow-up Checklist
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>
+                        📅 {readableDate}
+                      </span>
+                      {isToday && (
+                        <span style={{ backgroundColor: '#16a34a', color: '#fff', fontSize: '0.62rem', padding: '1px 6px', fontWeight: 700, borderRadius: '4px' }}>
+                          TODAY
+                        </span>
+                      )}
+                      {!isToday && isTomorrow && (
+                        <span style={{ backgroundColor: '#f59e0b', color: '#fff', fontSize: '0.62rem', padding: '1px 6px', fontWeight: 700, borderRadius: '4px' }}>
+                          TOMORROW
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Date Picker Switcher */}
+                  <select
+                    className="form-control"
+                    style={{ fontSize: '0.75rem', padding: '3px 6px', height: '28px', fontWeight: 600, maxWidth: '120px' }}
+                    value={shareModalDate}
+                    onChange={e => setShareModalDate(e.target.value)}
+                  >
+                    {sortedDates.map(d => {
+                      const dIsToday = d === getTodayStr();
+                      const dIsTomorrow = d === getTomorrowStr(getTodayStr());
+                      const dTag = dIsToday ? ' (Today)' : (dIsTomorrow ? ' (Tmrw)' : '');
+                      return (
+                        <option key={d} value={d}>
+                          {d}{dTag}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button 
+                    type="button" 
+                    onClick={() => setShareModalDate(null)}
+                    style={{
+                      border: 'none',
+                      background: '#f1f5f9',
+                      borderRadius: '50%',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: '#64748b'
+                    }}
+                    title="Close"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body (Strict Vertical Flow - No horizontal scroll!) */}
+              <div 
+                style={{
+                  padding: '16px 18px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  flexGrow: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px'
+                }}
+              >
+                {/* 1. Progress Summary Ribbon */}
+                <div 
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: completionPercent === 100 ? '#f0fdf4' : '#eff6ff',
+                    border: completionPercent === 100 ? '1px solid #bbf7d0' : '1px solid #bfdbfe'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '1rem' }}>{completionPercent === 100 ? '🎉' : '📊'}</span>
+                    <div>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>
+                        Progress: {completedTasks} of {totalTasks} Tasks Done ({completionPercent}%)
+                      </span>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {pendingTasks} pending follow-up{pendingTasks === 1 ? '' : 's'} remaining
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <span 
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        color: '#0f2b46'
+                      }}
+                    >
+                      {totalTasks} Total Items
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Task Filter Selection (3 Clear Buttons) */}
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    What tasks do you want to share?
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShareFilter('ALL')}
+                      style={{
+                        padding: '7px 6px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: shareFilter === 'ALL' ? 700 : 500,
+                        backgroundColor: shareFilter === 'ALL' ? '#0f2b46' : '#ffffff',
+                        color: shareFilter === 'ALL' ? '#ffffff' : '#334155',
+                        border: shareFilter === 'ALL' ? '1.5px solid #0f2b46' : '1px solid #cbd5e1',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      📋 All Tasks ({totalTasks})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShareFilter('INCOMPLETE')}
+                      style={{
+                        padding: '7px 6px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: shareFilter === 'INCOMPLETE' ? 700 : 500,
+                        backgroundColor: shareFilter === 'INCOMPLETE' ? '#ea580c' : '#fff7ed',
+                        color: shareFilter === 'INCOMPLETE' ? '#ffffff' : '#c2410c',
+                        border: shareFilter === 'INCOMPLETE' ? '1.5px solid #c2410c' : '1px solid #fed7aa',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      ⏳ Pending ({pendingTasks})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShareFilter('COMPLETED')}
+                      style={{
+                        padding: '7px 6px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: shareFilter === 'COMPLETED' ? 700 : 500,
+                        backgroundColor: shareFilter === 'COMPLETED' ? '#16a34a' : '#f0fdf4',
+                        color: shareFilter === 'COMPLETED' ? '#ffffff' : '#166534',
+                        border: shareFilter === 'COMPLETED' ? '1.5px solid #16a34a' : '1px solid #bbf7d0',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      ✅ Done ({completedTasks})
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Direct Phone Number & Note (Optional) */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: 600, color: '#475569', marginBottom: '3px', display: 'block' }}>
+                      Direct WhatsApp Mobile Number (Optional):
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRight: 'none', padding: '5px 10px', fontSize: '0.78rem', borderRadius: '6px 0 0 6px', color: '#475569', fontWeight: 700 }}>
+                        +91
+                      </span>
+                      <input 
+                        type="tel"
+                        className="form-control"
+                        style={{ fontSize: '0.78rem', padding: '5px 10px', height: '32px', borderRadius: '0 6px 6px 0', width: '100%' }}
+                        placeholder="Enter 10-digit phone number (e.g. 9876543210)"
+                        value={shareRecipientPhone}
+                        onChange={e => setShareRecipientPhone(e.target.value)}
+                        maxLength={13}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.74rem', fontWeight: 600, color: '#475569', marginBottom: '3px', display: 'block' }}>
+                      Custom Site Note / Remark (Optional):
+                    </label>
+                    <input 
+                      type="text"
+                      className="form-control"
+                      style={{ fontSize: '0.78rem', padding: '5px 10px', height: '32px', borderRadius: '6px', width: '100%' }}
+                      placeholder="e.g. Morning Site Briefing / Phase 1 Inspection"
+                      value={shareCustomNote}
+                      onChange={e => setShareCustomNote(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Audit details toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input 
+                      type="checkbox"
+                      id="chk_modal_audit"
+                      checked={shareIncludeAudit}
+                      onChange={e => setShareIncludeAudit(e.target.checked)}
+                      style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="chk_modal_audit" style={{ fontSize: '0.74rem', color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
+                      Include creator names & timestamps in the message
+                    </label>
+                  </div>
+                </div>
+
+                {/* 4. Live Message Preview Box */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
+                      Message Preview:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#0284c7',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: 0
+                      }}
+                    >
+                      {copiedSuccess ? <CheckCheck size={13} style={{ color: '#16a34a' }} /> : <Copy size={12} />}
+                      <span>{copiedSuccess ? 'Copied!' : 'Copy Preview'}</span>
+                    </button>
+                  </div>
+                  <pre
+                    style={{
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      fontSize: '0.72rem',
+                      lineHeight: '1.45',
+                      color: '#1e293b',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      maxHeight: '150px',
+                      overflowY: 'auto',
+                      fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                      margin: 0
+                    }}
+                  >
+                    {currentShareText}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Modal Footer Action Buttons */}
+              <div 
+                style={{
+                  padding: '12px 18px',
+                  borderTop: '1px solid #e2e8f0',
+                  backgroundColor: '#f8fafc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <button 
+                  type="button" 
+                  onClick={() => setShareModalDate(null)}
+                  style={{
+                    padding: '7px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    color: '#475569',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Secondary Quick Share Actions */}
+                  {typeof navigator !== 'undefined' && 'share' in navigator && (
+                    <button 
+                      type="button"
+                      onClick={() => handleNativeDeviceShare(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                      style={{
+                        padding: '7px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        backgroundColor: '#ffffff',
+                        color: '#334155',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Share via device applications"
+                    >
+                      <Share2 size={13} /> Device
+                    </button>
+                  )}
+
+                  <button 
+                    type="button"
+                    onClick={() => handleEmailShare(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#334155',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Send via Email"
+                  >
+                    <Mail size={13} /> Email
+                  </button>
+
+                  {/* Copy Text Button */}
+                  <button 
+                    type="button"
+                    onClick={() => handleCopyDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                    style={{
+                      padding: '7px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: copiedSuccess ? '#f0fdf4' : '#ffffff',
+                      color: copiedSuccess ? '#166534' : '#1e293b',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    {copiedSuccess ? <CheckCheck size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
+                    <span>{copiedSuccess ? 'Copied!' : 'Copy Text'}</span>
+                  </button>
+
+                  {/* Primary WhatsApp Share Button */}
+                  <button 
+                    type="button"
+                    onClick={() => handleShareToWhatsApp(targetDate, shareFilter, shareIncludeAudit, shareCustomNote, shareRecipientPhone)}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: '#25D366',
+                      color: '#ffffff',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 4px rgba(37, 211, 102, 0.35)'
+                    }}
+                  >
+                    <MessageCircle size={16} />
+                    <span>Share on WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
