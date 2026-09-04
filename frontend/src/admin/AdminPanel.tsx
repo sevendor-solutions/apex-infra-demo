@@ -1879,7 +1879,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* Consolidated Group: Accounting */}
           {(hasScreenAccess('expenses') || hasScreenAccess('wallets') || 
             hasScreenAccess('customers') || hasScreenAccess('suppliers') || 
-            hasScreenAccess('inventory') || hasScreenAccess('quotations') || 
+            hasScreenAccess('quotations') || 
             hasScreenAccess('invoices') || hasScreenAccess('payments_in') || 
             hasScreenAccess('payments_out') || hasScreenAccess('payments_pending') || 
             hasScreenAccess('loans') || hasScreenAccess('auditor_reports')) && (
@@ -1953,17 +1953,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         data-tooltip="Supplier Accounts"
                       >
                         <Briefcase size={16} /> <span className="admin-sidebar-link-text">Suppliers</span>
-                      </button>
-                    </li>
-                  )}
-                  {hasScreenAccess('inventory') && (
-                    <li className="admin-sidebar-item">
-                      <button 
-                        onClick={() => handleOpenTab('inventory')} 
-                        className={`admin-sidebar-link ${activeTab === 'inventory' ? 'active' : ''}`}
-                        data-tooltip="Stock & Inventory"
-                      >
-                        <Layers size={16} /> <span className="admin-sidebar-link-text">Stock & Inventory</span>
                       </button>
                     </li>
                   )}

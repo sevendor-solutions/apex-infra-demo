@@ -44,8 +44,8 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
 
   const ALL_SYSTEM_SCREENS = [
     'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
-    'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'site_visits', 
-    'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'inventory', 'quotations', 
+    'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'site_visits', 
+    'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 
     'invoices', 'loans', 'auditor_reports', 'users', 'masters', 'marketing_agents', 'audit_logs',
     'cost_analysis', 'stage_checklist'
   ];
@@ -54,22 +54,22 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     if (userRole === 'Admin') {
       return [...ALL_SYSTEM_SCREENS];
     } else if (userRole === 'ProjectOwner') {
-      return ['dashboard', 'projects', 'project_gallery', 'blogs', 'documents', 'project_enquiries', 'careers', 'site_visits', 'stage_checklist', 'cost_analysis'];
+      return ['dashboard', 'projects', 'project_gallery', 'blogs', 'documents', 'project_enquiries', 'site_visits', 'stage_checklist', 'cost_analysis'];
     } else if (userRole === 'MarketingOwner') {
-      return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'careers', 'marketing_agents', 'site_visits', 'cost_analysis'];
+      return ['dashboard', 'marketing', 'sites', 'marketing_gallery', 'blogs', 'marketing_enquiries', 'marketing_agents', 'site_visits', 'cost_analysis'];
     } else if (userRole === 'Architecture') {
-      return ['dashboard', 'documents', 'project_gallery', 'projects', 'sites', 'stage_checklist'];
+      return ['dashboard', 'documents', 'project_gallery', 'projects', 'sites', 'stage_checklist', 'cost_analysis'];
     } else if (userRole === 'MarketingAgent') {
       return ['dashboard', 'marketing_enquiries', 'marketing_agents', 'site_visits'];
     } else if (userRole === 'Accountant') {
-      return ['dashboard', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 'invoices', 'loans', 'auditor_reports', 'inventory', 'cost_analysis'];
+      return ['dashboard', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 'invoices', 'loans', 'auditor_reports', 'cost_analysis'];
     } else if (userRole === 'SalesUser') {
       return ['dashboard', 'quotations', 'invoices', 'customers', 'projects', 'sites'];
     } else if (userRole === 'InventoryManager') {
-      return ['dashboard', 'inventory', 'suppliers', 'expenses', 'stage_checklist'];
+      return ['dashboard', 'suppliers', 'expenses', 'stage_checklist'];
     } else {
       // Moderator
-      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'site_visits', 'stage_checklist', 'cost_analysis'];
+      return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'site_visits', 'stage_checklist', 'cost_analysis'];
     }
   };
 
@@ -457,14 +457,14 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
               {isSuperAdmin && (
                 <div className="form-group pt-2 border-top mt-3">
                   <label className="form-label font-bold" style={{ color: 'var(--primary)', marginBottom: '0.5rem', display: 'block' }}>
-                    Screen Access Permissions
+                    SCREEN ACCESS PERMISSIONS
                   </label>
                   <div 
                     style={{ 
                       display: 'grid', 
                       gridTemplateColumns: 'repeat(2, 1fr)', 
                       gap: '0.75rem', 
-                      maxHeight: '180px', 
+                      maxHeight: '220px', 
                       overflowY: 'auto', 
                       padding: '0.5rem', 
                       backgroundColor: '#f8fafc', 
@@ -476,6 +476,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'dashboard', label: 'Dashboard' },
                       { id: 'projects', label: 'Manage Projects' },
                       { id: 'marketing', label: 'Manage Marketing' },
+                      { id: 'marketing_agents', label: 'Marketing Agents' },
                       { id: 'sites', label: 'Plot Layouts' },
                       { id: 'project_gallery', label: 'Project Gallery' },
                       { id: 'marketing_gallery', label: 'Marketing Gallery' },
@@ -483,26 +484,21 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'documents', label: 'Document Storage' },
                       { id: 'project_enquiries', label: 'Project Leads' },
                       { id: 'marketing_enquiries', label: 'Marketing Leads' },
-                      { id: 'careers', label: 'Job Applications' },
                       { id: 'site_visits', label: 'Site Visit Emails' },
-                      { id: 'stage_checklist', label: 'Construction Checklist' },
+                      { id: 'stage_checklist', label: 'Daily Agenda Matrix' },
                       { id: 'mail_config', label: 'System Settings' },
-                      { id: 'users', label: 'Staff Logins' },
-                      { id: 'masters', label: 'Masters Config' },
-                      { id: 'marketing_agents', label: 'Marketing Agents' },
-                      { id: 'audit_logs', label: 'System Audit Trail' },
-                      
-                      // Accounting & Financial Management
-                      { id: 'cost_analysis', label: 'Project Cost Sheet' },
                       { id: 'expenses', label: 'Expenses Ledger' },
                       { id: 'wallets', label: 'Digital Wallets' },
-                      { id: 'quotations', label: 'Quotations Ledger' },
-                      { id: 'inventory', label: 'Warehouse Stock' },
-                      { id: 'loans', label: 'Commercial Loans' },
+                      { id: 'customers', label: 'Customers' },
+                      { id: 'suppliers', label: 'Suppliers' },
+                      { id: 'quotations', label: 'Quotations' },
                       { id: 'invoices', label: 'Sales Invoices' },
-                      { id: 'customers', label: 'Customers Accounts' },
-                      { id: 'suppliers', label: 'Suppliers Accounts' },
-                      { id: 'auditor_reports', label: 'Auditor Reports' }
+                      { id: 'loans', label: 'Loans & Borrowings' },
+                      { id: 'auditor_reports', label: 'Auditor Reports' },
+                      { id: 'cost_analysis', label: 'Project Cost Sheet' },
+                      { id: 'users', label: 'Staff Logins' },
+                      { id: 'masters', label: 'Masters Config' },
+                      { id: 'audit_logs', label: 'Audit Trail' }
                     ].map(screen => (
                       <label 
                         key={screen.id} 
