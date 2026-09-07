@@ -11,6 +11,8 @@ import type {
 import { getDailyAgendaMatrices, saveDailyAgendaMatrix, getSessionUser } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
+import { jsPDF } from 'jspdf';
+import logoImg from '../assets/logo.png';
 import { 
   Calendar, 
   Printer, 
@@ -28,7 +30,9 @@ import {
   Copy,
   MessageCircle,
   Mail,
-  CheckCheck
+  CheckCheck,
+  Download,
+  FileText
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -216,6 +220,8 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   const [shareIncludeAudit, setShareIncludeAudit] = useState<boolean>(false);
   const [shareRecipientPhone, setShareRecipientPhone] = useState<string>('');
   const [shareCustomNote, setShareCustomNote] = useState<string>('');
+  const [shareFormat, setShareFormat] = useState<'PDF' | 'TEXT'>('PDF');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
 
   // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks across past dates, today, and tomorrow
@@ -761,9 +767,384 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast('Reset cell to default checklist items.', 'info');
   };
 
-  // Print Handler
-  const handlePrint = () => {
-    window.print();
+  // Print Handler - Generates clean, standalone printable report window with complete matrix data
+  const handlePrint = (targetSpecificDate?: string | React.MouseEvent, specificFilter?: 'ALL' | 'INCOMPLETE' | 'COMPLETED') => {
+    const specificDate = typeof targetSpecificDate === 'string' ? targetSpecificDate : undefined;
+    const today = getTodayStr();
+    const currentUser = getCurrentUserIdentifier();
+    const printedAt = getFormattedDateTime();
+
+    const escapeHtml = (str: string) => {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+
+    // Determine target dates to include
+    let datesToPrint: string[] = [];
+    if (specificDate) {
+      datesToPrint = [specificDate];
+    } else {
+      const targetDates = sortedDates.filter(dateStr => {
+        if (statusFilter === 'ALL') return true;
+        if (statusFilter === 'COMPLETED') {
+          return columns.some(col => {
+            const items = cellChecklists[`${dateStr}__${col.id}`] || [];
+            return items.some(i => i.completed);
+          });
+        }
+        if (statusFilter === 'IN_PROGRESS') {
+          return dateStr === today;
+        }
+        if (statusFilter === 'UPCOMING') {
+          return dateStr > today;
+        }
+        return true;
+      });
+      datesToPrint = targetDates.length > 0 ? targetDates : sortedDates;
+    }
+
+    // Determine task filter
+    const activeTaskFilter = specificFilter || (statusFilter === 'COMPLETED' ? 'COMPLETED' : statusFilter === 'IN_PROGRESS' ? 'INCOMPLETE' : 'ALL');
+
+    // Calculate overall statistics across included dates
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let pendingTasks = 0;
+    let carriedTasks = 0;
+
+    datesToPrint.forEach(dateStr => {
+      columns.forEach(col => {
+        let items = cellChecklists[`${dateStr}__${col.id}`] || [];
+        if (activeTaskFilter === 'COMPLETED') {
+          items = items.filter(i => i.completed);
+        } else if (activeTaskFilter === 'INCOMPLETE') {
+          items = items.filter(i => !i.completed);
+        }
+        totalTasks += items.length;
+        completedTasks += items.filter(i => i.completed).length;
+        pendingTasks += items.filter(i => !i.completed).length;
+        carriedTasks += items.filter(i => !!i.carriedFromDate).length;
+      });
+    });
+
+    const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // Build Date Sections HTML
+    const dateSectionsHtml = datesToPrint.map(dateStr => {
+      const isToday = dateStr === today;
+      const isTomorrow = dateStr === getTomorrowStr(today);
+      const tagLabel = isToday ? 'TODAY' : isTomorrow ? 'TOMORROW' : dateStr > today ? 'UPCOMING' : 'PAST';
+      const tagBg = isToday ? '#16a34a' : isTomorrow ? '#f59e0b' : dateStr > today ? '#0284c7' : '#64748b';
+      const readableDate = formatReadableDate(dateStr);
+
+      // Date stats
+      let dateTotal = 0;
+      let dateDone = 0;
+      columns.forEach(col => {
+        let items = cellChecklists[`${dateStr}__${col.id}`] || [];
+        if (activeTaskFilter === 'COMPLETED') items = items.filter(i => i.completed);
+        else if (activeTaskFilter === 'INCOMPLETE') items = items.filter(i => !i.completed);
+        dateTotal += items.length;
+        dateDone += items.filter(i => i.completed).length;
+      });
+
+      const columnsHtml = columns.map(col => {
+        let items = cellChecklists[`${dateStr}__${col.id}`] || [];
+        if (activeTaskFilter === 'COMPLETED') items = items.filter(i => i.completed);
+        else if (activeTaskFilter === 'INCOMPLETE') items = items.filter(i => !i.completed);
+
+        const itemsRowsHtml = items.length > 0 ? items.map((item, idx) => {
+          const isDone = !!item.completed;
+          const statusBadge = isDone
+            ? `<span style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 10px; white-space: nowrap;">&#10004; DONE</span>`
+            : `<span style="background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 10px; white-space: nowrap;">&#9675; PENDING</span>`;
+
+          const carriedHtml = item.carriedFromDate
+            ? `<div style="font-size: 10.5px; color: #4338ca; margin-top: 2px; font-weight: 600;">&#8627; Carried forward from ${escapeHtml(item.carriedFromDate)}</div>`
+            : '';
+
+          const auditDetails: string[] = [];
+          if (item.createdBy) {
+            auditDetails.push(`Created by: <strong>${escapeHtml(item.createdBy)}</strong>${item.createdAt ? ` (${escapeHtml(item.createdAt)})` : ''}`);
+          }
+          if (isDone && item.completedBy) {
+            auditDetails.push(`Completed by: <strong>${escapeHtml(item.completedBy)}</strong>${item.completedDate ? ` on ${escapeHtml(item.completedDate)}` : ''}`);
+          }
+          if ((item.updateCount || 0) > 0) {
+            auditDetails.push(`Updated: ${item.updateCount}x`);
+          }
+
+          const auditHtml = auditDetails.length > 0
+            ? `<div style="font-size: 10px; color: #64748b; margin-top: 3px; line-height: 1.3;">${auditDetails.join(' &bull; ')}</div>`
+            : '';
+
+          return `
+            <tr style="background-color: ${isDone ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 6px 8px; text-align: center; width: 32px; color: #64748b; font-size: 11px;">${idx + 1}</td>
+              <td style="padding: 6px 8px; text-align: center; width: 90px;">${statusBadge}</td>
+              <td style="padding: 6px 10px; vertical-align: middle;">
+                <div style="font-size: 12px; color: ${isDone ? '#334155' : '#0f172a'}; font-weight: ${isDone ? '500' : '600'};">
+                  ${escapeHtml(item.title)}
+                </div>
+                ${carriedHtml}
+                ${auditHtml}
+              </td>
+            </tr>
+          `;
+        }).join('') : `
+          <tr>
+            <td colspan="3" style="padding: 10px; text-align: center; color: #94a3b8; font-size: 11px; font-style: italic;">
+              No tasks recorded in this column.
+            </td>
+          </tr>
+        `;
+
+        return `
+          <div style="margin-bottom: 12px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden; background: #ffffff;">
+            <div style="background-color: #f1f5f9; padding: 6px 10px; font-weight: 700; font-size: 12px; color: #1e293b; border-bottom: 1px solid #cbd5e1; display: flex; justify-content: space-between; align-items: center;">
+              <span>&#9670; ${escapeHtml(col.title)}</span>
+              <span style="font-size: 10.5px; font-weight: 600; color: #475569;">(${items.length} tasks)</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+              <thead>
+                <tr style="background-color: #f8fafc; border-bottom: 1px solid #cbd5e1; font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">
+                  <th style="padding: 5px 8px; text-align: center; width: 32px;">#</th>
+                  <th style="padding: 5px 8px; text-align: center; width: 90px;">Status</th>
+                  <th style="padding: 5px 10px;">Task Description &amp; Audit Trail</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="date-block" style="margin-bottom: 18px; border: 1.5px solid #94a3b8; border-radius: 8px; overflow: hidden; background-color: #ffffff; page-break-inside: avoid;">
+          <div style="background: linear-gradient(90deg, #1e293b 0%, #334155 100%); color: #ffffff; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 14px; font-weight: 700;">&#128197; ${escapeHtml(readableDate)}</span>
+              <span style="font-size: 11px; color: #cbd5e1; font-family: monospace;">(${escapeHtml(dateStr)})</span>
+              <span style="background-color: ${tagBg}; color: #ffffff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;">${tagLabel}</span>
+            </div>
+            <div style="font-size: 11.5px; font-weight: 600; background: rgba(255,255,255,0.15); padding: 2px 8px; border-radius: 10px;">
+              Progress: ${dateDone} / ${dateTotal} Tasks Done (${dateTotal > 0 ? Math.round((dateDone / dateTotal) * 100) : 0}%)
+            </div>
+          </div>
+          <div style="padding: 10px;">
+            ${columnsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const filterNameMap: Record<string, string> = {
+      ALL: 'All Tasks & Dates',
+      COMPLETED: 'Completed Tasks Only',
+      IN_PROGRESS: 'In Progress / Today Only',
+      INCOMPLETE: 'Pending Incomplete Tasks Only',
+      UPCOMING: 'Upcoming Scheduled Dates'
+    };
+    const activeFilterLabel = specificDate 
+      ? `Single Date (${specificDate})` 
+      : (filterNameMap[activeTaskFilter] || activeTaskFilter);
+
+    const reportHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Construction Follow-up Matrix Report - ${escapeHtml(today)}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 10mm 12mm 10mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      background-color: #f8fafc;
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.4;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .print-wrapper {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 20px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .no-print-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #0284c7;
+      color: #ffffff;
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .no-print-toolbar button {
+      background: #ffffff;
+      color: #0284c7;
+      border: none;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .no-print-toolbar button:hover {
+      background: #f0fdf4;
+    }
+    .report-header {
+      border-bottom: 2.5px solid #0284c7;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .kpi-card {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .kpi-num {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 2px;
+    }
+    .kpi-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .print-wrapper {
+        border: none;
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .no-print, .no-print-toolbar {
+        display: none !important;
+      }
+      .date-block {
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-wrapper">
+    <!-- Screen-only Print Bar -->
+    <div class="no-print-toolbar">
+      <div>
+        <strong>&#128438; Print Preview:</strong> Daily Construction Follow-up Matrix Report
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button onclick="window.print()">&#128438; Print / Save as PDF</button>
+        <button onclick="window.close()" style="background: rgba(255,255,255,0.2); color: #ffffff; border: 1px solid #ffffff;">Close Window</button>
+      </div>
+    </div>
+
+    <!-- Official Report Header -->
+    <div class="report-header">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div>
+          <h1 style="font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">JK FUTURE INFRA PROJECTS</h1>
+          <h2 style="font-size: 12.5px; font-weight: 600; color: #0284c7; margin-top: 2px;">Daily Construction Follow-up Matrix &amp; Work Item Report</h2>
+        </div>
+        <div style="text-align: right; font-size: 11px; color: #475569;">
+          <div><strong>Printed On:</strong> ${escapeHtml(printedAt)}</div>
+          <div><strong>Generated By:</strong> ${escapeHtml(currentUser)}</div>
+          <div><strong>Filter:</strong> <span style="background: #e0f2fe; color: #0369a1; padding: 1px 6px; border-radius: 3px; font-weight: 600;">${escapeHtml(activeFilterLabel)}</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Executive KPI Summary -->
+    <div class="kpi-grid">
+      <div class="kpi-card" style="border-left: 4px solid #3b82f6;">
+        <div class="kpi-label">Dates Included</div>
+        <div class="kpi-num">${datesToPrint.length}</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+        <div class="kpi-label">Completed Tasks</div>
+        <div class="kpi-num" style="color: #16a34a;">${completedTasks} <span style="font-size: 12px; font-weight: 600;">(${completionRate}%)</span></div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #eab308;">
+        <div class="kpi-label">Pending Tasks</div>
+        <div class="kpi-num" style="color: #ca8a04;">${pendingTasks}</div>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #6366f1;">
+        <div class="kpi-label">Total Work Items</div>
+        <div class="kpi-num" style="color: #4f46e5;">${totalTasks}</div>
+      </div>
+    </div>
+
+    <!-- Date-by-Date Follow-up Matrix Content -->
+    ${dateSectionsHtml}
+
+    <!-- Footer -->
+    <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9.5px; color: #94a3b8;">
+      <div>JK Future Infra Management System &bull; Confidential Construction Progress Log</div>
+      <div>End of Report</div>
+    </div>
+  </div>
+
+  <script>
+    // Automatically trigger print dialog once document is ready
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        window.focus();
+        window.print();
+      }, 350);
+    });
+  </script>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank', 'width=980,height=850');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(reportHtml);
+      printWindow.document.close();
+    } else {
+      onAddToast('Print popup was blocked by your browser. Please allow popups for this site.', 'error');
+    }
   };
 
   // Formatted date helper for display: e.g. "Mon, 31 Aug 2026"
@@ -880,25 +1261,354 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return lines.join('\n');
   };
 
-  // Direct WhatsApp Share Handler
-  const handleShareToWhatsApp = (
+  // Generate High-Resolution Official Follow-up PDF Document using jsPDF
+  const generateDateFollowupPDF = async (
+    targetDate: string,
+    filter: 'ALL' | 'INCOMPLETE' | 'COMPLETED' = shareFilter,
+    includeAudit: boolean = shareIncludeAudit,
+    customNote: string = shareCustomNote
+  ): Promise<jsPDF> => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // 1. Top Decorative Brand Navy Bar
+    doc.setFillColor(15, 43, 70);
+    doc.rect(0, 0, 210, 5, 'F');
+
+    // Load Logo if available
+    let logoData: { base64: string, ratio: number } | null = null;
+    try {
+      logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = logoImg;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve({ base64: canvas.toDataURL('image/png'), ratio: img.naturalWidth / img.naturalHeight });
+          } else {
+            reject(new Error('Canvas error'));
+          }
+        };
+        img.onerror = (e) => reject(e);
+      });
+    } catch (e) {
+      // fallback
+    }
+
+    if (logoData) {
+      doc.addImage(logoData.base64, 'PNG', 15, 10, 14 * logoData.ratio, 14);
+    } else {
+      doc.setFontSize(15);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 70);
+      doc.text('JK FUTURE INFRA', 15, 20);
+    }
+
+    // Right Header Company Info
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Door No: 4-92/1/6, FLAT No: 202, LEE INFRA', 125, 12);
+    doc.text('TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam', 125, 16);
+    doc.text('Call: 9000553832 | Email: jkfutureinfra@gmail.com', 125, 20);
+    doc.text('Web: https://jkfutureinfra.com', 125, 24);
+
+    // Divider line
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(15, 28, 195, 28);
+
+    // Title Banner
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(15, 31, 180, 16, 2, 2, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(15, 31, 180, 16, 2, 2, 'D');
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('DAILY CONSTRUCTION FOLLOW-UP CHECKLIST', 20, 38);
+
+    const readableDate = formatReadableDate(targetDate);
+    const today = getTodayStr();
+    const isToday = targetDate === today;
+    const isTomorrow = targetDate === getTomorrowStr(today);
+    const tagLabel = isToday ? 'TODAY' : isTomorrow ? 'TOMORROW' : targetDate > today ? 'UPCOMING' : 'PAST';
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text(`Planned Date: ${readableDate} (${targetDate} • ${tagLabel})`, 20, 43.5);
+
+    // Statistics calculation
+    let totalTasks = 0;
+    let completedTasks = 0;
+    let pendingTasks = 0;
+
+    columns.forEach(col => {
+      const cellKey = `${targetDate}__${col.id}`;
+      let items = cellChecklists[cellKey] || [];
+      if (filter === 'INCOMPLETE') items = items.filter(i => !i.completed);
+      else if (filter === 'COMPLETED') items = items.filter(i => i.completed);
+      totalTasks += items.length;
+      completedTasks += items.filter(i => i.completed).length;
+      pendingTasks += items.filter(i => !i.completed).length;
+    });
+
+    const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    // KPI Progress Row
+    let currentY = 50;
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(15, currentY, 180, 10, 1.5, 1.5, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(15, currentY, 180, 10, 1.5, 1.5, 'D');
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(2, 132, 199);
+    doc.text(`Progress: ${completedTasks} of ${totalTasks} Tasks Done (${completionPercent}%)`, 20, currentY + 6.5);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Done: ${completedTasks}  |  Pending: ${pendingTasks}  |  Filter: ${filter === 'INCOMPLETE' ? 'Pending Only' : filter === 'COMPLETED' ? 'Completed Only' : 'All Tasks'}`, 105, currentY + 6.5);
+
+    currentY += 13;
+
+    // Custom Note if present
+    if (customNote && customNote.trim()) {
+      doc.setFillColor(254, 252, 232);
+      doc.setDrawColor(254, 240, 138);
+      doc.roundedRect(15, currentY, 180, 9, 1.5, 1.5, 'FD');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(133, 77, 14);
+      doc.text(`Site Note: ${customNote.trim()}`, 20, currentY + 6);
+      currentY += 12;
+    }
+
+    // Iterate over columns & checklist items
+    columns.forEach((col, colIdx) => {
+      const cellKey = `${targetDate}__${col.id}`;
+      let items = cellChecklists[cellKey] || [];
+      if (filter === 'INCOMPLETE') items = items.filter(i => !i.completed);
+      else if (filter === 'COMPLETED') items = items.filter(i => i.completed);
+
+      if (items.length === 0) return;
+
+      // Check page break for column header
+      if (currentY > 260) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      // Column Header Banner
+      doc.setFillColor(30, 41, 59); // Slate 800
+      doc.roundedRect(15, currentY, 180, 7, 1, 1, 'F');
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text(`${colIdx + 1}. ${col.title.toUpperCase()} (${items.length} Tasks)`, 20, currentY + 5);
+      currentY += 9;
+
+      // Checklist Items
+      items.forEach((item, itemIdx) => {
+        // Check page break
+        if (currentY > 265) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        const isDone = !!item.completed;
+
+        // Item Row Box
+        doc.setFillColor(isDone ? 240 : 255, isDone ? 253 : 255, isDone ? 244 : 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(15, currentY, 180, includeAudit ? 11 : 8, 1, 1, 'FD');
+
+        // Checkbox Square
+        doc.setDrawColor(isDone ? 22 : 100, isDone ? 101 : 116, isDone ? 52 : 139);
+        doc.setFillColor(isDone ? 22 : 255, isDone ? 163 : 255, isDone ? 74 : 255);
+        doc.roundedRect(19, currentY + 2, 4, 4, 0.5, 0.5, 'FD');
+
+        if (isDone) {
+          doc.setFontSize(7);
+          doc.setTextColor(255, 255, 255);
+          doc.text('v', 20.2, currentY + 5);
+        }
+
+        // Item Title
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', isDone ? 'normal' : 'bold');
+        doc.setTextColor(isDone ? 71 : 15, isDone ? 85 : 23, isDone ? 105 : 42);
+
+        let itemTitleText = `${itemIdx + 1}. ${item.title}`;
+        if (item.carriedFromDate) {
+          itemTitleText += ` [Carried from ${item.carriedFromDate}]`;
+        }
+        doc.text(itemTitleText, 26, currentY + 5);
+
+        // Status pill on right
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        if (isDone) {
+          doc.setTextColor(22, 101, 52);
+          doc.text('COMPLETED', 168, currentY + 5);
+        } else {
+          doc.setTextColor(180, 83, 9);
+          doc.text('PENDING', 170, currentY + 5);
+        }
+
+        // Audit info line
+        if (includeAudit) {
+          doc.setFontSize(6.8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(148, 163, 184);
+          const auditParts: string[] = [];
+          if (item.createdBy) auditParts.push(`Created by: ${item.createdBy}${item.createdAt ? ` (${item.createdAt})` : ''}`);
+          if (isDone && item.completedBy) auditParts.push(`Completed: ${item.completedBy}${item.completedDate ? ` on ${item.completedDate}` : ''}`);
+          if ((item.updateCount || 0) > 0) auditParts.push(`Updated ${item.updateCount}x`);
+          if (auditParts.length > 0) {
+            doc.text(auditParts.join('  •  '), 26, currentY + 9);
+          }
+        }
+
+        currentY += includeAudit ? 13 : 9.5;
+      });
+
+      currentY += 3;
+    });
+
+    // Add Page Numbers & Footer to all pages
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(15, 283, 195, 283);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text('JK Future Infra Projects • Daily Construction Follow-up Progress Log', 15, 288);
+      doc.text(`Page ${i} of ${totalPages}`, 175, 288);
+    }
+
+    return doc;
+  };
+
+  // Direct Download PDF Handler
+  const handleDownloadDatePDF = async (
+    targetDate: string,
+    filter = shareFilter,
+    includeAudit = shareIncludeAudit,
+    customNote = shareCustomNote
+  ) => {
+    setIsGeneratingPDF(true);
+    onAddToast('Generating PDF file...', 'info');
+    try {
+      const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
+      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      doc.save(filename);
+      onAddToast(`Downloaded ${filename} successfully!`, 'success');
+    } catch (e) {
+      console.error('PDF generation error:', e);
+      onAddToast('Failed to generate PDF file.', 'error');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // Share Attached PDF File (Uses Web Share API with attached File object when supported)
+  const handleShareAttachedPDF = async (
+    targetDate: string,
+    filter = shareFilter,
+    includeAudit = shareIncludeAudit,
+    customNote = shareCustomNote
+  ) => {
+    setIsGeneratingPDF(true);
+    onAddToast('Generating attached PDF document...', 'info');
+    try {
+      const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
+      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      const summaryText = generateDateShareText(targetDate, filter, includeAudit, customNote);
+
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `JK Future Infra Follow-up - ${targetDate}`,
+          text: summaryText,
+          files: [pdfFile]
+        });
+        onAddToast('Attached PDF shared successfully!', 'success');
+      } else {
+        // Fallback for desktop browsers without file share support: Download file + copy text
+        doc.save(filename);
+        await handleCopyDateShareText(targetDate, filter, includeAudit, customNote);
+        onAddToast(`PDF file downloaded (${filename})! Please attach it to your message.`, 'info');
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        console.error('Share PDF error:', e);
+        onAddToast('Share was cancelled or not supported.', 'info');
+      }
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  // Direct WhatsApp Share Handler (Downloads attached PDF and opens WhatsApp)
+  const handleShareToWhatsApp = async (
     targetDate: string, 
     filter = shareFilter, 
     includeAudit = shareIncludeAudit, 
     customNote = shareCustomNote, 
     phone = shareRecipientPhone
   ) => {
-    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
-    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
-    let url = '';
-    if (cleanPhone) {
-      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-      url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`;
-    } else {
-      url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    setIsGeneratingPDF(true);
+    try {
+      const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
+      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
+
+      // On mobile devices supporting Web Share with files, trigger native share with file attached
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `JK Future Infra Follow-up - ${targetDate}`,
+          text: text,
+          files: [pdfFile]
+        });
+        onAddToast('Shared attached PDF on WhatsApp / Device!', 'success');
+        return;
+      }
+
+      // For desktop / web: Auto-download the PDF and open WhatsApp chat
+      doc.save(filename);
+      const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      let url = '';
+      if (cleanPhone) {
+        const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+        url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`;
+      } else {
+        url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      }
+      window.open(url, '_blank');
+      onAddToast(`PDF downloaded (${filename})! Attach the PDF in WhatsApp.`, 'success');
+    } catch (e) {
+      console.error('WhatsApp share error:', e);
+      onAddToast('Failed to share PDF.', 'error');
+    } finally {
+      setIsGeneratingPDF(false);
     }
-    window.open(url, '_blank');
-    onAddToast(`Opening WhatsApp for date ${targetDate}...`, 'info');
   };
 
   // Copy formatted text to clipboard
@@ -928,40 +1638,41 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     }
   };
 
-  // Native Device Share (Mobile & Supported Browsers)
-  const handleNativeDeviceShare = async (
+  // Email Share Handler (Downloads PDF and opens Email Client)
+  const handleEmailShare = async (
     targetDate: string, 
     filter = shareFilter, 
     includeAudit = shareIncludeAudit, 
     customNote = shareCustomNote
   ) => {
-    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `JK Future Infra Follow-up - ${targetDate}`,
-          text: text
-        });
-        onAddToast('Shared successfully.', 'success');
-      } catch (e) {
-        // User cancelled share dialog
-      }
-    } else {
-      handleCopyDateShareText(targetDate, filter, includeAudit, customNote);
-    }
-  };
+    setIsGeneratingPDF(true);
+    try {
+      const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
+      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
+      const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
 
-  // Email Share Handler
-  const handleEmailShare = (
-    targetDate: string, 
-    filter = shareFilter, 
-    includeAudit = shareIncludeAudit, 
-    customNote = shareCustomNote
-  ) => {
-    const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
-    const subject = `JK Future Infra - Daily Construction Follow-up for ${targetDate}`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
-    window.open(mailtoUrl, '_blank');
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `JK Future Infra - Daily Follow-up for ${targetDate}`,
+          text: text,
+          files: [pdfFile]
+        });
+        onAddToast('Attached PDF shared via Email / Device!', 'success');
+        return;
+      }
+
+      doc.save(filename);
+      const subject = `JK Future Infra - Daily Construction Follow-up for ${targetDate}`;
+      const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+      window.open(mailtoUrl, '_blank');
+      onAddToast(`PDF file downloaded (${filename})! Attach the PDF to your email.`, 'info');
+    } catch (e) {
+      console.error('Email share error:', e);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   // Row status background color based on checklist completion
@@ -1708,7 +2419,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
               <Share2 size={14} /> Share Date Agenda
             </button>
 
-            <button onClick={handlePrint} className="btn btn-outline btn-sm flex align-center gap-0.5">
+            <button onClick={() => handlePrint()} className="btn btn-outline btn-sm flex align-center gap-0.5">
               <Printer size={14} /> Print Report
             </button>
           </div>
@@ -2098,24 +2809,37 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {/* Date Picker Switcher */}
-                  <select
+                  {/* Calendar Date Picker Switcher (Up to Tomorrow only, future dates disabled) */}
+                  <input
+                    type="date"
                     className="form-control"
-                    style={{ fontSize: '0.75rem', padding: '3px 6px', height: '28px', fontWeight: 600, maxWidth: '120px' }}
-                    value={shareModalDate}
-                    onChange={e => setShareModalDate(e.target.value)}
-                  >
-                    {sortedDates.map(d => {
-                      const dIsToday = d === getTodayStr();
-                      const dIsTomorrow = d === getTomorrowStr(getTodayStr());
-                      const dTag = dIsToday ? ' (Today)' : (dIsTomorrow ? ' (Tmrw)' : '');
-                      return (
-                        <option key={d} value={d}>
-                          {d}{dTag}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    max={getTomorrowStr(getTodayStr())}
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '3px 8px',
+                      height: '30px',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: '1.5px solid #cbd5e1',
+                      color: '#0f2b46',
+                      backgroundColor: '#ffffff',
+                      cursor: 'pointer'
+                    }}
+                    value={targetDate}
+                    onChange={e => {
+                      const selectedVal = e.target.value;
+                      if (selectedVal) {
+                        const maxAllowed = getTomorrowStr(getTodayStr());
+                        if (selectedVal > maxAllowed) {
+                          setShareModalDate(maxAllowed);
+                          onAddToast('Future dates beyond tomorrow are disabled.', 'info');
+                        } else {
+                          setShareModalDate(selectedVal);
+                        }
+                      }
+                    }}
+                    title="Select date (Past, Today, or Tomorrow)"
+                  />
 
                   <button 
                     type="button" 
@@ -2151,6 +2875,55 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                   gap: '14px'
                 }}
               >
+                {/* Format Mode Selector: PDF Document vs Text */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '4px', backgroundColor: '#f1f5f9', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShareFormat('PDF')}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: shareFormat === 'PDF' ? '#0f2b46' : 'transparent',
+                      color: shareFormat === 'PDF' ? '#ffffff' : '#334155',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: shareFormat === 'PDF' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none'
+                    }}
+                  >
+                    <FileText size={15} /> Attached PDF File (.pdf)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setShareFormat('TEXT')}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      backgroundColor: shareFormat === 'TEXT' ? '#0f2b46' : 'transparent',
+                      color: shareFormat === 'TEXT' ? '#ffffff' : '#334155',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: shareFormat === 'TEXT' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none'
+                    }}
+                  >
+                    <MessageCircle size={15} /> Text Message
+                  </button>
+                </div>
+
                 {/* 1. Progress Summary Ribbon */}
                 <div 
                   style={{
@@ -2195,7 +2968,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 {/* 2. Task Filter Selection (3 Clear Buttons) */}
                 <div>
                   <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    What tasks do you want to share?
+                    What tasks do you want to include in the PDF / Message?
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                     <button
@@ -2303,57 +3076,124 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                       style={{ width: '15px', height: '15px', cursor: 'pointer' }}
                     />
                     <label htmlFor="chk_modal_audit" style={{ fontSize: '0.74rem', color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
-                      Include creator names & timestamps in the message
+                      Include creator names & timestamps in the PDF / message
                     </label>
                   </div>
                 </div>
 
-                {/* 4. Live Message Preview Box */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
-                      Message Preview:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#0284c7',
-                        fontSize: '0.72rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: 0
-                      }}
-                    >
-                      {copiedSuccess ? <CheckCheck size={13} style={{ color: '#16a34a' }} /> : <Copy size={12} />}
-                      <span>{copiedSuccess ? 'Copied!' : 'Copy Preview'}</span>
-                    </button>
-                  </div>
-                  <pre
+                {/* 4. Live Preview Box (PDF Attachment Card or Text Previews) */}
+                {shareFormat === 'PDF' ? (
+                  <div 
                     style={{
-                      backgroundColor: '#f8fafc',
-                      border: '1px solid #cbd5e1',
+                      border: '1.5px dashed #0284c7',
                       borderRadius: '8px',
-                      padding: '10px 12px',
-                      fontSize: '0.72rem',
-                      lineHeight: '1.45',
-                      color: '#1e293b',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      maxHeight: '150px',
-                      overflowY: 'auto',
-                      fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-                      margin: 0
+                      backgroundColor: '#f0f9ff',
+                      padding: '14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
                     }}
                   >
-                    {currentShareText}
-                  </pre>
-                </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div 
+                          style={{
+                            width: '38px',
+                            height: '42px',
+                            backgroundColor: '#ef4444',
+                            borderRadius: '5px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#ffffff',
+                            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.3)'
+                          }}
+                        >
+                          <FileText size={20} />
+                          <span style={{ fontSize: '7px', fontWeight: 900, letterSpacing: '0.5px' }}>PDF</span>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#0f2b46' }}>
+                            JK_Future_Followup_{targetDate}.pdf
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#0369a1' }}>
+                            Attached Document • Official Letterhead • A4 Ready • {totalTasks} Tasks
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDatePDF(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                        className="btn btn-xs flex align-center gap-1"
+                        style={{
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #0284c7',
+                          color: '#0284c7',
+                          padding: '4px 10px',
+                          borderRadius: '5px',
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          cursor: 'pointer'
+                        }}
+                        title="Download PDF File directly to your device"
+                      >
+                        <Download size={13} /> Download PDF
+                      </button>
+                    </div>
+
+                    <div style={{ fontSize: '0.72rem', color: '#475569', borderTop: '1px solid #e0f2fe', paddingTop: '6px' }}>
+                      ℹ️ When clicking <strong>Share on WhatsApp</strong> or <strong>Email</strong>, this PDF file is generated and attached to your message.
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>
+                        Message Preview:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#0284c7',
+                          fontSize: '0.72rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: 0
+                        }}
+                      >
+                        {copiedSuccess ? <CheckCheck size={13} style={{ color: '#16a34a' }} /> : <Copy size={12} />}
+                        <span>{copiedSuccess ? 'Copied!' : 'Copy Preview'}</span>
+                      </button>
+                    </div>
+                    <pre
+                      style={{
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        fontSize: '0.72rem',
+                        lineHeight: '1.45',
+                        color: '#1e293b',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: '140px',
+                        overflowY: 'auto',
+                        fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                        margin: 0
+                      }}
+                    >
+                      {currentShareText}
+                    </pre>
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer Action Buttons */}
@@ -2387,33 +3227,77 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Download PDF Button */}
+                  <button 
+                    type="button"
+                    onClick={() => handleDownloadDatePDF(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                    disabled={isGeneratingPDF}
+                    style={{
+                      padding: '7px 11px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#0f2b46',
+                      fontSize: '0.78rem',
+                      fontWeight: 700,
+                      cursor: isGeneratingPDF ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                    title="Download Official PDF File"
+                  >
+                    <Download size={13} /> Download PDF
+                  </button>
+
                   {/* Secondary Quick Share Actions */}
-                  {typeof navigator !== 'undefined' && 'share' in navigator && (
-                    <button 
-                      type="button"
-                      onClick={() => handleNativeDeviceShare(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
-                      style={{
-                        padding: '7px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: '#ffffff',
-                        color: '#334155',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      title="Share via device applications"
-                    >
-                      <Share2 size={13} /> Device
-                    </button>
-                  )}
+                  <button 
+                    type="button"
+                    onClick={() => handleShareAttachedPDF(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                    disabled={isGeneratingPDF}
+                    style={{
+                      padding: '7px 11px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#334155',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: isGeneratingPDF ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Share Attached PDF file via device apps"
+                  >
+                    <Share2 size={13} /> Share PDF
+                  </button>
 
                   <button 
                     type="button"
                     onClick={() => handleEmailShare(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
+                    disabled={isGeneratingPDF}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#334155',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: isGeneratingPDF ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Email Attached PDF"
+                  >
+                    <Mail size={13} /> Email PDF
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => handlePrint(targetDate, shareFilter)}
                     style={{
                       padding: '7px 10px',
                       borderRadius: '6px',
@@ -2427,9 +3311,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                       alignItems: 'center',
                       gap: '4px'
                     }}
-                    title="Send via Email"
+                    title="Print / Save PDF for this date"
                   >
-                    <Mail size={13} /> Email
+                    <Printer size={13} /> Print
                   </button>
 
                   {/* Copy Text Button */}
@@ -2437,12 +3321,12 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     type="button"
                     onClick={() => handleCopyDateShareText(targetDate, shareFilter, shareIncludeAudit, shareCustomNote)}
                     style={{
-                      padding: '7px 12px',
+                      padding: '7px 11px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       backgroundColor: copiedSuccess ? '#f0fdf4' : '#ffffff',
                       color: copiedSuccess ? '#166534' : '#1e293b',
-                      fontSize: '0.8rem',
+                      fontSize: '0.78rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'flex',
@@ -2450,14 +3334,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                       gap: '5px'
                     }}
                   >
-                    {copiedSuccess ? <CheckCheck size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
+                    {copiedSuccess ? <CheckCheck size={13} style={{ color: '#16a34a' }} /> : <Copy size={13} />}
                     <span>{copiedSuccess ? 'Copied!' : 'Copy Text'}</span>
                   </button>
 
-                  {/* Primary WhatsApp Share Button */}
+                  {/* Primary WhatsApp Share Button with Attached PDF */}
                   <button 
                     type="button"
                     onClick={() => handleShareToWhatsApp(targetDate, shareFilter, shareIncludeAudit, shareCustomNote, shareRecipientPhone)}
+                    disabled={isGeneratingPDF}
                     style={{
                       padding: '7px 16px',
                       borderRadius: '6px',
@@ -2466,7 +3351,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                       color: '#ffffff',
                       fontSize: '0.82rem',
                       fontWeight: 800,
-                      cursor: 'pointer',
+                      cursor: isGeneratingPDF ? 'wait' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
@@ -2474,7 +3359,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                     }}
                   >
                     <MessageCircle size={16} />
-                    <span>Share on WhatsApp</span>
+                    <span>{isGeneratingPDF ? 'Generating PDF...' : 'Share on WhatsApp (Attach PDF)'}</span>
                   </button>
                 </div>
               </div>
