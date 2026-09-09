@@ -125,6 +125,50 @@ const STANDARD_DEFAULT_COLUMNS: DailyAgendaColumn[] = [
   { id: 'c_regular', title: 'Regular follow-ups' }
 ];
 
+// Helper: Normalize task title for duplicate checking
+const normalizeTaskTitle = (t: string): string => {
+  return (t || '').trim().toLowerCase().replace(/\s+/g, ' ');
+};
+
+// Helper: Deduplicate checklist items within a cell so every title appears at most once
+const deduplicateCellItems = (items: DailyAgendaChecklistItem[]): DailyAgendaChecklistItem[] => {
+  const seenTitles = new Set<string>();
+  const seenIds = new Set<string>();
+  const result: DailyAgendaChecklistItem[] = [];
+
+  for (const item of (items || [])) {
+    const norm = normalizeTaskTitle(item.title);
+    if (!norm) continue;
+
+    const matchedIdx = result.findIndex(r => 
+      normalizeTaskTitle(r.title) === norm ||
+      (item.carriedFromId && r.carriedFromId === item.carriedFromId) ||
+      (item.id && r.carriedFromId === item.id) ||
+      (r.id && item.carriedFromId === r.id)
+    );
+
+    if (matchedIdx !== -1) {
+      // If the duplicate is marked completed while earlier was not, mark earlier as completed
+      if (item.completed && !result[matchedIdx].completed) {
+        result[matchedIdx] = {
+          ...result[matchedIdx],
+          completed: true,
+          completedDate: item.completedDate,
+          completedBy: item.completedBy
+        };
+      }
+      continue;
+    }
+
+    seenTitles.add(norm);
+    if (item.carriedFromId) seenIds.add(item.carriedFromId);
+    if (item.id) seenIds.add(item.id);
+    result.push(item);
+  }
+
+  return result;
+};
+
 // Fast 0ms initial state from localStorage cache for instant page refresh
 const getInitialStateFromCache = () => {
   const today = getTodayStr();
@@ -135,7 +179,11 @@ const getInitialStateFromCache = () => {
       if (Array.isArray(parsed) && parsed.length > 0) {
         const m = parsed[0];
         const loadedCols = (m.columns && m.columns.length > 0) ? m.columns : STANDARD_DEFAULT_COLUMNS;
-        const checklists = m.cellChecklists || {};
+        const rawChecklists = m.cellChecklists || {};
+        const checklists: Record<string, DailyAgendaChecklistItem[]> = {};
+        Object.entries(rawChecklists).forEach(([k, items]) => {
+          checklists[k] = deduplicateCellItems((items as DailyAgendaChecklistItem[]) || []);
+        });
         const dates = Object.keys(checklists).map(k => k.split('__')[0]).filter(Boolean);
         const uniqueDates = Array.from(new Set([today, ...dates])).sort();
         return {
@@ -224,7 +272,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
 
-  // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks across past dates, today, and tomorrow
+  // Core Engine: Synchronizes Automatic Forwarding of Incomplete Tasks sequentially across dates with zero duplicates
   const syncAutoRollover = (
     baseCellChecklists: Record<string, DailyAgendaChecklistItem[]>,
     cols: DailyAgendaColumn[]
@@ -234,61 +282,85 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const user = getCurrentUserIdentifier();
     const timestamp = getFormattedDateTime();
 
-    const nextCellChecklists: Record<string, DailyAgendaChecklistItem[]> = { ...baseCellChecklists };
-    let hasRolledOverAny = false;
+    // 1. Initial cleanup: Deduplicate every single existing cell in the matrix
+    const nextCellChecklists: Record<string, DailyAgendaChecklistItem[]> = {};
+    Object.entries(baseCellChecklists).forEach(([k, items]) => {
+      nextCellChecklists[k] = deduplicateCellItems(items || []);
+    });
 
-    // Step 1: Forward incomplete tasks from past dates (< today) to TODAY
-    const allKnownDates = new Set<string>();
+    // 2. Discover all unique dates present in the data
+    const allDateKeys = new Set<string>();
+    allDateKeys.add(today);
     Object.keys(nextCellChecklists).forEach(k => {
       const d = k.split('__')[0];
-      if (d) allKnownDates.add(d);
+      if (d) allDateKeys.add(d);
     });
 
-    const pastDates = Array.from(allKnownDates).filter(d => d < today).sort();
+    const sortedAllDates = Array.from(allDateKeys).sort((a, b) => a.localeCompare(b));
+    const pastDates = sortedAllDates.filter(d => d < today);
 
-    cols.forEach(col => {
-      const todayKey = `${today}__${col.id}`;
-      const todayExisting = nextCellChecklists[todayKey] ? [...nextCellChecklists[todayKey]] : [];
+    // 3. Chronological Sequential Rollover across past dates (from D_0 -> D_1 -> D_2 -> ... -> D_n)
+    for (let i = 0; i < pastDates.length; i++) {
+      const curDate = pastDates[i];
+      const nextDate = (i + 1 < pastDates.length) ? pastDates[i + 1] : today;
 
-      // Collect all incomplete tasks from past dates
-      pastDates.forEach(pDate => {
-        const pKey = `${pDate}__${col.id}`;
-        const pItems = nextCellChecklists[pKey] || [];
-        const incompletePast = pItems.filter(i => !i.completed);
+      cols.forEach(col => {
+        const curKey = `${curDate}__${col.id}`;
+        const nextKey = `${nextDate}__${col.id}`;
 
-        incompletePast.forEach(pItem => {
-          // Check if today already has this carried task
-          const alreadyInToday = todayExisting.some(tItem => 
-            tItem.carriedFromId === pItem.id ||
-            tItem.id === `chk_fwd_${pItem.id}_${today}` ||
-            (tItem.carriedFromDate === pDate && tItem.title.trim().toLowerCase() === pItem.title.trim().toLowerCase())
+        const curItems = nextCellChecklists[curKey] || [];
+        const nextExisting = nextCellChecklists[nextKey] ? [...nextCellChecklists[nextKey]] : [];
+
+        // For each item on curDate:
+        curItems.forEach(curItem => {
+          const normTitle = normalizeTaskTitle(curItem.title);
+          const existingNextIdx = nextExisting.findIndex(nItem => 
+            normalizeTaskTitle(nItem.title) === normTitle ||
+            (curItem.id && (nItem.carriedFromId === curItem.id || nItem.id === `chk_fwd_${curItem.id}_${nextDate}`))
           );
 
-          if (!alreadyInToday) {
-            hasRolledOverAny = true;
-            todayExisting.push({
-              id: `chk_fwd_${pItem.id}_${today}`,
-              carriedFromId: pItem.id,
-              title: pItem.title,
-              completed: false,
-              carriedFromDate: pDate,
-              createdBy: pItem.createdBy || user,
-              createdAt: pItem.createdAt || timestamp,
-              updatedBy: user,
-              updatedAt: `${timestamp} (Carried from ${pDate})`,
-              updateCount: pItem.updateCount || 0,
-              updateHistory: pItem.updateHistory || []
-            });
+          if (curItem.completed) {
+            // Completed on curDate! If it was previously carried forward to nextDate, remove it from nextDate
+            if (existingNextIdx !== -1 && nextExisting[existingNextIdx].carriedFromDate) {
+              nextExisting.splice(existingNextIdx, 1);
+            }
+          } else {
+            // Incomplete on curDate! Ensure it exists ONCE on nextDate
+            if (existingNextIdx !== -1) {
+              // Synchronize title and metadata
+              nextExisting[existingNextIdx] = {
+                ...nextExisting[existingNextIdx],
+                title: curItem.title,
+                carriedFromId: curItem.carriedFromId || curItem.id,
+                carriedFromDate: curItem.carriedFromDate || curDate,
+                updateCount: curItem.updateCount || nextExisting[existingNextIdx].updateCount || 0,
+                updateHistory: curItem.updateHistory || nextExisting[existingNextIdx].updateHistory || []
+              };
+            } else {
+              // Add to nextDate
+              nextExisting.push({
+                id: `chk_fwd_${curItem.id}_${nextDate}`,
+                carriedFromId: curItem.carriedFromId || curItem.id,
+                title: curItem.title,
+                completed: false,
+                carriedFromDate: curItem.carriedFromDate || curDate,
+                createdBy: curItem.createdBy || user,
+                createdAt: curItem.createdAt || timestamp,
+                updatedBy: user,
+                updatedAt: `${timestamp} (Carried from ${curItem.carriedFromDate || curDate})`,
+                updateCount: curItem.updateCount || 0,
+                updateHistory: curItem.updateHistory || []
+              });
+            }
           }
         });
+
+        nextCellChecklists[nextKey] = deduplicateCellItems(nextExisting);
       });
+    }
 
-      if (todayExisting.length > 0) {
-        nextCellChecklists[todayKey] = todayExisting;
-      }
-    });
-
-    // Step 2: Forward currently incomplete tasks from TODAY to TOMORROW
+    // 4. Forward currently incomplete tasks from TODAY to TOMORROW
+    let hasRolledOverToTomorrow = false;
     cols.forEach(col => {
       const todayKey = `${today}__${col.id}`;
       const tomorrowKey = `${tomorrow}__${col.id}`;
@@ -296,16 +368,16 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       const todayItems = nextCellChecklists[todayKey] || [];
       const tomorrowExisting = nextCellChecklists[tomorrowKey] ? [...nextCellChecklists[tomorrowKey]] : [];
 
-      // 1. Keep manual items created directly for tomorrow (without carriedFromDate)
+      // 1. Keep manual items created directly on tomorrow (not carried from today)
       const tomorrowManualItems = tomorrowExisting.filter(tItem => !tItem.carriedFromDate);
 
-      // 2. Only forward tasks that are currently INCOMPLETE on today (completed === false)
-      // Any task that is completed (completed === true) on today is NEVER forwarded to tomorrow!
+      // 2. Only forward tasks that are currently INCOMPLETE on today
       const incompleteToday = todayItems.filter(i => !i.completed);
 
       const carriedForwardItems: DailyAgendaChecklistItem[] = incompleteToday.map(incItem => {
-        // Match existing carried forward item in tomorrow by carriedFromId or ID
+        const normTitle = normalizeTaskTitle(incItem.title);
         const existingCarried = tomorrowExisting.find(tItem => 
+          normalizeTaskTitle(tItem.title) === normTitle ||
           (tItem.carriedFromId && tItem.carriedFromId === incItem.id) ||
           tItem.id === `chk_fwd_${incItem.id}_${tomorrow}`
         );
@@ -313,9 +385,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         return {
           id: existingCarried?.id || `chk_fwd_${incItem.id}_${tomorrow}`,
           carriedFromId: incItem.id,
-          title: incItem.title, // Always synchronize the latest title from today
-          completed: false, // Incomplete on tomorrow until worked on
-          carriedFromDate: today,
+          title: incItem.title,
+          completed: false,
+          carriedFromDate: incItem.carriedFromDate || today,
           createdBy: incItem.createdBy || user,
           createdAt: incItem.createdAt || timestamp,
           updatedBy: existingCarried?.updatedBy || incItem.updatedBy,
@@ -326,16 +398,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       });
 
       if (carriedForwardItems.length > 0) {
-        hasRolledOverAny = true;
+        hasRolledOverToTomorrow = true;
       }
 
-      nextCellChecklists[tomorrowKey] = [...tomorrowManualItems, ...carriedForwardItems];
+      nextCellChecklists[tomorrowKey] = deduplicateCellItems([...tomorrowManualItems, ...carriedForwardItems]);
     });
 
-    // Build all unique dates
-    const allDateKeys = new Set<string>();
+    // 5. Build all dates list
     allDateKeys.add(today);
-    if (hasRolledOverAny || (nextCellChecklists[`${tomorrow}__${cols[0]?.id}`] && nextCellChecklists[`${tomorrow}__${cols[0]?.id}`].length > 0)) {
+    if (hasRolledOverToTomorrow || (nextCellChecklists[`${tomorrow}__${cols[0]?.id}`] && nextCellChecklists[`${tomorrow}__${cols[0]?.id}`].length > 0)) {
       allDateKeys.add(tomorrow);
     }
     Object.keys(nextCellChecklists).forEach(k => {
@@ -606,7 +677,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const today = getTodayStr();
     const user = getCurrentUserIdentifier();
 
-    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : [];
     const updated = list.map((item, idx) => {
       if (item.id === itemId || `chk_def_${idx}` === itemId) {
         const nextCompleted = !item.completed;
@@ -645,7 +716,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       updateHistory: []
     };
 
-    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : [];
     const updatedBase = {
       ...cellChecklists,
       [cellKey]: [...list, newItem]
@@ -688,7 +759,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const user = getCurrentUserIdentifier();
     const timestamp = getFormattedDateTime();
 
-    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : [];
     const updated = list.map((item, idx) => {
       if (item.id === itemId || `chk_def_${idx}` === itemId) {
         // Guard: Completed records cannot be updated
@@ -739,7 +810,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const today = getTodayStr();
     const user = getCurrentUserIdentifier();
 
-    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : createDefaultChecklistItems();
+    const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : [];
     const updated = list.map(item => ({ 
       ...item, 
       completed: completeAll,
@@ -1768,7 +1839,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
       columns.forEach(col => {
         const cellKey = `${dateStr}__${col.id}`;
-        let items = cellChecklists[cellKey] || createDefaultChecklistItems();
+        let items = cellChecklists[cellKey] || [];
 
         // If filtering by COMPLETED, show only the completed tasks in the cell!
         if (statusFilter === 'COMPLETED') {

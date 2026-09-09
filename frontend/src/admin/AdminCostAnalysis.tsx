@@ -84,7 +84,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
     setLrsVudaPercentage(sheet.lrsVudaPercentage ?? 14);
 
     setGvmcPlanApprovalCost(sheet.gvmcPlanApprovalCost || 0);
-    setTdrPercentage(sheet.tdrPercentage ?? 1);
+    setTdrPercentage(sheet.tdrPercentage ?? 0);
     setTdrAreaSft(sheet.tdrAreaSft || 0);
     setTdrTotalCost(sheet.tdrTotalCost || 0);
 
@@ -115,7 +115,14 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
   const totalLandCost = outRateCostTotal + registrationCost + lrsVudaCost;
   const landCostInCr = (totalLandCost / 10000000).toFixed(2);
 
-  const totalTdrPlanCost = (gvmcPlanApprovalCost || 0) + (tdrTotalCost || 0);
+  // Auto-calculated TDR Cost: (Govt Market Value * TDR Sq Yards * TDR Percentage %)
+  // e.g. 30,000 * 2000 * (36 / 100) = 2,16,00,000
+  const calculatedTdrCost = Math.round((govtMarketValuePerSqYard || 0) * (tdrAreaSft || 0) * ((tdrPercentage || 0) / 100));
+  const tdrCost = (tdrPercentage > 0 && tdrAreaSft > 0 && govtMarketValuePerSqYard > 0)
+    ? calculatedTdrCost
+    : (calculatedTdrCost || tdrTotalCost || 0);
+
+  const totalTdrPlanCost = (gvmcPlanApprovalCost || 0) + (tdrCost || 0);
 
   const totalConstructionCost = (totalFlatsAreaSft || 0) * (constructionCostPerSft || 0);
   const constructionCostInCr = (totalConstructionCost / 10000000).toFixed(2);
@@ -178,7 +185,7 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
       gvmcPlanApprovalCost,
       tdrPercentage,
       tdrAreaSft,
-      tdrTotalCost,
+      tdrTotalCost: tdrCost,
       totalTdrPlanCost,
 
       totalFlatsAreaSft,
@@ -707,29 +714,25 @@ export const AdminCostAnalysis: React.FC<AdminCostAnalysisProps> = ({
                       style={{ width: '50px', textAlign: 'center', padding: '4px', fontSize: '0.8rem' }}
                       value={tdrPercentage || ''} 
                       onChange={e => setTdrPercentage(parseFloat(e.target.value) || 0)}
+                      placeholder="%"
+                      min="0"
+                      max="100"
                     />
                     <span>%</span>
                     <input 
                       type="number" 
                       className="form-control"
                       style={{ width: '80px', textAlign: 'center', padding: '4px', fontSize: '0.8rem' }}
-                      placeholder="SFT"
+                      placeholder="SQ YARD"
                       value={tdrAreaSft || ''} 
                       onChange={e => setTdrAreaSft(parseFloat(e.target.value) || 0)}
+                      min="0"
                     />
                   </div>
                 </td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>-</td>
-                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center' }}>
-                  <input 
-                    type="number" 
-                    className="form-control"
-                    style={{ width: '130px', marginLeft: 'auto', textAlign: 'right', padding: '4px', fontSize: '0.8rem' }}
-                    value={tdrTotalCost || ''} 
-                    onChange={e => setTdrTotalCost(parseFloat(e.target.value) || 0)}
-                    placeholder="0"
-                    min="0"
-                  />
+                <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'right', fontWeight: 600, color: '#334155' }}>
+                  ₹{formatINR(tdrCost)}
                 </td>
                 <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
                 <td style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', backgroundColor: '#f8fafc' }}>-</td>
