@@ -37,6 +37,7 @@ import { PaymentOut } from "../models/PaymentOut";
 import { CostAnalysis } from "../models/CostAnalysis";
 import { DailyAgendaMatrix } from "../models/DailyAgendaMatrix";
 import { ProjectInspection } from "../models/ProjectInspection";
+import { AccountingActivity } from "../models/AccountingActivity";
 
 dotenv.config();
 
@@ -82,7 +83,10 @@ const models = [
     // Cost Analysis & Follow-up Matrix models
     CostAnalysis,
     DailyAgendaMatrix,
-    ProjectInspection
+    ProjectInspection,
+
+    // Accounting Activities Audit Trail
+    AccountingActivity
 ];
 
 const poolConfig = {

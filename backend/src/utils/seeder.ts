@@ -144,8 +144,8 @@ export async function seedDatabase() {
       const allUsers = await User.findAll();
       for (const u of allUsers) {
         try {
-          if (u.username === 'admin' && (u.name !== 'JK Future Infra' || u.email !== 'jkfutureinfra@gmail.com' || u.allowedScreens.includes('transporters'))) {
-            console.log(`🌱 Correcting admin user to JK Future Infra...`);
+          if (u.username === 'admin' && (!u.allowedScreens || !u.allowedScreens.includes('payments') || u.name !== 'JK Future Infra' || u.email !== 'jkfutureinfra@gmail.com' || u.allowedScreens.includes('transporters'))) {
+            console.log(`🌱 Correcting admin user permissions (including payments)...`);
             u.name = 'JK Future Infra';
             u.email = 'jkfutureinfra@gmail.com';
             u.allowedScreens = [

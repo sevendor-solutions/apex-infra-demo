@@ -2,6 +2,7 @@ import { Router } from "express";
 import { Quotation } from "../models/Quotation";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { runSchemaMigrations } from "../utils/schemaMigration";
 
 const router = Router();
 
@@ -10,7 +11,17 @@ router.get("/", authenticateToken, async (req, res, next) => {
     try {
         const quotations = await Quotation.findAll({ order: [["date", "DESC"], ["createdAt", "DESC"]] });
         return res.json({ success: true, data: quotations });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.includes("does not exist") || error?.parent?.message?.includes("does not exist")) {
+            console.warn("⚠️ Missing column detected on quotations query, auto-healing schema...");
+            try {
+                await runSchemaMigrations(true);
+                const retryQuotations = await Quotation.findAll({ order: [["date", "DESC"], ["createdAt", "DESC"]] });
+                return res.json({ success: true, data: retryQuotations });
+            } catch (retryErr) {
+                return next(retryErr);
+            }
+        }
         next(error);
     }
 });

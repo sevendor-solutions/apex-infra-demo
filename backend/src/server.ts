@@ -35,14 +35,16 @@ import customersRoutes from "./routes/customers";
 import suppliersRoutes from "./routes/suppliers";
 import invoicesRoutes from "./routes/invoices";
 import paymentsRoutes from "./routes/payments";
+import accountingActivitiesRoutes from "./routes/accountingActivities";
 
 // Import Cost Analysis & Follow-up Matrix routes
 import costAnalysesRoutes from "./routes/costAnalyses";
 import dailyAgendaRoutes from "./routes/dailyAgenda";
 import projectInspectionsRoutes from "./routes/projectInspections";
 
-// Import seeder
+// Import seeder & migrations
 import { seedDatabase } from "./utils/seeder";
+import { runSchemaMigrations } from "./utils/schemaMigration";
 
 const app = express();
 app.set("trust proxy", true);
@@ -128,6 +130,7 @@ app.use("/api/customers", customersRoutes);
 app.use("/api/suppliers", suppliersRoutes);
 app.use("/api/invoices", invoicesRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/accounting-activities", accountingActivitiesRoutes);
 
 // Mount Cost Analysis & Follow-up Matrix routes
 app.use("/api/cost-analyses", costAnalysesRoutes);
@@ -196,33 +199,16 @@ const startServer = async () => {
     await sequelize.sync();
     console.log("✅ Sequelize Database Models Synced!");
 
+    // 2.5 Run Schema Column Migrations (ensures all added model columns exist on PostgreSQL)
+    await runSchemaMigrations();
+
     // 3. Start Express HTTP server immediately
     app.listen(PORT, () => {
       console.log(`🚀 Server running at http://localhost:${PORT}`);
     });
 
-    // 4. Run migrations, seeder and background intervals asynchronously without blocking server
+    // 4. Run seeder and background intervals asynchronously without blocking server
     (async () => {
-      try {
-        await sequelize.query(`
-          ALTER TABLE "projects" ALTER COLUMN "specImage" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "brochureUrl" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "location" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "microLocation" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "city" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "availabilityDetails" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "marketingResult" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "name" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "category" TYPE TEXT;
-          ALTER TABLE "projects" ALTER COLUMN "subCategory" TYPE TEXT;
-          ALTER TABLE "gallery_items" ALTER COLUMN "url" TYPE TEXT;
-          ALTER TABLE "gallery_items" ALTER COLUMN "thumbnail" TYPE TEXT;
-          ALTER TABLE "documents" ALTER COLUMN "fileUrl" TYPE TEXT;
-        `);
-      } catch (migErr: any) {
-        // Silently continue if columns already altered
-      }
-
       try {
         await seedDatabase();
       } catch (seedErr: any) {

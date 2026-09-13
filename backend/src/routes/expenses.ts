@@ -4,6 +4,7 @@ import { Wallet } from "../models/Wallet";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -89,7 +90,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
         
-        await logAuditAction(req, "Expense Created", `Created expense bill: "${newExpense.expenseNo || newExpense.id}" for party: "${newExpense.party}" (Total: ₹${newExpense.totalAmount}, Paid: ₹${newExpense.paidAmount})`, "Success", { expenseId: newExpense.id });
+        await logAccountingActivity({
+            req,
+            module: "Expenses",
+            activityType: "INSERT",
+            recordId: newExpense.expenseNo || newExpense.id,
+            amount: newExpense.totalAmount,
+            description: `Created Expense Bill #${newExpense.expenseNo || newExpense.id} for party "${newExpense.party}" (${newExpense.expenseCategory}) - Total: ₹${newExpense.totalAmount}, Paid: ₹${newExpense.paidAmount}`
+        });
         
         return res.status(201).json({ success: true, data: newExpense });
     } catch (error) {
@@ -157,7 +165,14 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
             accountName
         });
         
-        await logAuditAction(req, "Expense Updated", `Updated expense bill: "${expense.expenseNo || expense.id}" for party: "${expense.party}" (Total: ₹${expense.totalAmount}, Paid: ₹${expense.paidAmount})`, "Success", { expenseId: expense.id });
+        await logAccountingActivity({
+            req,
+            module: "Expenses",
+            activityType: "UPDATE",
+            recordId: expense.expenseNo || expense.id,
+            amount: totalAmt,
+            description: `Updated Expense Bill #${expense.expenseNo || expense.id} for party "${expense.party}" (${expense.expenseCategory}) - Total: ₹${totalAmt}, Paid: ₹${paidAmt}, Status: ${payStatus}`
+        });
         
         return res.json({ success: true, data: expense });
     } catch (error) {
@@ -196,7 +211,14 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
 
         await expense.destroy();
         
-        await logAuditAction(req, "Expense Deleted", `Deleted expense bill: "${billNo}" of party: "${party}" (Total: ₹${total})`, "Success", { expenseId: expense.id });
+        await logAccountingActivity({
+            req,
+            module: "Expenses",
+            activityType: "DELETE",
+            recordId: billNo,
+            amount: total,
+            description: `Deleted Expense Bill #${billNo} of party: "${party}" - Total: ₹${total}`
+        });
         
         return res.json({ success: true, message: "Expense deleted" });
     } catch (error) {

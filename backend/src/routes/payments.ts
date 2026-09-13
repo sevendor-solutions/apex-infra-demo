@@ -9,6 +9,8 @@ import { Wallet } from "../models/Wallet";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { runSchemaMigrations } from "../utils/schemaMigration";
+import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -17,7 +19,17 @@ router.get("/in", authenticateToken, async (req, res, next) => {
     try {
         const payments = await PaymentIn.findAll({ order: [["paymentDate", "DESC"], ["createdAt", "DESC"]] });
         return res.json({ success: true, data: payments });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.includes("does not exist") || error?.parent?.message?.includes("does not exist")) {
+            console.warn("⚠️ Missing column detected on payments_in query, auto-healing schema...");
+            try {
+                await runSchemaMigrations(true);
+                const retryPayments = await PaymentIn.findAll({ order: [["paymentDate", "DESC"], ["createdAt", "DESC"]] });
+                return res.json({ success: true, data: retryPayments });
+            } catch (retryErr) {
+                return next(retryErr);
+            }
+        }
         next(error);
     }
 });
@@ -133,7 +145,14 @@ router.post("/in", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Record Payment In", `Recorded payment of ${payAmt} from ${customerName}`, "Success", { paymentId: payment.id });
+        await logAccountingActivity({
+            req,
+            module: "Payment-In",
+            activityType: "INSERT",
+            recordId: payment.receiptNo || payment.id,
+            amount: payAmt,
+            description: `Recorded Payment-In #${payment.receiptNo || payment.id} of ₹${payAmt} from ${customerName} via ${paymentMethod} (${accountName})`
+        });
         return res.status(201).json({ success: true, data: payment });
     } catch (error) {
         next(error);
@@ -218,7 +237,14 @@ router.delete("/in/:id", authenticateToken, async (req, res, next) => {
         }
 
         await payment.destroy();
-        await logAuditAction(req, "Delete Payment In", `Deleted payment #${payment.receiptNo || payment.id} of ${payAmt} from ${payment.customerName}`, "Success", { paymentId: payment.id });
+        await logAccountingActivity({
+            req,
+            module: "Payment-In",
+            activityType: "DELETE",
+            recordId: payment.receiptNo || payment.id,
+            amount: payAmt,
+            description: `Deleted Payment-In #${payment.receiptNo || payment.id} of ₹${payAmt} from ${payment.customerName}`
+        });
         return res.json({ success: true, message: "Payment In record deleted and balances reverted." });
     } catch (error) {
         next(error);
@@ -230,7 +256,17 @@ router.get("/out", authenticateToken, async (req, res, next) => {
     try {
         const payments = await PaymentOut.findAll({ order: [["paymentDate", "DESC"], ["createdAt", "DESC"]] });
         return res.json({ success: true, data: payments });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.includes("does not exist") || error?.parent?.message?.includes("does not exist")) {
+            console.warn("⚠️ Missing column detected on payments_out query, auto-healing schema...");
+            try {
+                await runSchemaMigrations(true);
+                const retryPayments = await PaymentOut.findAll({ order: [["paymentDate", "DESC"], ["createdAt", "DESC"]] });
+                return res.json({ success: true, data: retryPayments });
+            } catch (retryErr) {
+                return next(retryErr);
+            }
+        }
         next(error);
     }
 });
@@ -331,7 +367,14 @@ router.post("/out", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Record Payment Out", `Recorded payment of ${payAmt} to ${supplierName}`, "Success", { paymentId: payment.id });
+        await logAccountingActivity({
+            req,
+            module: "Payment-Out",
+            activityType: "INSERT",
+            recordId: payment.receiptNo || payment.id,
+            amount: payAmt,
+            description: `Recorded Payment-Out #${payment.receiptNo || payment.id} of ₹${payAmt} to ${supplierName} via ${paymentMethod} (${accountName})`
+        });
         return res.status(201).json({ success: true, data: payment });
     } catch (error) {
         next(error);
@@ -401,7 +444,14 @@ router.delete("/out/:id", authenticateToken, async (req, res, next) => {
         }
 
         await payment.destroy();
-        await logAuditAction(req, "Delete Payment Out", `Deleted disbursement #${payment.receiptNo || payment.id} of ${payAmt} to ${payment.supplierName}`, "Success", { paymentId: payment.id });
+        await logAccountingActivity({
+            req,
+            module: "Payment-Out",
+            activityType: "DELETE",
+            recordId: payment.receiptNo || payment.id,
+            amount: payAmt,
+            description: `Deleted Payment-Out #${payment.receiptNo || payment.id} of ₹${payAmt} to ${payment.supplierName}`
+        });
         return res.json({ success: true, message: "Payment Out record deleted and balances reverted." });
     } catch (error) {
         next(error);

@@ -7,6 +7,8 @@ import { InventoryItem } from "../models/InventoryItem";
 import { StockMovement } from "../models/StockMovement";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { runSchemaMigrations } from "../utils/schemaMigration";
+import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -15,7 +17,17 @@ router.get("/", authenticateToken, async (req, res, next) => {
     try {
         const invoices = await Invoice.findAll({ order: [["date", "DESC"], ["createdAt", "DESC"]] });
         return res.json({ success: true, data: invoices });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.includes("does not exist") || error?.parent?.message?.includes("does not exist")) {
+            console.warn("⚠️ Missing column detected on invoices query, auto-healing schema...");
+            try {
+                await runSchemaMigrations(true);
+                const retryInvoices = await Invoice.findAll({ order: [["date", "DESC"], ["createdAt", "DESC"]] });
+                return res.json({ success: true, data: retryInvoices });
+            } catch (retryErr) {
+                return next(retryErr);
+            }
+        }
         next(error);
     }
 });
@@ -102,7 +114,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
             }
         }
 
-        await logAuditAction(req, "Create Invoice", `Generated invoice: ${invoiceNumber} for ${customerName}`, "Success", { invoiceId: invoice.id });
+        await logAccountingActivity({
+            req,
+            module: "Invoices",
+            activityType: "INSERT",
+            recordId: invoiceNumber,
+            amount: total,
+            description: `Created Sales Invoice #${invoiceNumber} for ${customerName} (Total: ₹${total}, Paid: ₹${paid}, Pending: ₹${pending})`
+        });
         return res.status(201).json({ success: true, data: invoice });
     } catch (error) {
         next(error);
@@ -194,7 +213,14 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
             }
         }
 
-        await logAuditAction(req, "Update Invoice", `Updated invoice: ${invoice.invoiceNumber} for ${customerName}`, "Success", { invoiceId: invoice.id });
+        await logAccountingActivity({
+            req,
+            module: "Invoices",
+            activityType: "UPDATE",
+            recordId: invoice.invoiceNumber,
+            amount: total,
+            description: `Updated Sales Invoice #${invoice.invoiceNumber} for ${customerName} (Total: ₹${total}, Paid: ₹${paid}, Status: ${paymentStatus})`
+        });
         return res.json({ success: true, data: invoice });
     } catch (error) {
         next(error);
@@ -272,7 +298,14 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         }
 
         await invoice.destroy();
-        await logAuditAction(req, "Delete Invoice", `Deleted invoice: ${invoice.invoiceNumber}`, "Success", { invoiceId: invoice.id });
+        await logAccountingActivity({
+            req,
+            module: "Invoices",
+            activityType: "DELETE",
+            recordId: invoice.invoiceNumber,
+            amount: invoice.totalAmount,
+            description: `Deleted Sales Invoice #${invoice.invoiceNumber} (Customer: ${invoice.customerName}, Amount: ₹${invoice.totalAmount})`
+        });
         return res.json({ success: true, message: "Invoice deleted successfully and linked quotation status restored" });
     } catch (error) {
         next(error);
