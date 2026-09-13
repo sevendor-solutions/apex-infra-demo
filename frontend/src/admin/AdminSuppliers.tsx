@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Supplier } from '../types';
 import { X, Users2, DollarSign } from 'lucide-react';
-import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from '../utils/db';
+import { getSuppliers, addSupplier, updateSupplier, deleteSupplier, getExpenses, getQuotations, getInvoices, getInventoryItems } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -89,9 +89,45 @@ export const AdminSuppliers: React.FC<AdminSuppliersProps> = ({
   };
 
   const handleDelete = async (id: string, name: string) => {
-    const ok = await onConfirm(`Delete supplier account for "${name}"?`);
-    if (!ok) return;
     try {
+      const [allExpenses, allQuotations, allInvoices, allInventory] = await Promise.all([
+        getExpenses().catch(() => []),
+        getQuotations().catch(() => []),
+        getInvoices().catch(() => []),
+        getInventoryItems().catch(() => [])
+      ]);
+
+      const targetSupplier = suppliers.find(s => s.id === id);
+      const cleanName = (name || '').trim().toLowerCase();
+      const cleanContact = (targetSupplier?.contactNumber || '').trim();
+
+      const usedInExpenses = allExpenses.filter(e => e.party && e.party.trim().toLowerCase() === cleanName);
+      const usedInQuotations = allQuotations.filter(q => 
+        (q.customerName && q.customerName.trim().toLowerCase() === cleanName) ||
+        (cleanContact && q.customerMobile && q.customerMobile.trim() === cleanContact)
+      );
+      const usedInInvoices = allInvoices.filter(inv => 
+        (inv.customerName && inv.customerName.trim().toLowerCase() === cleanName) ||
+        (cleanContact && inv.customerMobile && inv.customerMobile.trim() === cleanContact)
+      );
+      const usedInInventory = allInventory.filter(item => 
+        item.supplierName && item.supplierName.trim().toLowerCase() === cleanName
+      );
+
+      const usageReasons: string[] = [];
+      if (usedInExpenses.length > 0) usageReasons.push(`${usedInExpenses.length} Expense Ledger record${usedInExpenses.length > 1 ? 's' : ''}`);
+      if (usedInQuotations.length > 0) usageReasons.push(`${usedInQuotations.length} Quotation${usedInQuotations.length > 1 ? 's' : ''}`);
+      if (usedInInvoices.length > 0) usageReasons.push(`${usedInInvoices.length} Sales Invoice${usedInInvoices.length > 1 ? 's' : ''}`);
+      if (usedInInventory.length > 0) usageReasons.push(`${usedInInventory.length} Inventory Product${usedInInventory.length > 1 ? 's' : ''}`);
+
+      if (usageReasons.length > 0) {
+        onAddToast(`Cannot delete supplier "${name}" because it is currently linked to: ${usageReasons.join(', ')}. Please delete or reassign those records first.`, 'error');
+        return;
+      }
+
+      const ok = await onConfirm(`Delete supplier account for "${name}"?`);
+      if (!ok) return;
+
       await deleteSupplier(id);
       onAddToast('Supplier deleted.', 'success');
       loadData();

@@ -146,6 +146,18 @@ export class Invoice extends Model {
         type: DataType.STRING,
         allowNull: true
     })
+    quotationId?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    quotationNumber?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
     userId?: string;
 
     @CreatedAt

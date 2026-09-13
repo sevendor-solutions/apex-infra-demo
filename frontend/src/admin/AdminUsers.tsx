@@ -45,8 +45,8 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
   const ALL_SYSTEM_SCREENS = [
     'dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 
     'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'site_visits', 
-    'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 
-    'invoices', 'loans', 'auditor_reports', 'users', 'masters', 'marketing_agents', 'audit_logs',
+    'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'inventory', 'quotations', 
+    'invoices', 'payments', 'loans', 'auditor_reports', 'users', 'masters', 'marketing_agents', 'audit_logs',
     'cost_analysis', 'stage_checklist'
   ];
 
@@ -62,11 +62,11 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     } else if (userRole === 'MarketingAgent') {
       return ['dashboard', 'marketing_enquiries', 'marketing_agents', 'site_visits'];
     } else if (userRole === 'Accountant') {
-      return ['dashboard', 'expenses', 'wallets', 'customers', 'suppliers', 'quotations', 'invoices', 'loans', 'auditor_reports', 'cost_analysis'];
+      return ['dashboard', 'expenses', 'wallets', 'customers', 'suppliers', 'inventory', 'quotations', 'invoices', 'payments', 'loans', 'auditor_reports', 'cost_analysis'];
     } else if (userRole === 'SalesUser') {
-      return ['dashboard', 'quotations', 'invoices', 'customers', 'projects', 'sites'];
+      return ['dashboard', 'quotations', 'invoices', 'payments', 'customers', 'projects', 'sites'];
     } else if (userRole === 'InventoryManager') {
-      return ['dashboard', 'suppliers', 'expenses', 'stage_checklist'];
+      return ['dashboard', 'inventory', 'suppliers', 'expenses', 'stage_checklist'];
     } else {
       // Moderator
       return ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'site_visits', 'stage_checklist', 'cost_analysis'];
@@ -211,6 +211,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     inventory: 'Inventory',
     quotations: 'Quotations',
     invoices: 'Invoices',
+    payments: 'Payment-In & Out',
     loans: 'Loans',
     auditor_reports: 'Auditor Reports',
     users: 'Staff',
@@ -491,8 +492,10 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'wallets', label: 'Digital Wallets' },
                       { id: 'customers', label: 'Customers' },
                       { id: 'suppliers', label: 'Suppliers' },
+                      { id: 'inventory', label: 'Stock & Inventory' },
                       { id: 'quotations', label: 'Quotations' },
                       { id: 'invoices', label: 'Sales Invoices' },
+                      { id: 'payments', label: 'Payment-In & Out' },
                       { id: 'loans', label: 'Loans & Borrowings' },
                       { id: 'auditor_reports', label: 'Auditor Reports' },
                       { id: 'cost_analysis', label: 'Project Cost Sheet' },

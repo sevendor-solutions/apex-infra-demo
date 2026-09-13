@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Expense, ExpenseCategory, ExpenseLineItem, Project, LocationMaster, Wallet, Supplier } from '../types';
+import type { Expense, ExpenseCategory, ExpenseLineItem, Project, LocationMaster, Wallet, Supplier, Customer } from '../types';
 import {
   Trash2, Edit2, PlusCircle, Trash, Check,
   Receipt, Search, X, IndianRupee, Calendar,
@@ -14,6 +14,7 @@ interface AdminExpensesProps {
   locations: LocationMaster[];
   wallets?: Wallet[];
   suppliers?: Supplier[];
+  customers?: Customer[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -43,6 +44,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   locations = [],
   wallets = [],
   suppliers = [],
+  customers = [],
   onRefresh,
   onAddToast,
   onConfirm
@@ -619,7 +621,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                         {/* Existing suppliers filtered by search */}
                         {suppliers.filter(s => s.name.toLowerCase().includes(party.toLowerCase())).map((s, idx) => (
                           <div
-                            key={s.id || idx}
+                            key={'sup_' + (s.id || idx)}
                             onMouseDown={() => {
                               setParty(s.name);
                               setActiveFieldSuggest(null);
@@ -635,14 +637,43 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
                             onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
                             onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#fff'; }}
                           >
-                            <div style={{ fontWeight: 600 }}>{s.name}</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600 }}>{s.name}</span>
+                              <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#eff6ff', color: '#1d4ed8', fontWeight: 600 }}>Supplier</span>
+                            </div>
                             {s.contactNumber && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>{s.contactNumber}</div>}
                           </div>
                         ))}
+                        {/* Existing customers filtered by search */}
+                        {customers.filter(c => c.name.toLowerCase().includes(party.toLowerCase())).map((c, idx) => (
+                          <div
+                            key={'cust_' + (c.id || idx)}
+                            onMouseDown={() => {
+                              setParty(c.name);
+                              setActiveFieldSuggest(null);
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #f1f5f9',
+                              fontSize: '0.78rem',
+                              color: '#1e293b',
+                              backgroundColor: '#fff'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontWeight: 600 }}>{c.name}</span>
+                              <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#f0fdf4', color: '#15803d', fontWeight: 600 }}>Customer</span>
+                            </div>
+                            {c.mobile && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>{c.mobile}</div>}
+                          </div>
+                        ))}
                         {/* Empty state */}
-                        {suppliers.length === 0 && party.trim() === '' && (
+                        {suppliers.length === 0 && customers.length === 0 && party.trim() === '' && (
                           <div style={{ padding: '10px 12px', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center' }}>
-                            No suppliers yet. Type a name to create one.
+                            No suppliers or customers found. Type a name to create one.
                           </div>
                         )}
                       </div>

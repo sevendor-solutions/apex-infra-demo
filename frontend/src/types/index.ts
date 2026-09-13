@@ -440,6 +440,8 @@ export interface Invoice {
   paymentStatus: string;
   termsAndConditions?: string;
   notes?: string;
+  quotationId?: string;
+  quotationNumber?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -476,6 +478,16 @@ export interface LoanPayment {
   updatedAt?: string;
 }
 
+export interface PaymentAllocation {
+  txnId: string;
+  date: string;
+  type: 'Sale' | 'Expense' | 'Purchase Bill';
+  refNo: string;
+  total: number;
+  balance: number;
+  linkedAmount: number;
+}
+
 export interface PaymentIn {
   id: string;
   customerName: string;
@@ -487,6 +499,11 @@ export interface PaymentIn {
   referenceNumber?: string;
   notes?: string;
   walletId?: string;
+  receiptNo?: string;
+  status?: string; // 'Used' | 'Unused' | 'Partial' | 'Advance'
+  unusedAmount?: number;
+  linkedTxns?: string;
+  attachmentUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -502,6 +519,11 @@ export interface PaymentOut {
   referenceNumber?: string;
   notes?: string;
   walletId?: string;
+  receiptNo?: string;
+  status?: string; // 'Used' | 'Unused' | 'Partial' | 'Advance'
+  unusedAmount?: number;
+  linkedTxns?: string;
+  attachmentUrl?: string;
   createdAt?: string;
   updatedAt?: string;
 }

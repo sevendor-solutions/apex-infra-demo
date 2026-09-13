@@ -56,7 +56,7 @@ const INITIAL_USERS = [
       'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
       'documents', 'marketing_agents', 'site_visits', 'mail_config', 'audit_logs', 'expenses', 
       'wallets', 'quotations', 'inventory', 'loans', 'invoices', 'customers', 
-      'suppliers', 'auditor_reports', 'cost_analysis', 'stage_checklist'
+      'suppliers', 'payments', 'auditor_reports', 'cost_analysis', 'stage_checklist'
     ]
   }
 ];
@@ -153,7 +153,7 @@ export async function seedDatabase() {
               'blogs', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 
               'documents', 'marketing_agents', 'site_visits', 'mail_config', 'audit_logs', 'expenses', 
               'wallets', 'quotations', 'inventory', 'loans', 'invoices', 'customers', 
-              'suppliers', 'auditor_reports', 'cost_analysis', 'stage_checklist'
+              'suppliers', 'payments', 'auditor_reports', 'cost_analysis', 'stage_checklist'
             ];
             await u.save();
           }

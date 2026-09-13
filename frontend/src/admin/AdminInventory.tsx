@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { InventoryItem, StockMovement, Invoice } from '../types';
+import type { InventoryItem, StockMovement, Invoice, Quotation } from '../types';
 import { 
   X, Search, Share2, Plus, Trash2, Edit2, Settings,
   Package, FileSpreadsheet, ToggleLeft, ToggleRight, MoreVertical
 } from 'lucide-react';
 import { 
   getInventoryItems, addInventoryItem, updateInventoryItem, deleteInventoryItem,
-  getStockMovements, stockIn, stockOut, adjustStock, getInvoices
+  getStockMovements, stockIn, stockOut, adjustStock, getInvoices, getQuotations
 } from '../utils/db';
 
 interface AdminInventoryProps {
@@ -23,6 +23,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [movements, setMovements] = useState<StockMovement[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Active Tab: 'products' | 'services'
@@ -112,14 +113,16 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [itemList, moveList, invList] = await Promise.all([
+      const [itemList, moveList, invList, quoteList] = await Promise.all([
         getInventoryItems(),
         getStockMovements(),
-        getInvoices()
+        getInvoices(),
+        getQuotations().catch(() => [])
       ]);
       setItems(itemList);
       setMovements(moveList);
       setInvoices(invList);
+      setQuotations(quoteList || []);
       
       // Keep selected item sync or default to first
       if (itemList.length > 0) {
@@ -205,7 +208,25 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       }
     });
 
-    // 3. Stock Movements (Adjustments, Stock In, Stock Out)
+    // 3. Quotations (Quotes / Estimates)
+    quotations.forEach(q => {
+      const matchItem = q.items?.find(it => it.productCode === selectedItem.code);
+      if (matchItem) {
+        list.push({
+          id: `quote-${q.id}`,
+          type: 'Quotation',
+          refNo: q.quotationNumber,
+          name: q.customerName,
+          date: new Date(q.date).toLocaleDateString('en-GB'),
+          quantity: matchItem.quantity,
+          priceUnit: matchItem.unitPrice,
+          status: q.status || 'Draft',
+          timestamp: new Date(q.date).getTime()
+        });
+      }
+    });
+
+    // 4. Stock Movements (Adjustments, Stock In, Stock Out)
     movements.filter(m => m.productCode === selectedItem.code).forEach(m => {
       if (m.notes === 'Opening Stock Initial Seeding') return;
       list.push({
@@ -235,7 +256,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
       );
     }
     return sorted;
-  }, [selectedItem, invoices, movements, txSearchTerm]);
+  }, [selectedItem, invoices, quotations, movements, txSearchTerm]);
 
   const resetForm = () => {
     setName('');
@@ -443,6 +464,45 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
 
         if (flatWithKeywordRegex.test(lineName) || (lineName.includes('flat') && flatStandaloneRegex.test(lineName))) {
           return inv;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper to check if a batch / floor unit is linked to a saved quotation
+  const getBatchQuotationInfo = (item: InventoryItem, batch: any): Quotation | null => {
+    if (!quotations || quotations.length === 0 || !batch || !batch.flatNo) return null;
+    const flatNoStr = String(batch.flatNo).trim();
+    if (!flatNoStr) return null;
+
+    for (const q of quotations) {
+      if (q.status === 'Rejected') continue;
+      const allLineItems = [...(q.items || []), ...(q.amenityItems || [])];
+      for (const line of allLineItems) {
+        if (!line.productName) continue;
+        
+        const itemCode = (item.code || '').trim().toLowerCase();
+        const itemName = (item.name || '').trim().toLowerCase();
+        const lineCode = (line.productCode || '').trim().toLowerCase();
+        const lineName = (line.productName || '').trim().toLowerCase();
+        const projName = (q.projectName || '').trim().toLowerCase();
+
+        const matchesProduct = 
+          (lineCode && itemCode && lineCode === itemCode) ||
+          (projName && projName === itemName) ||
+          (lineName.includes(itemName));
+
+        if (!matchesProduct) continue;
+
+        const flatLower = flatNoStr.toLowerCase();
+        const escapedFlat = flatLower.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+        const flatWithKeywordRegex = new RegExp(`\\bflat[\\s#_-]*${escapedFlat}\\b`, 'i');
+        const flatStandaloneRegex = new RegExp(`\\b${escapedFlat}\\b`, 'i');
+
+        if (flatWithKeywordRegex.test(lineName) || (lineName.includes('flat') && flatStandaloneRegex.test(lineName))) {
+          return q;
         }
       }
     }
@@ -740,23 +800,25 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                         <tbody>
                           {selectedItem.batches.map((b: any, i: number) => {
                             const linkedInvoice = getBatchInvoiceInfo(selectedItem, b);
+                            const linkedQuotation = !linkedInvoice ? getBatchQuotationInfo(selectedItem, b) : null;
                             const isInvoiced = !!linkedInvoice;
+                            const isQuoted = !!linkedQuotation;
 
                             return (
                               <tr 
                                 key={i} 
                                 style={{ 
                                   borderBottom: i === selectedItem.batches!.length - 1 ? 'none' : '1px solid #f1f5f9',
-                                  backgroundColor: isInvoiced ? '#fef2f2' : (i % 2 === 0 ? '#ffffff' : '#fcfcfd')
+                                  backgroundColor: isInvoiced ? '#fef2f2' : (isQuoted ? '#fffbeb' : (i % 2 === 0 ? '#ffffff' : '#fcfcfd'))
                                 }}
                               >
-                                <td style={{ padding: '8px 12px', fontWeight: 600, color: isInvoiced ? '#991b1b' : '#334155' }}>
+                                <td style={{ padding: '8px 12px', fontWeight: 600, color: isInvoiced ? '#991b1b' : (isQuoted ? '#92400e' : '#334155') }}>
                                   {b.facingFloor}
                                 </td>
-                                <td style={{ padding: '8px 12px', textAlign: 'center', color: isInvoiced ? '#991b1b' : '#475569' }}>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', color: isInvoiced ? '#991b1b' : (isQuoted ? '#92400e' : '#475569') }}>
                                   {b.uds}
                                 </td>
-                                <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: isInvoiced ? '#dc2626' : '#0f172a' }}>
+                                <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: isInvoiced ? '#dc2626' : (isQuoted ? '#b45309' : '#0f172a') }}>
                                   {b.flatNo}
                                 </td>
                                 <td style={{ padding: '8px 12px', textAlign: 'center' }}>
@@ -778,6 +840,24 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                                     >
                                       SOLD ({linkedInvoice.invoiceNumber})
                                     </span>
+                                  ) : isQuoted ? (
+                                    <span 
+                                      title={`Quoted to ${linkedQuotation.customerName} (${linkedQuotation.quotationNumber})`}
+                                      style={{
+                                        backgroundColor: '#fef3c7',
+                                        color: '#b45309',
+                                        border: '1px solid #fde68a',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}
+                                    >
+                                      QUOTED ({linkedQuotation.quotationNumber})
+                                    </span>
                                   ) : (
                                     <span 
                                       style={{
@@ -794,7 +874,7 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                                     </span>
                                   )}
                                 </td>
-                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: isInvoiced ? '#dc2626' : '#10b981' }}>
+                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: isInvoiced ? '#dc2626' : (isQuoted ? '#b45309' : '#10b981') }}>
                                   {b.openingQty}
                                 </td>
                               </tr>
@@ -869,16 +949,26 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                           ) : (
                             selectedTransactions.map((tx, idx) => {
                               const isSale = tx.type === 'Sale';
-                              const qtyColor = isSale || tx.type === 'Stock Out' ? '#ef4444' : '#10b981';
-                              const statusColor = tx.status === 'Paid' ? '#10b981' : (tx.status === 'Partial' ? '#f59e0b' : '#ef4444');
+                              const isQuote = tx.type === 'Quotation';
+                              const qtyColor = isSale || tx.type === 'Stock Out' ? '#ef4444' : (isQuote ? '#0284c7' : '#10b981');
+                              
+                              let statusBg = '#f1f5f9';
+                              let statusText = '#475569';
+                              if (tx.status === 'Paid' || tx.status === 'Approved') { statusBg = '#dcfce7'; statusText = '#16a34a'; }
+                              else if (tx.status === 'Partial' || tx.status === 'Draft' || tx.status === 'Sent') { statusBg = '#fef3c7'; statusText = '#b45309'; }
+                              else if (tx.status === 'Converted') { statusBg = '#e0f2fe'; statusText = '#0369a1'; }
+                              else if (tx.status === 'Unpaid' || tx.status === 'Rejected') { statusBg = '#fee2e2'; statusText = '#ef4444'; }
+
                               return (
                                 <tr key={tx.id || idx} style={{ borderBottom: idx === selectedTransactions.length - 1 ? 'none' : '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#fcfcfd' }}>
-                                  <td style={{ padding: '10px 12px', fontWeight: 700, color: '#334155' }}>{tx.type}</td>
+                                  <td style={{ padding: '10px 12px', fontWeight: 700, color: isQuote ? '#0284c7' : '#334155' }}>
+                                    {tx.type}
+                                  </td>
                                   <td style={{ padding: '10px 12px', color: '#64748b' }}>{tx.refNo}</td>
                                   <td style={{ padding: '10px 12px', color: '#1e293b', fontWeight: 500 }}>{tx.name}</td>
                                   <td style={{ padding: '10px 12px', color: '#64748b' }}>{tx.date}</td>
                                   <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: qtyColor }}>
-                                    {isSale || tx.type === 'Stock Out' ? '-' : '+'}{tx.quantity} {selectedItem.unit}
+                                    {isSale || tx.type === 'Stock Out' ? '-' : (isQuote ? '' : '+')}{tx.quantity} {selectedItem.unit}
                                   </td>
                                   <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#334155' }}>
                                     {tx.priceUnit > 0 ? fmt(tx.priceUnit) : '—'}
@@ -886,8 +976,8 @@ export const AdminInventory: React.FC<AdminInventoryProps> = ({
                                   <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                                     {tx.status !== '—' ? (
                                       <span style={{ 
-                                        color: statusColor, 
-                                        background: tx.status === 'Paid' ? '#dcfce7' : (tx.status === 'Partial' ? '#fef3c7' : '#fee2e2'),
+                                        color: statusText, 
+                                        background: statusBg,
                                         padding: '2px 8px',
                                         borderRadius: '12px',
                                         fontSize: '0.7rem',

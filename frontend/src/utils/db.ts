@@ -1166,6 +1166,22 @@ export const addPaymentOut = async (payment: Partial<PaymentOut>): Promise<Payme
   return handleResponse(res);
 };
 
+export const deletePaymentIn = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/payments/in/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
+};
+
+export const deletePaymentOut = async (id: string): Promise<void> => {
+  const res = await fetch(`${API_BASE_URL}/payments/out/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  await handleResponse(res);
+};
+
 export const getPendingPayments = async (): Promise<{ customerPending: Invoice[], supplierPending: Supplier[] }> => {
   const res = await fetch(`${API_BASE_URL}/payments/pending`, { headers: getAuthHeaders() });
   return handleResponse(res);

@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
-import type { Invoice, InvoiceItem, Customer, InventoryItem, Wallet, Amenity, Project } from '../types';
+import type { Invoice, InvoiceItem, Customer, Supplier, InventoryItem, Wallet, Amenity, Project } from '../types';
 import { 
   X, Trash, Download, Share2, Edit,
   DollarSign, FileText, Landmark 
 } from 'lucide-react';
 import { 
   getInvoices, addInvoice, updateInvoice, deleteInvoice,
-  getInventoryItems, getCustomers, getWallets,
-  addCustomer, getProjects, getAmenities
+  getInventoryItems, getCustomers, getSuppliers, getWallets,
+  addCustomer, getProjects, getAmenities, getQuotations, updateQuotation
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import logoImg from '../assets/logo.png';
+import signatureImg from '../assets/authorised_signature.png';
 
 interface AdminInvoicesProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -35,6 +36,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [walletsList, setWalletsList] = useState<Wallet[]>([]);
   const [_projectsList, setProjectsList] = useState<Project[]>([]);
   const [_amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
@@ -92,10 +94,11 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [invs, items, customers, wallets, projs, fetchedAmenities] = await Promise.all([
+      const [invs, items, customers, suppliers, wallets, projs, fetchedAmenities] = await Promise.all([
         getInvoices(),
         getInventoryItems(),
         getCustomers(),
+        getSuppliers().catch(() => []),
         getWallets(),
         getProjects(),
         getAmenities().catch(() => [])
@@ -103,6 +106,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       setInvoices(invs);
       setItemsList(items);
       setCustomersList(customers);
+      setSuppliersList(suppliers || []);
       setWalletsList(wallets);
       setProjectsList(projs);
       setAmenitiesMasterList(fetchedAmenities || []);
@@ -282,8 +286,25 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     const ok = await onConfirm(`Delete tax invoice "${num}"? This will reverse the customer outstanding debt balance and return the items back into warehouse inventory stock.`);
     if (!ok) return;
     try {
+      const targetInvoice = invoices.find(inv => inv.id === id);
       await deleteInvoice(id);
-      onAddToast('Invoice deleted and stock reversed.', 'success');
+
+      // Revert linked quotation status to Approved so "Convert to Inv" becomes available again
+      try {
+        const allQuotes = await getQuotations();
+        const linkedQuote = allQuotes.find(q => 
+          (targetInvoice?.quotationId && q.id === targetInvoice.quotationId) ||
+          (targetInvoice?.quotationNumber && q.quotationNumber === targetInvoice.quotationNumber) ||
+          (q.status === 'Converted' && (q.customerName || '').trim().toLowerCase() === (targetInvoice?.customerName || '').trim().toLowerCase() && Math.abs(q.totalAmount - (targetInvoice?.totalAmount || 0)) < 1)
+        );
+        if (linkedQuote && linkedQuote.status === 'Converted') {
+          await updateQuotation({ ...linkedQuote, status: 'Approved' });
+        }
+      } catch (qErr) {
+        // Fallback handled
+      }
+
+      onAddToast('Invoice deleted and linked quotation restored to convert.', 'success');
       loadData();
     } catch (err) {
       onAddToast('Failed to delete invoice.', 'error');
@@ -349,6 +370,33 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         console.warn('QR Code loading failed:', e);
       }
 
+      // Load Signature
+      let sigData: { base64: string, ratio: number } | null = null;
+      try {
+        sigData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = signatureImg;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              const ratio = img.naturalWidth / img.naturalHeight;
+              resolve({ base64, ratio });
+            } else {
+              reject(new Error('Canvas context error'));
+            }
+          };
+          img.onerror = (e) => reject(e);
+        });
+      } catch (e) {
+        console.warn('Signature loading failed:', e);
+      }
+
       // Top decorative navy bar
       doc.setFillColor(15, 43, 70); // Deep Navy brand color
       doc.rect(0, 0, 210, 6, 'F');
@@ -400,8 +448,9 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setLineWidth(0.5);
       doc.line(15, 56, 195, 56);
 
-      // Customer details lookup
-      const customerDetail = customersList.find(c => c.name.toLowerCase() === inv.customerName.toLowerCase());
+      // Customer or Supplier details lookup
+      const customerDetail = customersList.find(c => c.name.toLowerCase() === inv.customerName.toLowerCase() || (inv.customerMobile && c.mobile === inv.customerMobile));
+      const supplierDetail = !customerDetail ? suppliersList.find(s => s.name.toLowerCase() === inv.customerName.toLowerCase() || (inv.customerMobile && s.contactNumber === inv.customerMobile)) : null;
 
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(9);
@@ -417,7 +466,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setFont('helvetica', 'normal');
       
       let currentInfoY = 74;
-      const mob = inv.customerMobile || customerDetail?.mobile;
+      const mob = inv.customerMobile || customerDetail?.mobile || supplierDetail?.contactNumber;
       if (mob) {
         doc.text(`Contact No.: ${mob}`, 15, currentInfoY);
         currentInfoY += 4.5;
@@ -428,12 +477,13 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         currentInfoY += 4.5;
       }
       
-      if (customerDetail?.gstNumber) {
-        doc.text(`GSTIN: ${customerDetail.gstNumber}`, 15, currentInfoY);
+      const effectiveGst = customerDetail?.gstNumber || supplierDetail?.gstNumber;
+      if (effectiveGst) {
+        doc.text(`GSTIN: ${effectiveGst}`, 15, currentInfoY);
         currentInfoY += 4.5;
       }
 
-      const addr = inv.customerAddress || customerDetail?.address;
+      const addr = inv.customerAddress || customerDetail?.address || supplierDetail?.address;
       if (addr) {
         const addressLines = doc.splitTextToSize(addr, 90);
         addressLines.forEach((line: string) => {
@@ -603,8 +653,8 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       const lines = doc.splitTextToSize(termsText, 180);
       doc.text(lines, 15, y + 5);
 
-      y += Math.max(20, lines.length * 3.5);
-      if (y > 260) {
+      y += Math.max(16, lines.length * 3.5);
+      if (y > 250) {
         doc.addPage();
         y = 20;
       }
@@ -613,10 +663,18 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setFontSize(9);
       doc.text('For: JK FUTURE INFRA', 140, y);
       
+      let sigOffset = 18;
+      if (sigData) {
+        const sigHeight = 14;
+        const sigWidth = Math.min(45, sigHeight * sigData.ratio);
+        doc.addImage(sigData.base64, 'PNG', 140, y + 2, sigWidth, sigHeight);
+        sigOffset = sigHeight + 6;
+      }
+
       doc.setTextColor(71, 85, 105);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      doc.text('Authorized Signatory', 140, y + 18);
+      doc.text('Authorized Signatory', 140, y + sigOffset);
 
       doc.save(`Invoice_${inv.invoiceNumber}.pdf`);
       onAddToast('Tax Invoice PDF downloaded.', 'success');
@@ -664,7 +722,31 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
 
   const cols: ALVColumn[] = [
     { key: 'invoiceNumber', label: 'Invoice Number', sortable: true },
-    { key: 'customerName', label: 'Customer Name', sortable: true },
+    { 
+      key: 'customerName', 
+      label: 'Customer / Party', 
+      sortable: true,
+      render: (v, row: any) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1e293b' }}>{String(v || '—')}</div>
+          {row.customerMobile && (
+            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>📞 {row.customerMobile}</div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'projectName',
+      label: 'Project',
+      sortable: true,
+      render: (v) => v ? (
+        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0369a1', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '4px' }}>
+          {String(v)}
+        </span>
+      ) : (
+        <span style={{ color: '#94a3b8' }}>—</span>
+      )
+    },
     { key: 'date', label: 'Date', sortable: true },
     { 
       key: 'totalAmount', 
@@ -794,7 +876,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
               <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="grid grid-3 gap-2 mb-2">
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <label className="form-label">Customer Name *</label>
+                    <label className="form-label">Customer / Supplier *</label>
                     <input 
                       type="text"
                       className="form-control"
@@ -810,17 +892,25 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                         setTimeout(() => {
                           setShowCustomerDropdown(false);
                           if (customerSearchText.trim()) {
-                            const matched = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
-                            if (matched) {
-                              setCustomerName(matched.name);
-                              setCustomerSearchText(matched.name);
-                              setCustomerMobile(matched.mobile);
-                              setCustomerAddress(matched.address || '');
+                            const matchedCustomer = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                            if (matchedCustomer) {
+                              setCustomerName(matchedCustomer.name);
+                              setCustomerSearchText(matchedCustomer.name);
+                              setCustomerMobile(matchedCustomer.mobile);
+                              setCustomerAddress(matchedCustomer.address || '');
+                            } else {
+                              const matchedSupplier = suppliersList.find(s => s.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                              if (matchedSupplier) {
+                                setCustomerName(matchedSupplier.name);
+                                setCustomerSearchText(matchedSupplier.name);
+                                setCustomerMobile(matchedSupplier.contactNumber);
+                                setCustomerAddress(matchedSupplier.address || '');
+                              }
                             }
                           }
                         }, 250);
                       }}
-                      placeholder="Search or type customer name..."
+                      placeholder="Search customer or supplier..."
                       required
                     />
                     {showCustomerDropdown && (
@@ -831,42 +921,66 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                         backgroundColor: '#fff',
                         border: '1px solid #cbd5e1',
                         borderRadius: '6px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                         zIndex: 9999,
-                        maxHeight: '200px',
+                        maxHeight: '220px',
                         overflowY: 'auto',
                         marginTop: '2px'
                       }}>
-                        <div 
-                          onMouseDown={async () => {
-                            const cName = prompt("Enter new customer name:");
-                            if (!cName || !cName.trim()) return;
-                            if (customersList.some(c => c.name.toLowerCase() === cName.trim().toLowerCase())) {
-                              onAddToast('Customer already exists.', 'error');
-                              return;
-                            }
-                            await handleCreateCustomer(cName);
-                          }}
-                          style={{ 
-                            padding: '8px 12px', 
-                            cursor: 'pointer', 
-                            borderBottom: '1px solid #e2e8f0', 
-                            fontSize: '0.78rem',
-                            fontWeight: 'bold',
-                            color: '#2563eb',
-                            backgroundColor: '#fff',
-                            textAlign: 'left'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
-                        >
-                          + Create New Customer
-                        </div>
+                        {customerSearchText.trim() === '' ? (
+                          <div 
+                            onMouseDown={async () => {
+                              const cName = prompt("Enter new customer name:");
+                              if (!cName || !cName.trim()) return;
+                              if (customersList.some(c => c.name.toLowerCase() === cName.trim().toLowerCase())) {
+                                onAddToast('Customer already exists.', 'error');
+                                return;
+                              }
+                              await handleCreateCustomer(cName);
+                            }}
+                            style={{ 
+                              padding: '8px 12px', 
+                              cursor: 'pointer', 
+                              borderBottom: '1px solid #e2e8f0', 
+                              fontSize: '0.78rem',
+                              fontWeight: 'bold',
+                              color: '#2563eb',
+                              backgroundColor: '#fff',
+                              textAlign: 'left'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                          >
+                            + Create New Customer
+                          </div>
+                        ) : (
+                          !customersList.some(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase()) &&
+                          !suppliersList.some(s => s.name.toLowerCase() === customerSearchText.trim().toLowerCase()) && (
+                            <div 
+                              onMouseDown={() => handleCreateCustomer(customerSearchText)}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                fontWeight: 'bold',
+                                color: '#2563eb',
+                                backgroundColor: '#fff',
+                                textAlign: 'left'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              + Create Customer: "{customerSearchText}"
+                            </div>
+                          )
+                        )}
+                        {/* Customer List */}
                         {customersList
-                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()))
+                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()) || (c.mobile && c.mobile.includes(customerSearchText)))
                           .map(c => (
                             <div 
-                              key={c.id}
+                              key={`c-${c.id}`}
                               onMouseDown={() => {
                                 setCustomerName(c.name);
                                 setCustomerSearchText(c.name);
@@ -881,12 +995,49 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
                                 fontSize: '0.78rem',
                                 color: '#1e293b',
                                 backgroundColor: '#fff',
-                                textAlign: 'left'
+                                textAlign: 'left',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
                               }}
                               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
                               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
                             >
-                              {c.name} ({c.mobile})
+                              <span><strong>{c.name}</strong> <span style={{ color: '#64748b', fontSize: '0.72rem' }}>({c.mobile})</span></span>
+                              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>Customer</span>
+                            </div>
+                          ))
+                        }
+                        {/* Supplier List */}
+                        {suppliersList
+                          .filter(s => s.name.toLowerCase().includes(customerSearchText.toLowerCase()) || (s.contactNumber && s.contactNumber.includes(customerSearchText)))
+                          .map(s => (
+                            <div 
+                              key={`s-${s.id}`}
+                              onMouseDown={() => {
+                                setCustomerName(s.name);
+                                setCustomerSearchText(s.name);
+                                setCustomerMobile(s.contactNumber);
+                                setCustomerAddress(s.address || '');
+                                setShowCustomerDropdown(false);
+                              }}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                color: '#1e293b',
+                                backgroundColor: '#fff',
+                                textAlign: 'left',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef3c7'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              <span><strong>{s.name}</strong> <span style={{ color: '#64748b', fontSize: '0.72rem' }}>({s.contactNumber})</span></span>
+                              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: 600 }}>Supplier</span>
                             </div>
                           ))
                         }

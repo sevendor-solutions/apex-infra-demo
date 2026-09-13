@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
-import type { Quotation, QuotationItem, Customer, InventoryItem, Project, Amenity } from '../types';
+import type { Quotation, QuotationItem, Customer, Supplier, InventoryItem, Project, Amenity } from '../types';
 import { 
   X, Trash, Download, Share2
 } from 'lucide-react';
 import { 
   getQuotations, addQuotation, updateQuotation, deleteQuotation,
-  getInventoryItems, getCustomers, addInvoice, getProjects,
+  getInventoryItems, getCustomers, getSuppliers, addInvoice, getProjects,
   addCustomer, getAmenities
 } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import logoImg from '../assets/logo.png';
+import signatureImg from '../assets/authorised_signature.png';
 
 interface AdminQuotationsProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -28,6 +29,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
+  const [suppliersList, setSuppliersList] = useState<Supplier[]>([]);
   const [_projectsList, setProjectsList] = useState<Project[]>([]);
   const [_amenitiesMasterList, setAmenitiesMasterList] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,16 +68,18 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [quotes, items, customers, projs, fetchedAmenities] = await Promise.all([
+      const [quotes, items, customers, suppliers, projs, fetchedAmenities] = await Promise.all([
         getQuotations(),
         getInventoryItems(),
         getCustomers(),
+        getSuppliers().catch(() => []),
         getProjects(),
         getAmenities().catch(() => [])
       ]);
       setQuotations(quotes);
       setItemsList(items);
       setCustomersList(customers);
+      setSuppliersList(suppliers || []);
       setProjectsList(projs);
       setAmenitiesMasterList(fetchedAmenities || []);
     } catch (err) {
@@ -320,6 +324,33 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         console.warn('QR Code loading failed:', e);
       }
 
+      // Load Signature
+      let sigData: { base64: string, ratio: number } | null = null;
+      try {
+        sigData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.src = signatureImg;
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
+              const base64 = canvas.toDataURL('image/png');
+              const ratio = img.naturalWidth / img.naturalHeight;
+              resolve({ base64, ratio });
+            } else {
+              reject(new Error('Canvas context error'));
+            }
+          };
+          img.onerror = (e) => reject(e);
+        });
+      } catch (e) {
+        console.warn('Signature loading failed:', e);
+      }
+
       // Top decorative navy bar
       doc.setFillColor(15, 43, 70); // Deep Navy brand color
       doc.rect(0, 0, 210, 6, 'F');
@@ -371,8 +402,11 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setLineWidth(0.5);
       doc.line(15, 56, 195, 56);
 
-      // Metadata Block - Customer details looked up from database
+      // Metadata Block - Customer or Supplier details looked up from database
       const customerDetail = customersList.find(c => c.name.toLowerCase() === q.customerName.toLowerCase() || c.mobile === q.customerMobile);
+      const supplierDetail = !customerDetail ? suppliersList.find(s => s.name.toLowerCase() === q.customerName.toLowerCase() || s.contactNumber === q.customerMobile) : null;
+      const effectiveGst = customerDetail?.gstNumber || supplierDetail?.gstNumber;
+      const effectiveEmail = customerDetail?.email;
 
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(9);
@@ -391,13 +425,13 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.text(`Contact No.: ${q.customerMobile}`, 15, currentInfoY);
       currentInfoY += 4.5;
 
-      if (customerDetail?.email) {
-        doc.text(`Email: ${customerDetail.email}`, 15, currentInfoY);
+      if (effectiveEmail) {
+        doc.text(`Email: ${effectiveEmail}`, 15, currentInfoY);
         currentInfoY += 4.5;
       }
       
-      if (customerDetail?.gstNumber) {
-        doc.text(`GSTIN: ${customerDetail.gstNumber}`, 15, currentInfoY);
+      if (effectiveGst) {
+        doc.text(`GSTIN: ${effectiveGst}`, 15, currentInfoY);
         currentInfoY += 4.5;
       }
 
@@ -564,8 +598,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.text(lines, 15, y + 5);
 
       // Signatory
-      y += Math.max(20, lines.length * 3.5);
-      if (y > 260) {
+      y += Math.max(16, lines.length * 3.5);
+      if (y > 250) {
         doc.addPage();
         y = 20;
       }
@@ -574,10 +608,18 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setFontSize(9);
       doc.text('For: JK FUTURE INFRA', 140, y);
       
+      let sigOffset = 18;
+      if (sigData) {
+        const sigHeight = 14;
+        const sigWidth = Math.min(45, sigHeight * sigData.ratio);
+        doc.addImage(sigData.base64, 'PNG', 140, y + 2, sigWidth, sigHeight);
+        sigOffset = sigHeight + 6;
+      }
+
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
-      doc.text('Authorized Signatory', 140, y + 18);
+      doc.text('Authorized Signatory', 140, y + sigOffset);
 
       doc.save(`Quotation_${q.quotationNumber}.pdf`);
       onAddToast('Quotation PDF downloaded.', 'success');
@@ -627,13 +669,27 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     const ok = await onConfirm(`Convert quotation "${q.quotationNumber}" to a Sales Invoice? This will automatically subtract items from warehouse stock.`);
     if (!ok) return;
     try {
-      const allItems = [
-        ...(q.items || []),
-        ...(q.amenityItems || [])
-      ].filter(i => i.productName.trim() !== '');
+      // Structure regular items for Invoice
+      const regularItems = (q.items || []).filter(i => i.productName && i.productName.trim() !== '').map(item => {
+        const qty = item.quantity || 1;
+        const price = item.unitPrice || 0;
+        const discount = item.discount || 0;
+        const gstPct = item.gstPercentage || 0;
+        const gst = ((price * qty) - discount) * (gstPct / 100);
+        return {
+          productName: item.productName,
+          productCode: item.productCode || '',
+          quantity: qty,
+          price: price,
+          discount: discount,
+          gst: gst,
+          gstPercentage: gstPct,
+          total: item.total
+        };
+      });
 
-      // Structure items for Invoice
-      const invoiceItems = allItems.map(item => {
+      // Structure amenity items for Invoice
+      const amenityInvoiceItems = (q.amenityItems || []).filter(i => i.productName && i.productName.trim() !== '').map(item => {
         const qty = item.quantity || 1;
         const price = item.unitPrice || 0;
         const discount = item.discount || 0;
@@ -646,21 +702,31 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
           price: price,
           discount: discount,
           gst: gst,
+          gstPercentage: gstPct,
           total: item.total
         };
       });
 
-      const gstTotal = invoiceItems.reduce((s, i) => s + i.gst, 0);
-      const discountTotal = invoiceItems.reduce((s, i) => s + i.discount, 0);
+      const allItems = [...regularItems, ...amenityInvoiceItems];
+      const gstTotal = allItems.reduce((s, i) => s + (i.gst || 0), 0);
+      const discountTotal = allItems.reduce((s, i) => s + (i.discount || 0), 0);
 
       await addInvoice({
+        quotationId: q.id,
+        quotationNumber: q.quotationNumber,
         customerName: q.customerName,
+        customerMobile: q.customerMobile || '',
+        customerAddress: q.customerAddress || '',
+        projectName: q.projectName || '',
         date: new Date().toISOString().split('T')[0],
-        items: invoiceItems as any,
+        items: regularItems.length > 0 ? regularItems : allItems,
+        amenityItems: amenityInvoiceItems,
         totalAmount: q.totalAmount,
         gstAmount: gstTotal,
         discountAmount: discountTotal,
-        paidAmount: 0
+        paidAmount: 0,
+        termsAndConditions: q.termsAndConditions || '',
+        notes: q.notes || ''
       });
 
       // Update Quotation Status to Converted
@@ -775,7 +841,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
               <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                 <div className="grid grid-3 gap-2">
                   <div className="form-group" style={{ position: 'relative' }}>
-                    <label className="form-label">Customer Name *</label>
+                    <label className="form-label">Customer / Supplier *</label>
                     <input 
                       type="text" 
                       className="form-control" 
@@ -791,17 +857,25 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                         setTimeout(() => {
                           setShowCustomerDropdown(false);
                           if (customerSearchText.trim()) {
-                            const matched = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
-                            if (matched) {
-                              setCustomerName(matched.name);
-                              setCustomerSearchText(matched.name);
-                              setCustomerMobile(matched.mobile);
-                              setCustomerAddress(matched.address || '');
+                            const matchedCustomer = customersList.find(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                            if (matchedCustomer) {
+                              setCustomerName(matchedCustomer.name);
+                              setCustomerSearchText(matchedCustomer.name);
+                              setCustomerMobile(matchedCustomer.mobile);
+                              setCustomerAddress(matchedCustomer.address || '');
+                            } else {
+                              const matchedSupplier = suppliersList.find(s => s.name.toLowerCase() === customerSearchText.trim().toLowerCase());
+                              if (matchedSupplier) {
+                                setCustomerName(matchedSupplier.name);
+                                setCustomerSearchText(matchedSupplier.name);
+                                setCustomerMobile(matchedSupplier.contactNumber);
+                                setCustomerAddress(matchedSupplier.address || '');
+                              }
                             }
                           }
                         }, 250);
-                      }}
-                      placeholder="Search or type customer name..."
+                      }} 
+                      placeholder="Search customer or supplier..."
                       required
                     />
                     {showCustomerDropdown && (
@@ -812,9 +886,9 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                         backgroundColor: '#fff',
                         border: '1px solid #cbd5e1',
                         borderRadius: '6px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                         zIndex: 9999,
-                        maxHeight: '200px',
+                        maxHeight: '220px',
                         overflowY: 'auto',
                         marginTop: '2px'
                       }}>
@@ -845,7 +919,8 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                             + Create New Customer
                           </div>
                         ) : (
-                          !customersList.some(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase()) && (
+                          !customersList.some(c => c.name.toLowerCase() === customerSearchText.trim().toLowerCase()) &&
+                          !suppliersList.some(s => s.name.toLowerCase() === customerSearchText.trim().toLowerCase()) && (
                             <div 
                               onMouseDown={() => handleCreateCustomer(customerSearchText)}
                               style={{ 
@@ -865,11 +940,12 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                             </div>
                           )
                         )}
+                        {/* Customer List */}
                         {customersList
-                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()))
+                          .filter(c => c.name.toLowerCase().includes(customerSearchText.toLowerCase()) || (c.mobile && c.mobile.includes(customerSearchText)))
                           .map(c => (
                             <div 
-                              key={c.id}
+                              key={`c-${c.id}`}
                               onMouseDown={() => {
                                 setCustomerName(c.name);
                                 setCustomerSearchText(c.name);
@@ -884,12 +960,49 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                                 fontSize: '0.78rem',
                                 color: '#1e293b',
                                 backgroundColor: '#fff',
-                                textAlign: 'left'
+                                textAlign: 'left',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
                               }}
                               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
                               onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
                             >
-                              {c.name} ({c.mobile})
+                              <span><strong>{c.name}</strong> <span style={{ color: '#64748b', fontSize: '0.72rem' }}>({c.mobile})</span></span>
+                              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>Customer</span>
+                            </div>
+                          ))
+                        }
+                        {/* Supplier List */}
+                        {suppliersList
+                          .filter(s => s.name.toLowerCase().includes(customerSearchText.toLowerCase()) || (s.contactNumber && s.contactNumber.includes(customerSearchText)))
+                          .map(s => (
+                            <div 
+                              key={`s-${s.id}`}
+                              onMouseDown={() => {
+                                setCustomerName(s.name);
+                                setCustomerSearchText(s.name);
+                                setCustomerMobile(s.contactNumber);
+                                setCustomerAddress(s.address || '');
+                                setShowCustomerDropdown(false);
+                              }}
+                              style={{ 
+                                padding: '8px 12px', 
+                                cursor: 'pointer', 
+                                borderBottom: '1px solid #f1f5f9', 
+                                fontSize: '0.78rem',
+                                color: '#1e293b',
+                                backgroundColor: '#fff',
+                                textAlign: 'left',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef3c7'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fff'; }}
+                            >
+                              <span><strong>{s.name}</strong> <span style={{ color: '#64748b', fontSize: '0.72rem' }}>({s.contactNumber})</span></span>
+                              <span style={{ fontSize: '0.68rem', padding: '1px 6px', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#b45309', fontWeight: 600 }}>Supplier</span>
                             </div>
                           ))
                         }
@@ -1328,6 +1441,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
                         <option value="Sent">Sent</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="Converted">Converted</option>
                       </select>
                     </div>
                   </div>

@@ -357,7 +357,7 @@ export const AdminWallets: React.FC<AdminWalletsProps> = ({
                   className="form-control"
                 >
                   <option value="Cash">Cash (Cash Register/Drawer)</option>
-                  <option value="Bank">Bank (Savings/Checking Account)</option>
+                  <option value="Bank">Bank (Savings/Current/Checking Account)</option>
                   <option value="Digital Wallet">Digital Wallet (GPay, PhonePe, Paytm)</option>
                 </select>
               </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Customer } from '../types';
-import { X, Users2, DollarSign, ShieldAlert } from 'lucide-react';
-import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from '../utils/db';
+import { X, Users2, DollarSign } from 'lucide-react';
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer, getExpenses, getInvoices, getQuotations } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -101,9 +101,40 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
   };
 
   const handleDelete = async (id: string, name: string) => {
-    const ok = await onConfirm(`Delete customer account for "${name}"?`);
-    if (!ok) return;
     try {
+      const [allExpenses, allInvoices, allQuotations] = await Promise.all([
+        getExpenses().catch(() => []),
+        getInvoices().catch(() => []),
+        getQuotations().catch(() => [])
+      ]);
+
+      const targetCustomer = customers.find(c => c.id === id);
+      const cleanName = (name || '').trim().toLowerCase();
+      const cleanMobile = (targetCustomer?.mobile || '').trim();
+
+      const usedInExpenses = allExpenses.filter(e => e.party && e.party.trim().toLowerCase() === cleanName);
+      const usedInInvoices = allInvoices.filter(inv => 
+        (inv.customerName && inv.customerName.trim().toLowerCase() === cleanName) ||
+        (cleanMobile && inv.customerMobile && inv.customerMobile.trim() === cleanMobile)
+      );
+      const usedInQuotations = allQuotations.filter(q => 
+        (q.customerName && q.customerName.trim().toLowerCase() === cleanName) ||
+        (cleanMobile && q.customerMobile && q.customerMobile.trim() === cleanMobile)
+      );
+
+      const usageReasons: string[] = [];
+      if (usedInExpenses.length > 0) usageReasons.push(`${usedInExpenses.length} Expense${usedInExpenses.length > 1 ? 's' : ''}`);
+      if (usedInInvoices.length > 0) usageReasons.push(`${usedInInvoices.length} Sales Invoice${usedInInvoices.length > 1 ? 's' : ''}`);
+      if (usedInQuotations.length > 0) usageReasons.push(`${usedInQuotations.length} Quotation${usedInQuotations.length > 1 ? 's' : ''}`);
+
+      if (usageReasons.length > 0) {
+        onAddToast(`Cannot delete customer "${name}" because it is currently linked to: ${usageReasons.join(', ')}. Please delete or reassign those records first.`, 'error');
+        return;
+      }
+
+      const ok = await onConfirm(`Delete customer account for "${name}"?`);
+      if (!ok) return;
+
       await deleteCustomer(id);
       onAddToast('Customer deleted.', 'success');
       loadData();
@@ -134,8 +165,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
     { key: 'name', label: 'Customer Name', sortable: true },
     { key: 'mobile', label: 'Mobile Number', sortable: true },
     { key: 'email', label: 'Email Address' },
-    { key: 'gstNumber', label: 'GST Number' },
-    { key: 'creditLimit', label: 'Credit Limit', align: 'right', render: (v) => fmt(Number(v)) },
+    { key: 'address', label: 'Office/Billing Address' },
     { 
       key: 'outstandingAmount', 
       label: 'Outstanding Balance', 
@@ -170,7 +200,7 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
   return (
     <div className="admin-page-container">
       {/* KPIs */}
-      <div className="grid grid-3 gap-2 mb-3">
+      <div className="grid grid-2 gap-2 mb-3">
         <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--secondary)' }}>
           <div className="stat-icon-wrapper secondary-soft">
             <Users2 size={24} className="text-secondary" />
@@ -190,21 +220,11 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
             <h3 className="text-danger">{fmt(stats.totalReceivables)}</h3>
           </div>
         </div>
-
-        <div className="stat-card shadow-sm" style={{ borderLeft: '4px solid var(--success)' }}>
-          <div className="stat-icon-wrapper success-soft">
-            <ShieldAlert size={24} className="text-success" />
-          </div>
-          <div>
-            <span className="stat-title">Aggregated Credit Limits</span>
-            <h3>{fmt(stats.limitTotal)}</h3>
-          </div>
-        </div>
       </div>
 
       <ALVGrid 
         title="Customer Directory"
-        subtitle="Manage customer credits, accounts receivables, and contact lists"
+        subtitle="Manage customer accounts receivables and contact lists"
         columns={cols}
         data={customers as any}
         rowKey="id"
@@ -278,29 +298,6 @@ export const AdminCustomers: React.FC<AdminCustomersProps> = ({
                     onChange={e => setAddress(e.target.value)} 
                     placeholder="Physical address details"
                   />
-                </div>
-                <div className="grid grid-2 gap-2">
-                  <div className="form-group">
-                    <label className="form-label">GSTIN / Tax Number</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={gstNumber} 
-                      onChange={e => setGstNumber(e.target.value.toUpperCase())} 
-                      placeholder="e.g. 37AAAAA1111A1Z1"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Credit Limit (INR)</label>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      value={creditLimit} 
-                      onChange={e => setCreditLimit(parseFloat(e.target.value) || 0)} 
-                      min={0}
-                      required 
-                    />
-                  </div>
                 </div>
                 {!editingCustomer && (
                   <div className="form-group">

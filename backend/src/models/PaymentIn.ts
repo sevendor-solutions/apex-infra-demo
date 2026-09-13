@@ -52,12 +52,44 @@ export class PaymentIn extends Model {
     referenceNumber?: string;
 
     @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    receiptNo?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: false,
+        defaultValue: 'Used'
+    })
+    status!: string;
+
+    @Column({
+        type: DataType.DOUBLE,
+        allowNull: false,
+        defaultValue: 0
+    })
+    unusedAmount!: number;
+
+    @Column({
+        type: DataType.TEXT,
+        allowNull: true
+    })
+    linkedTxns?: string;
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true
+    })
+    attachmentUrl?: string;
+
+    @Column({
         type: DataType.TEXT,
         allowNull: true
     })
     notes?: string;
 
-        @Column({
+    @Column({
         type: DataType.STRING,
         allowNull: true
     })
