@@ -4,6 +4,7 @@ import { InventoryItem } from "../models/InventoryItem";
 import { StockMovement } from "../models/StockMovement";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -76,7 +77,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
             });
         }
 
-        await logAuditAction(req, "Create Product", `Created product: ${name} (${code})`, "Success", { itemId: item.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "INSERT",
+            recordId: item.code,
+            amount: (openingStock || 0) * (purchasePrice || 0),
+            description: `Created Inventory Item: ${name} (${code}) - Stock: ${openingStock || 0} ${unit || 'Pcs'}, Price: ₹${purchasePrice || 0}`
+        });
         return res.status(201).json({ success: true, data: item });
     } catch (error) {
         next(error);
@@ -127,7 +135,14 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (currentStock !== undefined) item.currentStock = currentStock;
 
         await item.save();
-        await logAuditAction(req, "Update Product", `Updated details for: ${item.name} (${item.code})`, "Success", { itemId: item.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "UPDATE",
+            recordId: item.code,
+            amount: (item.currentStock || 0) * (item.purchasePrice || 0),
+            description: `Updated Inventory Item: ${item.name} (${item.code}) - Stock: ${item.currentStock}, Price: ₹${item.purchasePrice}`
+        });
         return res.json({ success: true, data: item });
     } catch (error) {
         next(error);
@@ -141,7 +156,14 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!item) return res.status(404).json({ success: false, message: "Product not found" });
 
         await item.destroy();
-        await logAuditAction(req, "Delete Product", `Deleted product: ${item.name} (${item.code})`, "Success", { itemId: item.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "DELETE",
+            recordId: item.code,
+            amount: (item.currentStock || 0) * (item.purchasePrice || 0),
+            description: `Deleted Inventory Item: ${item.name} (${item.code})`
+        });
         return res.json({ success: true, message: "Product deleted successfully" });
     } catch (error) {
         next(error);
@@ -182,7 +204,14 @@ router.post("/stock-in", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Stock In", `Added stock of ${quantity} for ${item.name}`, "Success", { movementId: movement.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "INSERT",
+            recordId: item.code,
+            amount: parseFloat(quantity) * (item.purchasePrice || 0),
+            description: `Stock In: Added ${quantity} ${item.unit} for ${item.name} (${item.code})`
+        });
         return res.status(201).json({ success: true, data: movement, item });
     } catch (error) {
         next(error);
@@ -213,7 +242,14 @@ router.post("/stock-out", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Stock Out", `Removed stock of ${quantity} for ${item.name}`, "Success", { movementId: movement.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "INSERT",
+            recordId: item.code,
+            amount: parseFloat(quantity) * (item.sellingPrice || 0),
+            description: `Stock Out: Deducted ${quantity} ${item.unit} for ${item.name} (${item.code})`
+        });
         return res.status(201).json({ success: true, data: movement, item });
     } catch (error) {
         next(error);
@@ -244,7 +280,14 @@ router.post("/adjust", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAuditAction(req, "Stock Adjustment", `Adjusted stock of ${item.name} to ${quantity}`, "Success", { movementId: movement.id });
+        await logAccountingActivity({
+            req,
+            module: "Inventory",
+            activityType: "UPDATE",
+            recordId: item.code,
+            amount: parseFloat(quantity) * (item.purchasePrice || 0),
+            description: `Stock Adjustment: Adjusted stock of ${item.name} (${item.code}) to ${quantity} ${item.unit}`
+        });
         return res.status(201).json({ success: true, data: movement, item });
     } catch (error) {
         next(error);

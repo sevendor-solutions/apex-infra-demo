@@ -15,6 +15,7 @@ export const logAuditAction = async (
         
         let ip = "127.0.0.1";
         if (req) {
+            (req as any)._auditLogged = true;
             ip = req.ip || 
                  (req.headers["x-forwarded-for"] as string) || 
                  req.socket.remoteAddress || 

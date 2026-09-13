@@ -30,7 +30,8 @@ import type {
   PaymentOut,
   ProjectCostAnalysis,
   ProjectInspectionRecord,
-  DailyAgendaMatrix
+  DailyAgendaMatrix,
+  AccountingActivity
 } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
@@ -1304,4 +1305,26 @@ export const deleteDailyAgendaMatrix = async (id: string): Promise<void> => {
     headers: getAuthHeaders()
   });
   await handleResponse(res);
+};
+
+// ─── Accounting Activities / Audit Trail API ──────────────────────────────
+export const getAccountingActivities = async (params?: {
+  startDate?: string;
+  endDate?: string;
+  module?: string;
+  activityType?: string;
+  search?: string;
+  limit?: number;
+}): Promise<AccountingActivity[]> => {
+  const query = new URLSearchParams();
+  if (params?.startDate) query.append('startDate', params.startDate);
+  if (params?.endDate) query.append('endDate', params.endDate);
+  if (params?.module && params.module !== 'all') query.append('module', params.module);
+  if (params?.activityType && params.activityType !== 'all') query.append('activityType', params.activityType);
+  if (params?.search) query.append('search', params.search);
+  if (params?.limit) query.append('limit', String(params.limit));
+
+  const url = `${API_BASE_URL}/accounting-activities${query.toString() ? `?${query.toString()}` : ''}`;
+  const res = await fetch(url, { headers: getAuthHeaders() });
+  return handleResponse(res);
 };

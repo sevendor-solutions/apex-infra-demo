@@ -671,4 +671,21 @@ export interface DailyAgendaMatrix {
   updatedAt?: string;
 }
 
+export interface AccountingActivity {
+  id: string;
+  module: string;
+  activityType: 'INSERT' | 'UPDATE' | 'DELETE';
+  recordId?: string;
+  description: string;
+  amount?: number;
+  userName: string;
+  userRole: string;
+  userId?: string;
+  ipAddress?: string;
+  dateTime: string;
+  metadata?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 

@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import { Customer } from "../models/Customer";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
+import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -52,7 +53,14 @@ router.post("/", authenticateToken, async (req, res, next) => {
             outstandingAmount: parseFloat(openingBalance || 0)
         });
 
-        await logAuditAction(req, "Create Customer", `Created customer account for: ${name}`, "Success", { customerId: customer.id });
+        await logAccountingActivity({
+            req,
+            module: "Customers",
+            activityType: "INSERT",
+            recordId: customer.name,
+            amount: customer.openingBalance,
+            description: `Created Customer account: ${name} (Mobile: ${mobile}, Opening Balance: ₹${openingBalance || 0})`
+        });
         return res.status(201).json({ success: true, data: customer });
     } catch (error) {
         next(error);
@@ -99,7 +107,14 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (outstandingAmount !== undefined) customer.outstandingAmount = parseFloat(outstandingAmount);
 
         await customer.save();
-        await logAuditAction(req, "Update Customer", `Updated details for customer: ${customer.name}`, "Success", { customerId: customer.id });
+        await logAccountingActivity({
+            req,
+            module: "Customers",
+            activityType: "UPDATE",
+            recordId: customer.name,
+            amount: customer.outstandingAmount,
+            description: `Updated Customer account: ${customer.name} (Outstanding: ₹${customer.outstandingAmount})`
+        });
         return res.json({ success: true, data: customer });
     } catch (error) {
         next(error);
@@ -113,7 +128,14 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!customer) return res.status(404).json({ success: false, message: "Customer not found" });
 
         await customer.destroy();
-        await logAuditAction(req, "Delete Customer", `Deleted customer account: ${customer.name}`, "Success", { customerId: customer.id });
+        await logAccountingActivity({
+            req,
+            module: "Customers",
+            activityType: "DELETE",
+            recordId: customer.name,
+            amount: customer.outstandingAmount,
+            description: `Deleted Customer account: ${customer.name} (Outstanding was: ₹${customer.outstandingAmount})`
+        });
         return res.json({ success: true, message: "Customer deleted successfully" });
     } catch (error) {
         next(error);
