@@ -3,7 +3,6 @@ import { Loan } from "../models/Loan";
 import { LoanPayment } from "../models/LoanPayment";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
-import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -68,14 +67,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Loans",
-            activityType: "INSERT",
-            recordId: accountNumber,
-            amount: parseFloat(amount),
-            description: `Created ${type} Account: ${accountNumber} with ${providerName} (Amount: ₹${amount}, Interest: ${interestRate}%)`
-        });
+        await logAuditAction(req, "Create Loan", `Created loan account: ${accountNumber} with ${providerName}`, "Success", { loanId: loan.id });
         return res.status(201).json({ success: true, data: loan });
     } catch (error) {
         next(error);
@@ -105,14 +97,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (documentUrl !== undefined) loan.documentUrl = documentUrl;
 
         await loan.save();
-        await logAccountingActivity({
-            req,
-            module: "Loans",
-            activityType: "UPDATE",
-            recordId: loan.accountNumber,
-            amount: loan.amount,
-            description: `Updated ${loan.type} Account: ${loan.accountNumber} with ${loan.providerName} (Pending: ₹${loan.pendingAmount})`
-        });
+        await logAuditAction(req, "Update Loan", `Updated details for loan: ${loan.accountNumber}`, "Success", { loanId: loan.id });
         return res.json({ success: true, data: loan });
     } catch (error) {
         next(error);
@@ -126,14 +111,7 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!loan) return res.status(404).json({ success: false, message: "Loan account not found" });
 
         await loan.destroy();
-        await logAccountingActivity({
-            req,
-            module: "Loans",
-            activityType: "DELETE",
-            recordId: loan.accountNumber,
-            amount: loan.amount,
-            description: `Deleted ${loan.type} Account: ${loan.accountNumber} (${loan.providerName})`
-        });
+        await logAuditAction(req, "Delete Loan", `Deleted loan account: ${loan.accountNumber}`, "Success", { loanId: loan.id });
         return res.json({ success: true, message: "Loan record deleted successfully" });
     } catch (error) {
         next(error);
@@ -211,14 +189,7 @@ router.post("/:id/pay-emi", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Loans",
-            activityType: "INSERT",
-            recordId: loan.accountNumber,
-            amount: payAmt,
-            description: `Recorded EMI Repayment of ₹${payAmt} for ${loan.type} A/c: ${loan.accountNumber} (${loan.providerName})`
-        });
+        await logAuditAction(req, "Pay Loan EMI", `Recorded payment of ${amount} (Interest Only: ${isIntOnly}) for loan/borrowing: ${loan.providerName}`, "Success", { paymentId: payment.id });
         return res.status(201).json({ success: true, data: payment, loan });
     } catch (error) {
         next(error);

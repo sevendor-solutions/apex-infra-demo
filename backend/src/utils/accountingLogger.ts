@@ -4,7 +4,7 @@ import { logAuditAction } from "./auditLogger";
 
 export interface LogAccountingParams {
     req: AuthRequest | null | any;
-    module: string;
+    module: "Invoices" | "Payment-In" | "Payment-Out" | "Expenses" | "Quotations" | "Wallets" | "Customers" | "Suppliers" | "Loans" | "Inventory";
     activityType: "INSERT" | "UPDATE" | "DELETE";
     recordId?: string;
     description: string;
@@ -30,7 +30,6 @@ export const logAccountingActivity = async ({
 
         let ip = "127.0.0.1";
         if (req) {
-            (req as any)._accountingActivityLogged = true;
             ip = req.ip ||
                 (req.headers && (req.headers["x-forwarded-for"] as string)) ||
                 (req.socket && req.socket.remoteAddress) ||

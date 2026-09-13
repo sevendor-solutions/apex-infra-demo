@@ -4,7 +4,6 @@ import { Wallet } from "../models/Wallet";
 import { WalletTransaction } from "../models/WalletTransaction";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
-import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -42,14 +41,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "INSERT",
-            recordId: wallet.name,
-            amount: wallet.openingBalance,
-            description: `Created Wallet/Bank Account: ${name} (${type}) with Opening Balance: ₹${openingBalance || 0}`
-        });
+        await logAuditAction(req, "Create Wallet", `Created wallet: ${name} (${type})`, "Success", { walletId: wallet.id });
         return res.status(201).json({ success: true, data: wallet });
     } catch (error) {
         next(error);
@@ -81,14 +73,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (type) wallet.type = type;
 
         await wallet.save();
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "UPDATE",
-            recordId: wallet.name,
-            amount: wallet.currentBalance,
-            description: `Updated Wallet/Bank Account details for: ${wallet.name} (${wallet.type})`
-        });
+        await logAuditAction(req, "Update Wallet", `Updated wallet details for: ${wallet.name}`, "Success", { walletId: wallet.id });
         return res.json({ success: true, data: wallet });
     } catch (error) {
         next(error);
@@ -102,14 +87,7 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!wallet) return res.status(404).json({ success: false, message: "Wallet not found" });
 
         await wallet.destroy();
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "DELETE",
-            recordId: wallet.name,
-            amount: wallet.currentBalance,
-            description: `Deleted Wallet/Bank Account: ${wallet.name} (Balance: ₹${wallet.currentBalance})`
-        });
+        await logAuditAction(req, "Delete Wallet", `Deleted wallet: ${wallet.name}`, "Success", { walletId: wallet.id });
         return res.json({ success: true, message: "Wallet deleted successfully" });
     } catch (error) {
         next(error);
@@ -157,14 +135,7 @@ router.post("/add-money", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "UPDATE",
-            recordId: wallet.name,
-            amount: parseFloat(amount),
-            description: `Credited ₹${amount} to Wallet/Bank: ${wallet.name} (${paymentMode}) - Ref: ${referenceNumber || 'N/A'}`
-        });
+        await logAuditAction(req, "Wallet Credit", `Credited ${amount} to wallet: ${wallet.name}`, "Success", { transactionId: transaction.id });
         return res.status(201).json({ success: true, data: transaction, wallet });
     } catch (error) {
         next(error);
@@ -197,14 +168,7 @@ router.post("/withdraw-money", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "UPDATE",
-            recordId: wallet.name,
-            amount: parseFloat(amount),
-            description: `Debited ₹${amount} from Wallet/Bank: ${wallet.name} (${paymentMode}) - Ref: ${referenceNumber || 'N/A'}`
-        });
+        await logAuditAction(req, "Wallet Debit", `Debited ${amount} from wallet: ${wallet.name}`, "Success", { transactionId: transaction.id });
         return res.status(201).json({ success: true, data: transaction, wallet });
     } catch (error) {
         next(error);
@@ -243,14 +207,7 @@ router.post("/transfer", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Wallets",
-            activityType: "UPDATE",
-            recordId: `${fromWallet.name} -> ${toWallet.name}`,
-            amount: parseFloat(amount),
-            description: `Transferred ₹${amount} from ${fromWallet.name} to ${toWallet.name}`
-        });
+        await logAuditAction(req, "Wallet Transfer", `Transferred ${amount} from ${fromWallet.name} to ${toWallet.name}`, "Success", { transactionId: transaction.id });
         return res.status(201).json({ success: true, data: transaction, fromWallet, toWallet });
     } catch (error) {
         next(error);

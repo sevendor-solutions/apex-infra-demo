@@ -3,7 +3,6 @@ import { Op } from "sequelize";
 import { Supplier } from "../models/Supplier";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
-import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -54,14 +53,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Suppliers",
-            activityType: "INSERT",
-            recordId: supplier.name,
-            amount: supplier.openingBalance,
-            description: `Created Supplier account: ${name} (Phone: ${contactNumber}, Opening Balance: ₹${openingBalance || 0})`
-        });
+        await logAuditAction(req, "Create Supplier", `Created supplier account for: ${name}`, "Success", { supplierId: supplier.id });
         return res.status(201).json({ success: true, data: supplier });
     } catch (error) {
         next(error);
@@ -106,14 +98,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (outstandingAmount !== undefined) supplier.outstandingAmount = parseFloat(outstandingAmount);
 
         await supplier.save();
-        await logAccountingActivity({
-            req,
-            module: "Suppliers",
-            activityType: "UPDATE",
-            recordId: supplier.name,
-            amount: supplier.outstandingAmount,
-            description: `Updated Supplier account: ${supplier.name} (Outstanding: ₹${supplier.outstandingAmount})`
-        });
+        await logAuditAction(req, "Update Supplier", `Updated details for supplier: ${supplier.name}`, "Success", { supplierId: supplier.id });
         return res.json({ success: true, data: supplier });
     } catch (error) {
         next(error);
@@ -127,14 +112,7 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!supplier) return res.status(404).json({ success: false, message: "Supplier not found" });
 
         await supplier.destroy();
-        await logAccountingActivity({
-            req,
-            module: "Suppliers",
-            activityType: "DELETE",
-            recordId: supplier.name,
-            amount: supplier.outstandingAmount,
-            description: `Deleted Supplier account: ${supplier.name} (Outstanding was: ₹${supplier.outstandingAmount})`
-        });
+        await logAuditAction(req, "Delete Supplier", `Deleted supplier account: ${supplier.name}`, "Success", { supplierId: supplier.id });
         return res.json({ success: true, message: "Supplier deleted successfully" });
     } catch (error) {
         next(error);

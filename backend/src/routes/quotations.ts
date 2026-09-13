@@ -3,7 +3,6 @@ import { Quotation } from "../models/Quotation";
 import { authenticateToken } from "../middleware/auth";
 import { logAuditAction } from "../utils/auditLogger";
 import { runSchemaMigrations } from "../utils/schemaMigration";
-import { logAccountingActivity } from "../utils/accountingLogger";
 
 const router = Router();
 
@@ -57,14 +56,7 @@ router.post("/", authenticateToken, async (req, res, next) => {
             userId: req.user?.id
         });
 
-        await logAccountingActivity({
-            req,
-            module: "Quotations",
-            activityType: "INSERT",
-            recordId: quotationNumber,
-            amount: totalAmount || 0,
-            description: `Created Quotation #${quotationNumber} for Customer: ${customerName} (Total: ₹${totalAmount || 0})`
-        });
+        await logAuditAction(req, "Create Quotation", `Created quotation: ${quotationNumber} for ${customerName}`, "Success", { quotationId: quotation.id });
         return res.status(201).json({ success: true, data: quotation });
     } catch (error) {
         next(error);
@@ -93,14 +85,7 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
         if (projectName !== undefined) quotation.projectName = projectName;
 
         await quotation.save();
-        await logAccountingActivity({
-            req,
-            module: "Quotations",
-            activityType: "UPDATE",
-            recordId: quotation.quotationNumber,
-            amount: quotation.totalAmount,
-            description: `Updated Quotation #${quotation.quotationNumber} (Status: ${quotation.status}, Total: ₹${quotation.totalAmount})`
-        });
+        await logAuditAction(req, "Update Quotation", `Updated quotation: ${quotation.quotationNumber}`, "Success", { quotationId: quotation.id });
         return res.json({ success: true, data: quotation });
     } catch (error) {
         next(error);
@@ -114,14 +99,7 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
         if (!quotation) return res.status(404).json({ success: false, message: "Quotation not found" });
 
         await quotation.destroy();
-        await logAccountingActivity({
-            req,
-            module: "Quotations",
-            activityType: "DELETE",
-            recordId: quotation.quotationNumber,
-            amount: quotation.totalAmount,
-            description: `Deleted Quotation #${quotation.quotationNumber} (Customer: ${quotation.customerName}, Total: ₹${quotation.totalAmount})`
-        });
+        await logAuditAction(req, "Delete Quotation", `Deleted quotation: ${quotation.quotationNumber}`, "Success", { quotationId: quotation.id });
         return res.json({ success: true, message: "Quotation deleted successfully" });
     } catch (error) {
         next(error);
