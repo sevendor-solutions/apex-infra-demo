@@ -2,8 +2,7 @@ import React, { useState, useMemo } from 'react';
 import type { Expense, ExpenseCategory, ExpenseLineItem, Project, LocationMaster, Wallet, Supplier, Customer } from '../types';
 import {
   Trash2, Edit2, PlusCircle, Trash, Check,
-  Receipt, Search, X, IndianRupee, Calendar,
-  FileDown, Filter, BarChart3
+  Receipt, X, IndianRupee, Calendar, BarChart3
 } from 'lucide-react';
 import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities, addSupplier, uploadImage } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
@@ -53,7 +52,6 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
 }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [activeSuggestRow, setActiveSuggestRow] = useState<number | null>(null);
   const [activeFieldSuggest, setActiveFieldSuggest] = useState<'category' | 'state' | 'location' | 'project' | 'vendor' | null>(null);
 
@@ -321,7 +319,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   };
 
   const exportCSV = (selectedRows?: Record<string, unknown>[]) => {
-    const dataToExport = (selectedRows && selectedRows.length > 0) ? (selectedRows as Expense[]) : filtered;
+    const dataToExport = (selectedRows && selectedRows.length > 0) ? (selectedRows as unknown as Expense[]) : filtered;
     const rows = [
       ['Expense No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Payment Mode', 'Status', 'Paid From', 'Total Amount', 'Paid Amount', 'Pending Amount', 'Notes'],
       ...dataToExport.map(e => [
