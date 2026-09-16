@@ -6,6 +6,8 @@ import {
   FileDown, Filter, BarChart3
 } from 'lucide-react';
 import { addExpense, updateExpense, deleteExpense, addExpenseCategory, addLocation, getCities, addSupplier, uploadImage } from '../utils/db';
+import { ALVGrid } from './ALVGrid';
+import type { ALVColumn } from './ALVGrid';
 
 interface AdminExpensesProps {
   expenses: Expense[];
@@ -149,14 +151,12 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   // ── Filtered Expenses ────────────────────────────────────────
   const filtered = useMemo(() => {
     return expenses.filter(e => {
-      const q = searchTerm.toLowerCase();
-      const matchQ = !q || e.party?.toLowerCase().includes(q) || e.expenseCategory?.toLowerCase().includes(q) || e.expenseNo?.toLowerCase().includes(q);
       const matchCat = !filterCategory || e.expenseCategory === filterCategory;
       const matchPay = !filterPayment || e.paymentType === filterPayment;
       const matchStatus = !filterStatus || (e.paymentStatus || 'Paid') === filterStatus;
-      return matchQ && matchCat && matchPay && matchStatus;
+      return matchCat && matchPay && matchStatus;
     }).sort((a, b) => new Date(b.billDate || '').getTime() - new Date(a.billDate || '').getTime());
-  }, [expenses, searchTerm, filterCategory, filterPayment, filterStatus]);
+  }, [expenses, filterCategory, filterPayment, filterStatus]);
 
   // ── Line item helpers ────────────────────────────────────────
   const updateLineItem = (idx: number, field: keyof ExpenseLineItem, value: string | number) => {
@@ -320,12 +320,26 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     }
   };
 
-  const exportCSV = () => {
+  const exportCSV = (selectedRows?: Record<string, unknown>[]) => {
+    const dataToExport = (selectedRows && selectedRows.length > 0) ? (selectedRows as Expense[]) : filtered;
     const rows = [
-      ['Expense No', 'Party', 'Category', 'Project', 'Bill Date', 'Payment', 'Total Amount', 'Notes'],
-      ...filtered.map(e => [e.expenseNo, e.party, e.expenseCategory, e.projectName, e.billDate, e.paymentType, e.totalAmount, e.notes])
+      ['Expense No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Payment Mode', 'Status', 'Paid From', 'Total Amount', 'Paid Amount', 'Pending Amount', 'Notes'],
+      ...dataToExport.map(e => [
+        e.expenseNo || e.id,
+        e.billDate || '',
+        e.party || '',
+        e.expenseCategory || '',
+        e.projectName || '',
+        e.paymentType || 'Cash',
+        e.paymentStatus || 'Paid',
+        e.accountName || '',
+        e.totalAmount || 0,
+        e.paidAmount !== undefined ? e.paidAmount : (e.totalAmount || 0),
+        e.pendingAmount || 0,
+        e.notes || ''
+      ])
     ];
-    const csv = rows.map(r => r.map(c => `"${c ?? ''}"`).join(',')).join('\n');
+    const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
     const a = document.createElement('a');
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
     a.download = `expenses_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -336,32 +350,253 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
     Cash: '#10b981', UPI: '#3b82f6', 'Bank Transfer': '#8b5cf6', Cheque: '#f59e0b'
   };
 
+  const cols: ALVColumn[] = [
+    {
+      key: 'expenseNo',
+      label: 'BILL NO',
+      sortable: true,
+      render: (v, row: any) => (
+        <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+          {String(v || row.id || '—')}
+        </span>
+      )
+    },
+    {
+      key: 'billDate',
+      label: 'DATE',
+      sortable: true,
+      render: (v) => v ? new Date(String(v)).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
+    },
+    {
+      key: 'party',
+      label: 'VENDOR / PARTY',
+      sortable: true,
+      render: (v, row: any) => (
+        <div>
+          <div style={{ fontWeight: 600, color: '#1e293b' }}>{String(v || '—')}</div>
+          {row.location && <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '1px' }}>{row.location}</div>}
+        </div>
+      )
+    },
+    {
+      key: 'expenseCategory',
+      label: 'CATEGORY',
+      sortable: true,
+      render: (v) => (
+        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 600 }}>
+          {String(v || '—')}
+        </span>
+      )
+    },
+    {
+      key: 'projectName',
+      label: 'PROJECT',
+      sortable: true,
+      render: (v) => v ? (
+        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#0369a1', backgroundColor: '#e0f2fe', padding: '2px 8px', borderRadius: '4px' }}>
+          {String(v)}
+        </span>
+      ) : (
+        <span style={{ color: '#cbd5e1' }}>—</span>
+      )
+    },
+    {
+      key: 'documentUrl',
+      label: 'ATTACHMENTS',
+      render: (_, row: any) => {
+        const url = row.documentUrl || row.voucherUrl || row.billUrl;
+        return url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            title="View Document"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '0.7rem', fontWeight: 600, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', textDecoration: 'none' }}
+          >
+            <Receipt size={12} /> Document
+          </a>
+        ) : (
+          <span style={{ color: '#cbd5e1' }}>—</span>
+        );
+      }
+    },
+    {
+      key: 'paymentType',
+      label: 'PAYMENT MODE',
+      sortable: true,
+      render: (v) => {
+        const mode = String(v || 'Cash');
+        const color = payBadgeColor[mode] || '#10b981';
+        return (
+          <span style={{ background: color + '18', color, borderRadius: '12px', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 600 }}>
+            {mode}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'paymentStatus',
+      label: 'STATUS',
+      sortable: true,
+      render: (v) => {
+        const status = String(v || 'Paid');
+        const statusColors: Record<string, { bg: string; text: string }> = {
+          'Paid': { bg: '#e8f5e9', text: '#2e7d32' },
+          'Partially Paid': { bg: '#fff3e0', text: '#ef6c00' },
+          'Unpaid': { bg: '#ffebee', text: '#c62828' }
+        };
+        const st = statusColors[status] || { bg: '#f1f5f9', text: '#475569' };
+        return (
+          <span style={{ backgroundColor: st.bg, color: st.text, borderRadius: '12px', padding: '2px 9px', fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+            {status}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'accountName',
+      label: 'PAID FROM',
+      sortable: true,
+      render: (v) => v ? (
+        <span style={{ color: '#374151', fontWeight: 500, fontSize: '0.78rem' }}>{String(v)}</span>
+      ) : (
+        <span style={{ color: '#cbd5e1' }}>— None —</span>
+      )
+    },
+    {
+      key: 'totalAmount',
+      label: 'TOTAL (₹)',
+      sortable: true,
+      align: 'right',
+      render: (v) => <span style={{ fontWeight: 700, color: '#374151', fontSize: '0.82rem' }}>{fmt(Number(v || 0))}</span>
+    },
+    {
+      key: 'paidAmount',
+      label: 'PAID (₹)',
+      sortable: true,
+      align: 'right',
+      render: (v, row: any) => {
+        const p = v !== undefined && v !== null ? Number(v) : Number(row.totalAmount || 0);
+        return <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.82rem' }}>{fmt(p)}</span>;
+      }
+    },
+    {
+      key: 'pendingAmount',
+      label: 'REMAINING (₹)',
+      sortable: true,
+      align: 'right',
+      render: (v) => {
+        const num = Number(v || 0);
+        return <span style={{ fontWeight: 700, color: num > 0 ? '#ef4444' : '#16a34a', fontSize: '0.82rem' }}>{fmt(num)}</span>;
+      }
+    },
+    {
+      key: 'actions',
+      label: 'ACTIONS',
+      align: 'center',
+      render: (_, row: any) => (
+        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+          <button
+            type="button"
+            onClick={() => openEdit(row as Expense)}
+            style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '4px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}
+            title="Edit Expense"
+          >
+            <Edit2 size={12} /> Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(row as Expense)}
+            style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '4px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}
+            title="Delete Expense"
+          >
+            <Trash2 size={12} /> Del
+          </button>
+        </div>
+      )
+    }
+  ];
+
+  const extraFilters = (
+    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <select
+        value={filterCategory}
+        onChange={e => setFilterCategory(e.target.value)}
+        style={{
+          padding: '0.35rem 0.65rem',
+          fontSize: '0.78rem',
+          border: '1px solid var(--sap-border-color)',
+          borderRadius: '6px',
+          background: 'var(--sap-card-bg)',
+          color: '#374151',
+          outline: 'none',
+          cursor: 'pointer'
+        }}
+      >
+        <option value="">All Categories</option>
+        {expenseCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+      </select>
+
+      <select
+        value={filterPayment}
+        onChange={e => setFilterPayment(e.target.value)}
+        style={{
+          padding: '0.35rem 0.65rem',
+          fontSize: '0.78rem',
+          border: '1px solid var(--sap-border-color)',
+          borderRadius: '6px',
+          background: 'var(--sap-card-bg)',
+          color: '#374151',
+          outline: 'none',
+          cursor: 'pointer'
+        }}
+      >
+        <option value="">All Payment Modes</option>
+        {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+
+      <select
+        value={filterStatus}
+        onChange={e => setFilterStatus(e.target.value)}
+        style={{
+          padding: '0.35rem 0.65rem',
+          fontSize: '0.78rem',
+          border: '1px solid var(--sap-border-color)',
+          borderRadius: '6px',
+          background: 'var(--sap-card-bg)',
+          color: '#374151',
+          outline: 'none',
+          cursor: 'pointer'
+        }}
+      >
+        <option value="">All Payment Statuses</option>
+        <option value="Paid">Paid</option>
+        <option value="Partially Paid">Partially Paid</option>
+        <option value="Unpaid">Unpaid</option>
+      </select>
+
+      {(filterCategory || filterPayment || filterStatus) && (
+        <button
+          onClick={() => { setFilterCategory(''); setFilterPayment(''); setFilterStatus(''); }}
+          style={{
+            background: '#fee2e2',
+            border: 'none',
+            color: '#dc2626',
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '0.72rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="admin-expenses-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
-      {/* ── Page Header ──────────────────────────────────────── */}
-      <div className="admin-header-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--sap-border-color)', paddingBottom: '1rem' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--sap-fiori-blue)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Receipt size={20} /> Expenses Ledger
-          </h2>
-          <p style={{ margin: '3px 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>Track, manage and analyze all business expenditures</p>
-        </div>
-        <div className="admin-header-actions" style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={exportCSV}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, border: '1.5px solid var(--sap-border-color)', borderRadius: '6px', background: 'transparent', color: '#374151', cursor: 'pointer' }}
-          >
-            <FileDown size={14} /> Export
-          </button>
-          <button
-            onClick={openAdd}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '0.45rem 0.85rem', fontSize: '0.8rem', fontWeight: 600, borderRadius: '6px', border: 'none', background: 'var(--sap-fiori-blue)', color: '#fff', cursor: 'pointer' }}
-          >
-            <PlusCircle size={14} /> Add Expense
-          </button>
-        </div>
-      </div>
-
       {/* ── KPI Summary Tiles ─────────────────────────────────── */}
       <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
         {[
@@ -383,159 +618,23 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
         ))}
       </div>
 
-      {/* ── Search & Filters Bar ──────────────────────────────── */}
-      <div className="admin-filter-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '8px', padding: '0.45rem 0.85rem' }}>
-        <Search size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
-        <input
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          placeholder="Search by vendor, category, bill number..."
-          style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.82rem', background: 'transparent', color: '#1e293b' }}
-        />
-        {searchTerm && <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex' }}><X size={14} /></button>}
-        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
-        <Filter size={13} style={{ color: '#94a3b8' }} />
-        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
-          <option value="">All Categories</option>
-          {expenseCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
-        <select value={filterPayment} onChange={e => setFilterPayment(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
-          <option value="">All Payment Modes</option>
-          {PAYMENT_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <div style={{ width: '1px', height: '18px', background: '#e2e8f0' }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.78rem', background: 'transparent', color: '#374151', cursor: 'pointer' }}>
-          <option value="">All Payment Statuses</option>
-          <option value="Paid">Paid</option>
-          <option value="Partially Paid">Partially Paid</option>
-          <option value="Unpaid">Unpaid</option>
-        </select>
-        {(filterCategory || filterPayment || filterStatus) && (
-          <button onClick={() => { setFilterCategory(''); setFilterPayment(''); setFilterStatus(''); }} style={{ background: '#fee2e2', border: 'none', color: '#dc2626', borderRadius: '4px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}>Clear</button>
-        )}
-      </div>
-
-      {/* ── Expenses List Table ───────────────────────────────── */}
-      <div style={{ background: 'var(--sap-card-bg)', border: '1px solid var(--sap-border-color)', borderRadius: '10px', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.65rem 1rem', borderBottom: '1px solid var(--sap-border-color)', background: '#f8fafc' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151' }}>
-            {filtered.length} expense record{filtered.length !== 1 ? 's' : ''} {(searchTerm || filterCategory || filterPayment || filterStatus) ? '(filtered)' : ''}
-          </span>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div style={{ padding: '2.5rem', textAlign: 'center' }}>
-            <Receipt size={36} style={{ color: '#cbd5e1', margin: '0 auto 0.75rem' }} />
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: 0 }}>
-              {expenses.length === 0 ? 'No expenses recorded yet. Click "Add Expense" to get started.' : 'No results match your current filters.'}
-            </p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-              <thead>
-                <tr style={{ background: '#f1f5f9' }}>
-                  {['Bill No', 'Date', 'Vendor / Party', 'Category', 'Project', 'Attachments', 'Payment Mode', 'Status', 'Paid From', 'Total (₹)', 'Paid (₹)', 'Remaining (₹)', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '0.5rem 0.85rem', textAlign: 'left', fontWeight: 700, color: '#374151', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', borderBottom: '1px solid var(--sap-border-color)' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((exp, idx) => {
-                  const status = exp.paymentStatus || 'Paid';
-                  const statusColors: Record<string, { bg: string; text: string }> = {
-                    'Paid': { bg: '#e8f5e9', text: '#2e7d32' },
-                    'Partially Paid': { bg: '#fff3e0', text: '#ef6c00' },
-                    'Unpaid': { bg: '#ffebee', text: '#c62828' }
-                  };
-                  const statusStyle = statusColors[status] || { bg: '#f1f5f9', text: '#475569' };
-                  
-                  return (
-                    <tr key={exp.id} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa', transition: 'background 0.15s' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#f0f6ff')}
-                      onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#fafafa')}
-                    >
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: 'var(--sap-fiori-blue)', fontFamily: 'monospace', fontSize: '0.78rem' }}>{exp.expenseNo || '—'}</span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151', whiteSpace: 'nowrap' }}>
-                        {exp.billDate ? new Date(exp.billDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{exp.party}</div>
-                        {exp.location && <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '1px' }}>{exp.location}</div>}
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 600 }}>{exp.expenseCategory}</span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151' }}>{exp.projectName || <span style={{ color: '#cbd5e1' }}>—</span>}</td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        {exp.documentUrl || exp.voucherUrl || exp.billUrl ? (
-                          <a href={exp.documentUrl || exp.voucherUrl || exp.billUrl} target="_blank" rel="noreferrer" title="View Document" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', padding: '2px 7px', fontSize: '0.68rem', fontWeight: 600, background: '#f0f9ff', color: '#0369a1', border: '1px solid #bae6fd', borderRadius: '4px', textDecoration: 'none' }}>
-                            <Receipt size={11} /> Document
-                          </a>
-                        ) : (
-                          <span style={{ color: '#cbd5e1' }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ background: (payBadgeColor[exp.paymentType || 'Cash'] + '18'), color: payBadgeColor[exp.paymentType || 'Cash'], borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 600 }}>
-                          {exp.paymentType || 'Cash'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ backgroundColor: statusStyle.bg, color: statusStyle.text, borderRadius: '12px', padding: '2px 9px', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          {status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9', color: '#374151', fontWeight: 500 }}>
-                        {exp.accountName || <span style={{ color: '#cbd5e1' }}>— None —</span>}
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: '#374151', fontSize: '0.82rem' }}>{fmt(exp.totalAmount || 0)}</span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 600, color: '#16a34a', fontSize: '0.82rem' }}>{fmt(exp.paidAmount !== undefined ? exp.paidAmount : exp.totalAmount)}</span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <span style={{ fontWeight: 700, color: (exp.pendingAmount || 0) > 0 ? '#ef4444' : '#16a34a', fontSize: '0.82rem' }}>{fmt(exp.pendingAmount || 0)}</span>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.85rem', borderBottom: '1px solid #f1f5f9' }}>
-                        <div style={{ display: 'flex', gap: '5px' }}>
-                          <button onClick={() => openEdit(exp)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid var(--sap-fiori-blue)', borderRadius: '4px', background: 'transparent', color: 'var(--sap-fiori-blue)', cursor: 'pointer' }}>
-                            <Edit2 size={11} /> Edit
-                          </button>
-                          <button onClick={() => handleDelete(exp)} style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0.25rem 0.55rem', fontSize: '0.7rem', fontWeight: 600, border: '1.5px solid #ef4444', borderRadius: '4px', background: 'transparent', color: '#ef4444', cursor: 'pointer' }}>
-                            <Trash2 size={11} /> Del
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr style={{ background: '#f1f5f9', borderTop: '2px solid var(--sap-border-color)' }}>
-                  <td colSpan={9} style={{ padding: '0.6rem 1rem', fontWeight: 700, color: '#374151', fontSize: '0.78rem' }}>
-                    TOTAL ({filtered.length} records)
-                  </td>
-                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#374151', fontSize: '0.85rem' }}>
-                    {fmt(filtered.reduce((s, e) => s + (e.totalAmount || 0), 0))}
-                  </td>
-                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#16a34a', fontSize: '0.85rem' }}>
-                    {fmt(filtered.reduce((s, e) => s + (e.paidAmount !== undefined ? e.paidAmount : e.totalAmount), 0))}
-                  </td>
-                  <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#ef4444', fontSize: '0.85rem' }}>
-                    {fmt(filtered.reduce((s, e) => s + (e.pendingAmount || 0), 0))}
-                  </td>
-                  <td />
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* ── ALV Grid for Expenses Ledger ──────────────────────── */}
+      <ALVGrid
+        title="Expenses Ledger"
+        subtitle="Track, manage and analyze all business expenditures"
+        columns={cols}
+        data={filtered as any}
+        rowKey="id"
+        onAdd={openAdd}
+        addLabel="Add Expense"
+        extraToolbarActions={extraFilters}
+        onExport={exportCSV}
+        onRefresh={onRefresh}
+        pageSize={15}
+        searchable={true}
+        searchPlaceholder="Search by vendor, category, bill number..."
+        selectable={true}
+      />
 
       {/* ── Add / Edit Expense Form (Slide-in Panel) ──────────── */}
       {isFormOpen && (
