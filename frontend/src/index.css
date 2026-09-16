@@ -1788,6 +1788,9 @@ button {
   font-family: "72", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
   font-size: 0.8125rem;
   color: #333;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ── Toolbar ── */
@@ -1801,6 +1804,9 @@ button {
   border-bottom: 1px solid #d9d9d9;
   flex-wrap: wrap;
   min-height: 44px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .alv-toolbar-left {

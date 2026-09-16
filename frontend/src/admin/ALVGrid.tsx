@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Download, Filter, RefreshCw, Settings2, Search,
   SortAsc, SortDesc, ChevronLeft, ChevronRight, X
@@ -58,9 +58,14 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
   const [page, setPage] = useState(1);
+  const [currentPageSize, setCurrentPageSize] = useState<number>(pageSize);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
   const [columnFilter, setColumnFilter] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setCurrentPageSize(pageSize);
+  }, [pageSize]);
 
   // Search filter
   const searched = useMemo(() => {
@@ -98,10 +103,11 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
 
   // Pagination
   const totalRows = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const effectivePageSize = currentPageSize === 0 ? (totalRows || 1) : currentPageSize;
+  const totalPages = Math.max(1, Math.ceil(totalRows / effectivePageSize));
   const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * pageSize;
-  const pageEnd = Math.min(pageStart + pageSize, totalRows);
+  const pageStart = (safePage - 1) * effectivePageSize;
+  const pageEnd = Math.min(pageStart + effectivePageSize, totalRows);
   const pageRows = sorted.slice(pageStart, pageEnd);
 
   const handleSort = (key: string) => {
@@ -163,17 +169,17 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
   };
 
   return (
-    <div className="alv-grid-container">
+    <div className="alv-grid-container" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* ── ALV Toolbar ── */}
-      <div className="alv-toolbar">
-        <div className="alv-toolbar-left">
+      <div className="alv-toolbar" style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+        <div className="alv-toolbar-left" style={{ flexShrink: 0 }}>
           <div className="alv-title-block">
             <span className="alv-title">{title}</span>
             {subtitle && <span className="alv-subtitle">{subtitle}</span>}
           </div>
         </div>
 
-        <div className="alv-toolbar-right">
+        <div className="alv-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', maxWidth: '100%' }}>
           {/* Search */}
           {searchable && (
             <div className="alv-search-box">
@@ -351,7 +357,31 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
               </span>
           }
         </div>
-        <div className="alv-statusbar-right">
+        <div className="alv-statusbar-right" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <select
+            className="alv-pagesize-select"
+            value={currentPageSize}
+            onChange={e => {
+              setCurrentPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+            style={{
+              padding: '2px 6px',
+              fontSize: '0.72rem',
+              borderRadius: '3px',
+              border: '1px solid #c8c8c8',
+              background: '#fff',
+              color: '#333',
+              cursor: 'pointer'
+            }}
+            title="Rows per page"
+          >
+            <option value={15}>15 / page</option>
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+            <option value={0}>Show All</option>
+          </select>
           <button
             className="alv-page-btn"
             disabled={safePage === 1}

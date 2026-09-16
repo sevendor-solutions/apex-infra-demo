@@ -11,7 +11,7 @@ const router = Router();
 // GET all expenses (optional filters: party, category)
 router.get("/", authenticateToken, async (req, res, next) => {
     try {
-        const expenses = await Expense.findAll({ order: [["billDate", "DESC"]] });
+        const expenses = await Expense.findAll({ order: [["createdAt", "DESC"], ["billDate", "DESC"]] });
         return res.json({ success: true, data: expenses });
     } catch (error) {
         next(error);

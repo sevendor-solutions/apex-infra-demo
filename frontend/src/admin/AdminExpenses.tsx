@@ -153,7 +153,21 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
       const matchPay = !filterPayment || e.paymentType === filterPayment;
       const matchStatus = !filterStatus || (e.paymentStatus || 'Paid') === filterStatus;
       return matchCat && matchPay && matchStatus;
-    }).sort((a, b) => new Date(b.billDate || '').getTime() - new Date(a.billDate || '').getTime());
+    }).sort((a, b) => {
+      const createdB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const createdA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      if (createdB && createdA && createdB !== createdA) {
+        return createdB - createdA;
+      }
+      const dateB = b.billDate ? new Date(b.billDate).getTime() : 0;
+      const dateA = a.billDate ? new Date(a.billDate).getTime() : 0;
+      if (dateB !== dateA) {
+        return dateB - dateA;
+      }
+      const numB = parseInt((b.id || '').replace(/\D/g, ''), 10) || 0;
+      const numA = parseInt((a.id || '').replace(/\D/g, ''), 10) || 0;
+      return numB - numA;
+    });
   }, [expenses, filterCategory, filterPayment, filterStatus]);
 
   // ── Line item helpers ────────────────────────────────────────
@@ -594,7 +608,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
   );
 
   return (
-    <div className="admin-expenses-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', height: '100%' }}>
+    <div className="admin-expenses-view" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
       {/* ── KPI Summary Tiles ─────────────────────────────────── */}
       <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
         {[
@@ -628,7 +642,7 @@ export const AdminExpenses: React.FC<AdminExpensesProps> = ({
         extraToolbarActions={extraFilters}
         onExport={exportCSV}
         onRefresh={onRefresh}
-        pageSize={15}
+        pageSize={50}
         searchable={true}
         searchPlaceholder="Search by vendor, category, bill number..."
         selectable={true}
