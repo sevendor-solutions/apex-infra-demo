@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Invoice, Supplier, Customer, Wallet, Expense, InventoryItem, Loan } from '../types';
 import { 
-  Calendar, Printer, Download 
+  Calendar, Printer, Download, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { 
   getInvoices, getCustomers, getSuppliers, getWallets, 
-  getExpenses, getInventoryItems, getLoans 
+  getExpenses, getInventoryItems, getLoans,
+  getAccountingActivities, type AccountingActivityItem
 } from '../utils/db';
+import { ALVGrid, type ALVColumn } from './ALVGrid';
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const AdminAuditorReports: React.FC = () => {
-  const [activeReport, setActiveReport] = useState<'BS' | 'PL' | 'CF' | 'Sales' | 'Purchase'>('BS');
+  const [activeReport, setActiveReport] = useState<'BS' | 'PL' | 'CF' | 'Sales' | 'Purchase' | 'Audit'>('BS');
   
   // Data State
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -21,6 +23,11 @@ export const AdminAuditorReports: React.FC = () => {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [activities, setActivities] = useState<AccountingActivityItem[]>([]);
+
+  // Audit filter state
+  const [auditModuleFilter, setAuditModuleFilter] = useState('All');
+  const [auditTypeFilter, setAuditTypeFilter] = useState('All');
 
   // Filter States
   const [startDate, setStartDate] = useState(() => {
@@ -32,14 +39,15 @@ export const AdminAuditorReports: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [invs, custs, sups, wals, exps, items, lns] = await Promise.all([
+      const [invs, custs, sups, wals, exps, items, lns, acts] = await Promise.all([
         getInvoices(),
         getCustomers(),
         getSuppliers(),
         getWallets(),
         getExpenses(),
         getInventoryItems(),
-        getLoans()
+        getLoans(),
+        getAccountingActivities({ startDate, endDate })
       ]);
       setInvoices(invs);
       setCustomers(custs);
@@ -48,6 +56,7 @@ export const AdminAuditorReports: React.FC = () => {
       setExpenses(exps);
       setInventory(items);
       setLoans(lns);
+      setActivities(acts);
     } catch (err) {
       console.error('Failed to load auditor reports data:', err);
     }
@@ -137,6 +146,113 @@ export const AdminAuditorReports: React.FC = () => {
     };
   }, [filteredInvoices, filteredExpenses]);
 
+  // ── FILTERED ACTIVITIES AUDIT TRAIL ──────────────────────────
+  const filteredActivities = useMemo(() => {
+    return activities.filter(a => {
+      const matchesModule = auditModuleFilter === 'All' || a.module === auditModuleFilter;
+      const matchesType = auditTypeFilter === 'All' || a.activityType === auditTypeFilter;
+      return matchesModule && matchesType;
+    });
+  }, [activities, auditModuleFilter, auditTypeFilter]);
+
+  const activityColumns: ALVColumn[] = useMemo(() => [
+    {
+      key: 'dateTime',
+      label: 'DATE & TIME',
+      width: '160px',
+      sortable: true,
+      render: (v) => {
+        const d = v ? new Date(String(v)) : new Date();
+        return (
+          <span style={{ fontSize: '0.8rem', color: '#475569' }}>
+            {d.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'userName',
+      label: 'USER',
+      width: '140px',
+      sortable: true,
+      render: (v, row) => (
+        <div>
+          <span style={{ fontWeight: 600, color: '#0f172a', display: 'block' }}>{String(v || 'Admin')}</span>
+          <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{String(row.userRole || 'Admin')}</span>
+        </div>
+      )
+    },
+    {
+      key: 'module',
+      label: 'MODULE',
+      width: '130px',
+      sortable: true,
+      render: (v) => (
+        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, background: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1' }}>
+          {String(v)}
+        </span>
+      )
+    },
+    {
+      key: 'activityType',
+      label: 'ACTIVITY',
+      width: '110px',
+      sortable: true,
+      render: (v) => {
+        const type = String(v).toUpperCase();
+        let bg = '#ecfdf5', color = '#059669', border = '#a7f3d0';
+        if (type === 'UPDATE') { bg = '#eff6ff'; color = '#2563eb'; border = '#bfdbfe'; }
+        else if (type === 'DELETE') { bg = '#fef2f2'; color = '#dc2626'; border = '#fecaca'; }
+        return (
+          <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, background: bg, color: color, border: `1px solid ${border}` }}>
+            {type}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'recordId',
+      label: 'REF. / RECORD NO.',
+      width: '140px',
+      sortable: true,
+      render: (v) => (
+        <code style={{ background: '#f8fafc', padding: '2px 6px', borderRadius: '4px', color: '#0f172a', fontWeight: 600, fontSize: '0.8rem', border: '1px solid #e2e8f0' }}>
+          {String(v || 'N/A')}
+        </code>
+      )
+    },
+    {
+      key: 'amount',
+      label: 'AMOUNT',
+      width: '130px',
+      align: 'right',
+      sortable: true,
+      render: (v) => {
+        const amt = Number(v) || 0;
+        return (
+          <span style={{ fontWeight: 700, color: amt > 0 ? '#0f172a' : '#64748b' }}>
+            {amt > 0 ? fmt(amt) : '—'}
+          </span>
+        );
+      }
+    },
+    {
+      key: 'description',
+      label: 'DESCRIPTION / AUDIT DETAILS',
+      render: (v) => (
+        <span style={{ color: '#1e293b', fontSize: '0.85rem' }}>{String(v)}</span>
+      )
+    },
+    {
+      key: 'ipAddress',
+      label: 'IP ADDRESS',
+      width: '110px',
+      render: (v) => (
+        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{String(v || '127.0.0.1')}</span>
+      )
+    }
+  ], []);
+
   const handlePrint = () => {
     window.print();
   };
@@ -182,6 +298,25 @@ export const AdminAuditorReports: React.FC = () => {
         [],
         ['NET BUSINESS PROFIT / LOSS', profitLoss.netProfit.toString()]
       ];
+    } else if (activeReport === 'Audit') {
+      filename = 'Activity_Audit_Trail.csv';
+      rows = [
+        ['JK Future Infra - Accounting Activity Audit Trail'],
+        [`Period: ${startDate} to ${endDate}`],
+        [],
+        ['Timestamp', 'User', 'Role', 'Module', 'Activity', 'Record ID', 'Amount', 'Description', 'IP Address'],
+        ...filteredActivities.map(a => [
+          a.dateTime,
+          a.userName,
+          a.userRole,
+          a.module,
+          a.activityType,
+          a.recordId || '',
+          a.amount ? a.amount.toString() : '0',
+          a.description || '',
+          a.ipAddress || ''
+        ])
+      ];
     } else {
       filename = 'Cash_Flow.csv';
       rows = [
@@ -206,42 +341,47 @@ export const AdminAuditorReports: React.FC = () => {
   };
 
   return (
-    <div className="admin-page-container admin-auditor-reports-view">
-      {/* Date Filtering Bar */}
-      <div className="admin-report-filter-bar" style={{ display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Calendar size={18} className="text-muted" />
-          <span className="font-semibold text-sm">Period:</span>
+    <div className="admin-page-container">
+      {/* Top Filter & Toolbar Header */}
+      <div className="admin-report-header flex justify-between align-center mb-3">
+        <div>
+          <h2>Auditor Financial Statements & Compliance Reports</h2>
+          <p className="text-muted">Statutory Statements, P&L Schedules & Accounting Activity Audit Trail</p>
         </div>
-        <input 
-          type="date" 
-          value={startDate} 
-          onChange={e => setStartDate(e.target.value)} 
-          className="form-control" 
-          style={{ width: '150px', marginBottom: 0, padding: '4px 8px' }} 
-        />
-        <span className="text-muted">to</span>
-        <input 
-          type="date" 
-          value={endDate} 
-          onChange={e => setEndDate(e.target.value)} 
-          className="form-control" 
-          style={{ width: '150px', marginBottom: 0, padding: '4px 8px' }} 
-        />
-        
-        <div className="admin-report-actions" style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
-          <button 
-            onClick={handlePrint}
-            className="btn btn-sm btn-outline flex align-center gap-0.5"
-            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-          >
-            <Printer size={14} /> Print Report
+
+        <div className="admin-report-controls flex gap-2 align-center">
+          <div className="flex gap-1 align-center">
+            <Calendar size={14} className="text-muted" />
+            <span className="text-xs">From:</span>
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)} 
+              className="form-control" 
+              style={{ width: '130px', padding: '4px 6px', fontSize: '0.85rem' }} 
+            />
+          </div>
+
+          <div className="flex gap-1 align-center">
+            <span className="text-xs">To:</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)} 
+              className="form-control" 
+              style={{ width: '130px', padding: '4px 6px', fontSize: '0.85rem' }} 
+            />
+          </div>
+
+          <button onClick={loadData} className="btn btn-outline btn-sm" title="Re-sync Ledger">
+            <RefreshCw size={14} /> Refresh
           </button>
-          <button 
-            onClick={handleExportCSV}
-            className="btn btn-sm btn-secondary flex align-center gap-0.5"
-            style={{ padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-          >
+
+          <button onClick={handlePrint} className="btn btn-outline btn-sm">
+            <Printer size={14} /> Print
+          </button>
+
+          <button onClick={handleExportCSV} className="btn btn-secondary btn-sm">
             <Download size={14} /> Export Excel
           </button>
         </div>
@@ -269,6 +409,13 @@ export const AdminAuditorReports: React.FC = () => {
           style={{ borderRadius: '4px 4px 0 0', borderBottom: 'none', marginBottom: '-2px' }}
         >
           Cash Flow Statement
+        </button>
+        <button 
+          onClick={() => setActiveReport('Audit')}
+          className={`btn btn-sm ${activeReport === 'Audit' ? 'btn-secondary' : 'btn-outline'}`}
+          style={{ borderRadius: '4px 4px 0 0', borderBottom: 'none', marginBottom: '-2px', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+        >
+          <ShieldCheck size={14} /> Activity Audit Trail ({activities.length})
         </button>
       </div>
 
@@ -418,6 +565,64 @@ export const AdminAuditorReports: React.FC = () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+        )}
+
+        {activeReport === 'Audit' && (
+          <div>
+            <div className="flex justify-between align-center mb-3" style={{ flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a' }}>Statutory Accounting Activity Audit Trail</h3>
+                <p className="text-muted text-xs" style={{ margin: '4px 0 0 0' }}>
+                  Immutable log of all financial activities (INSERT, UPDATE, DELETE) across accounting ledgers
+                </p>
+              </div>
+
+              {/* Activity Sub-filters */}
+              <div className="flex gap-2 align-center" style={{ flexWrap: 'wrap' }}>
+                <div className="flex align-center gap-1">
+                  <span className="text-xs text-muted">Module:</span>
+                  <select
+                    value={auditModuleFilter}
+                    onChange={e => setAuditModuleFilter(e.target.value)}
+                    className="form-control text-xs"
+                    style={{ padding: '3px 8px', height: '28px', width: 'auto' }}
+                  >
+                    <option value="All">All Modules</option>
+                    <option value="Payment-In">Payment-In</option>
+                    <option value="Payment-Out">Payment-Out</option>
+                    <option value="Invoices">Invoices</option>
+                    <option value="Expenses">Expenses</option>
+                  </select>
+                </div>
+
+                <div className="flex align-center gap-1">
+                  <span className="text-xs text-muted">Action:</span>
+                  <select
+                    value={auditTypeFilter}
+                    onChange={e => setAuditTypeFilter(e.target.value)}
+                    className="form-control text-xs"
+                    style={{ padding: '3px 8px', height: '28px', width: 'auto' }}
+                  >
+                    <option value="All">All Actions</option>
+                    <option value="INSERT">INSERT</option>
+                    <option value="UPDATE">UPDATE</option>
+                    <option value="DELETE">DELETE</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <ALVGrid
+              title="Accounting Activities Register"
+              subtitle={`Audited Entries from ${startDate} to ${endDate}`}
+              columns={activityColumns}
+              data={filteredActivities as unknown as Record<string, unknown>[]}
+              pageSize={15}
+              searchPlaceholder="Search user, voucher no, description, module..."
+              selectable={false}
+              onExport={() => handleExportCSV()}
+            />
           </div>
         )}
       </div>

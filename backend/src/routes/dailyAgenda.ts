@@ -27,10 +27,22 @@ router.post("/", authenticateToken, async (req, res, next) => {
 
         if (matrix) {
             if (title !== undefined) matrix.title = title;
-            if (columns !== undefined) matrix.columns = columns;
-            if (rows !== undefined) matrix.rows = rows;
-            if (cellChecklists !== undefined) matrix.cellChecklists = cellChecklists;
-            if (taskItems !== undefined) matrix.taskItems = taskItems;
+            if (columns !== undefined) {
+                matrix.columns = columns;
+                matrix.changed("columns", true);
+            }
+            if (rows !== undefined) {
+                matrix.rows = rows;
+                matrix.changed("rows", true);
+            }
+            if (cellChecklists !== undefined) {
+                matrix.cellChecklists = cellChecklists;
+                matrix.changed("cellChecklists", true);
+            }
+            if (taskItems !== undefined) {
+                matrix.taskItems = taskItems;
+                matrix.changed("taskItems", true);
+            }
             await matrix.save();
             logAuditAction(req, "Update Daily Agenda Matrix", `Updated follow-up matrix: ${matrix.title}`, "Success", { matrixId: matrix.id }).catch(err => console.error("Audit log error:", err));
             return res.json({ success: true, data: matrix });

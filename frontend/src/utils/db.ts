@@ -774,6 +774,18 @@ export const addExpenseCategory = async (category: Omit<ExpenseCategory, 'id'>):
   return handleResponse(res);
 };
 
+export const updateExpenseCategory = async (id: string, category: { name: string }): Promise<ExpenseCategory> => {
+  const res = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders()
+    },
+    body: JSON.stringify(category)
+  });
+  return handleResponse(res);
+};
+
 export const deleteExpenseCategory = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE_URL}/expense-categories/${id}`, {
     method: 'DELETE',
@@ -804,6 +816,43 @@ export const addAuditLog = async (log: { action: string; details: string; status
     body: JSON.stringify(log)
   });
   await handleResponse(res);
+};
+
+export interface AccountingActivityItem {
+  id: string;
+  module: string;
+  activityType: 'INSERT' | 'UPDATE' | 'DELETE';
+  recordId?: string;
+  description: string;
+  amount: number;
+  userName: string;
+  userRole: string;
+  userId?: string;
+  ipAddress?: string;
+  dateTime: string;
+  metadata?: any;
+}
+
+export const getAccountingActivities = async (params?: {
+  startDate?: string;
+  endDate?: string;
+  module?: string;
+  activityType?: string;
+  search?: string;
+  limit?: number;
+}): Promise<AccountingActivityItem[]> => {
+  const query = new URLSearchParams();
+  if (params?.startDate) query.append('startDate', params.startDate);
+  if (params?.endDate) query.append('endDate', params.endDate);
+  if (params?.module && params.module !== 'All') query.append('module', params.module);
+  if (params?.activityType && params.activityType !== 'All') query.append('activityType', params.activityType);
+  if (params?.search) query.append('search', params.search);
+  if (params?.limit) query.append('limit', String(params.limit));
+
+  const res = await fetch(`${API_BASE_URL}/accounting-activities?${query.toString()}`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
 };
 
 export const pingKeepAlive = async (): Promise<void> => {
@@ -1152,6 +1201,15 @@ export const addPaymentIn = async (payment: Partial<PaymentIn>): Promise<Payment
   return handleResponse(res);
 };
 
+export const updatePaymentIn = async (id: string, payment: Partial<PaymentIn>): Promise<PaymentIn> => {
+  const res = await fetch(`${API_BASE_URL}/payments/in/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payment)
+  });
+  return handleResponse(res);
+};
+
 export const getPaymentsOut = async (): Promise<PaymentOut[]> => {
   const res = await fetch(`${API_BASE_URL}/payments/out`, { headers: getAuthHeaders() });
   return handleResponse(res);
@@ -1160,6 +1218,15 @@ export const getPaymentsOut = async (): Promise<PaymentOut[]> => {
 export const addPaymentOut = async (payment: Partial<PaymentOut>): Promise<PaymentOut> => {
   const res = await fetch(`${API_BASE_URL}/payments/out`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify(payment)
+  });
+  return handleResponse(res);
+};
+
+export const updatePaymentOut = async (id: string, payment: Partial<PaymentOut>): Promise<PaymentOut> => {
+  const res = await fetch(`${API_BASE_URL}/payments/out/${id}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     body: JSON.stringify(payment)
   });

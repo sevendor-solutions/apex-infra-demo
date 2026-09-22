@@ -32,7 +32,9 @@ import {
   Mail,
   CheckCheck,
   Download,
-  FileText
+  FileText,
+  Edit2,
+  Settings
 } from 'lucide-react';
 
 interface AdminStageChecklistProps {
@@ -140,23 +142,45 @@ const deduplicateCellItems = (items: DailyAgendaChecklistItem[]): DailyAgendaChe
     const norm = normalizeTaskTitle(item.title);
     if (!norm) continue;
 
-    const matchedIdx = result.findIndex(r => 
-      normalizeTaskTitle(r.title) === norm ||
-      (item.carriedFromId && r.carriedFromId === item.carriedFromId) ||
-      (item.id && r.carriedFromId === item.id) ||
-      (r.id && item.carriedFromId === r.id)
-    );
+    const itemRoot = item.carriedFromId || item.id;
+    const matchedIdx = result.findIndex(r => {
+      if (item.id && r.id && item.id === r.id) return true;
+      const rRoot = r.carriedFromId || r.id;
+      if (itemRoot && rRoot && itemRoot === rRoot) return true;
+      if (item.id && r.carriedFromId && item.id === r.carriedFromId) return true;
+      if (r.id && item.carriedFromId && r.id === item.carriedFromId) return true;
+      if (normalizeTaskTitle(r.title) === norm) return true;
+      return false;
+    });
 
     if (matchedIdx !== -1) {
-      // If the duplicate is marked completed while earlier was not, mark earlier as completed
-      if (item.completed && !result[matchedIdx].completed) {
-        result[matchedIdx] = {
-          ...result[matchedIdx],
-          completed: true,
-          completedDate: item.completedDate,
-          completedBy: item.completedBy
-        };
-      }
+      const prev = result[matchedIdx];
+      const prevHist = Array.isArray(prev.updateHistory) ? prev.updateHistory : [];
+      const itemHist = Array.isArray(item.updateHistory) ? item.updateHistory : [];
+      const prevCount = prev.updateCount || prevHist.length || 0;
+      const itemCount = item.updateCount || itemHist.length || 0;
+
+      const bestCount = Math.max(prevCount, itemCount);
+      const bestHistory = itemCount > prevCount 
+        ? itemHist 
+        : (prevCount > itemCount ? prevHist : (itemHist.length >= prevHist.length ? itemHist : prevHist));
+      const bestTitle = itemCount > prevCount ? item.title : prev.title;
+      const bestUpdatedBy = itemCount > prevCount ? (item.updatedBy || prev.updatedBy) : (prev.updatedBy || item.updatedBy);
+      const bestUpdatedAt = itemCount > prevCount ? (item.updatedAt || prev.updatedAt) : (prev.updatedAt || item.updatedAt);
+
+      result[matchedIdx] = {
+        ...prev,
+        title: bestTitle,
+        completed: prev.completed || item.completed,
+        completedDate: prev.completedDate || item.completedDate,
+        completedBy: prev.completedBy || item.completedBy,
+        updateCount: bestCount,
+        updateHistory: bestHistory,
+        updatedBy: bestUpdatedBy,
+        updatedAt: bestUpdatedAt,
+        carriedFromId: prev.carriedFromId || item.carriedFromId,
+        carriedFromDate: prev.carriedFromDate || item.carriedFromDate
+      };
       continue;
     }
 
@@ -221,6 +245,9 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   // Columns State
   const [columns, setColumns] = useState<DailyAgendaColumn[]>(cachedInitial.columns);
   const [newColumnTitle, setNewColumnTitle] = useState<string>('');
+  const [editingColId, setEditingColId] = useState<string | null>(null);
+  const [editColTitle, setEditColTitle] = useState<string>('');
+  const [isManageColumnsOpen, setIsManageColumnsOpen] = useState<boolean>(false);
 
   // Date Rows List
   const [dateList, setDateList] = useState<string[]>(cachedInitial.dateList);
@@ -314,10 +341,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
         // For each item on curDate:
         curItems.forEach(curItem => {
           const normTitle = normalizeTaskTitle(curItem.title);
-          const existingNextIdx = nextExisting.findIndex(nItem => 
-            normalizeTaskTitle(nItem.title) === normTitle ||
-            (curItem.id && (nItem.carriedFromId === curItem.id || nItem.id === `chk_fwd_${curItem.id}_${nextDate}`))
-          );
+          const curRoot = curItem.carriedFromId || curItem.id;
+          const existingNextIdx = nextExisting.findIndex(nItem => {
+            if (curItem.id && nItem.id && curItem.id === nItem.id) return true;
+            if (curRoot && (nItem.carriedFromId === curRoot || nItem.id === curRoot)) return true;
+            if (nItem.carriedFromId && curItem.id && nItem.carriedFromId === curItem.id) return true;
+            if (nItem.id === `chk_fwd_${curItem.id}_${nextDate}`) return true;
+            if (normalizeTaskTitle(nItem.title) === normTitle) return true;
+            return false;
+          });
 
           if (curItem.completed) {
             // Completed on curDate! If it was previously carried forward to nextDate, remove it from nextDate
@@ -327,14 +359,58 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           } else {
             // Incomplete on curDate! Ensure it exists ONCE on nextDate
             if (existingNextIdx !== -1) {
+              const existingItem = nextExisting[existingNextIdx];
+              const curHist = Array.isArray(curItem.updateHistory) ? curItem.updateHistory : [];
+              const nextHist = Array.isArray(existingItem.updateHistory) ? existingItem.updateHistory : [];
+              const curCount = curItem.updateCount || curHist.length || 0;
+              const nextCount = existingItem.updateCount || nextHist.length || 0;
+
+              // Determine which item has the latest/higher update information
+              let chosenTitle = curItem.title;
+              let chosenHistory = curHist;
+              let chosenCount = curCount;
+              let chosenUpdatedBy = curItem.updatedBy || existingItem.updatedBy;
+              let chosenUpdatedAt = curItem.updatedAt || existingItem.updatedAt;
+
+              if (nextCount > curCount) {
+                chosenTitle = existingItem.title;
+                chosenHistory = nextHist;
+                chosenCount = nextCount;
+                chosenUpdatedBy = existingItem.updatedBy || curItem.updatedBy;
+                chosenUpdatedAt = existingItem.updatedAt || curItem.updatedAt;
+              } else if (curCount > nextCount) {
+                chosenTitle = curItem.title;
+                chosenHistory = curHist;
+                chosenCount = curCount;
+                chosenUpdatedBy = curItem.updatedBy || existingItem.updatedBy;
+                chosenUpdatedAt = curItem.updatedAt || existingItem.updatedAt;
+              } else {
+                // Same count - prefer the one with longer history or whichever is non-empty
+                if (nextHist.length > curHist.length) {
+                  chosenTitle = existingItem.title;
+                  chosenHistory = nextHist;
+                  chosenCount = Math.max(nextCount, nextHist.length);
+                  chosenUpdatedBy = existingItem.updatedBy || curItem.updatedBy;
+                  chosenUpdatedAt = existingItem.updatedAt || curItem.updatedAt;
+                } else if (curHist.length > nextHist.length) {
+                  chosenTitle = curItem.title;
+                  chosenHistory = curHist;
+                  chosenCount = Math.max(curCount, curHist.length);
+                  chosenUpdatedBy = curItem.updatedBy || existingItem.updatedBy;
+                  chosenUpdatedAt = curItem.updatedAt || existingItem.updatedAt;
+                }
+              }
+
               // Synchronize title and metadata
               nextExisting[existingNextIdx] = {
-                ...nextExisting[existingNextIdx],
-                title: curItem.title,
-                carriedFromId: curItem.carriedFromId || curItem.id,
-                carriedFromDate: curItem.carriedFromDate || curDate,
-                updateCount: curItem.updateCount || nextExisting[existingNextIdx].updateCount || 0,
-                updateHistory: curItem.updateHistory || nextExisting[existingNextIdx].updateHistory || []
+                ...existingItem,
+                title: chosenTitle,
+                carriedFromId: curItem.carriedFromId || curItem.id || existingItem.carriedFromId,
+                carriedFromDate: curItem.carriedFromDate || existingItem.carriedFromDate || curDate,
+                updateCount: chosenCount,
+                updateHistory: chosenHistory,
+                updatedBy: chosenUpdatedBy,
+                updatedAt: chosenUpdatedAt
               };
             } else {
               // Add to nextDate
@@ -346,10 +422,10 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 carriedFromDate: curItem.carriedFromDate || curDate,
                 createdBy: curItem.createdBy || user,
                 createdAt: curItem.createdAt || timestamp,
-                updatedBy: user,
-                updatedAt: `${timestamp} (Carried from ${curItem.carriedFromDate || curDate})`,
+                updatedBy: curItem.updatedBy || user,
+                updatedAt: curItem.updatedAt || `${timestamp} (Carried from ${curItem.carriedFromDate || curDate})`,
                 updateCount: curItem.updateCount || 0,
-                updateHistory: curItem.updateHistory || []
+                updateHistory: Array.isArray(curItem.updateHistory) ? [...curItem.updateHistory] : []
               });
             }
           }
@@ -376,24 +452,53 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
       const carriedForwardItems: DailyAgendaChecklistItem[] = incompleteToday.map(incItem => {
         const normTitle = normalizeTaskTitle(incItem.title);
+        const incRoot = incItem.carriedFromId || incItem.id;
         const existingCarried = tomorrowExisting.find(tItem => 
-          normalizeTaskTitle(tItem.title) === normTitle ||
-          (tItem.carriedFromId && tItem.carriedFromId === incItem.id) ||
-          tItem.id === `chk_fwd_${incItem.id}_${tomorrow}`
+          (tItem.id && incItem.id && tItem.id === incItem.id) ||
+          (incRoot && (tItem.carriedFromId === incRoot || tItem.id === incRoot)) ||
+          (tItem.carriedFromId && incItem.id && tItem.carriedFromId === incItem.id) ||
+          tItem.id === `chk_fwd_${incItem.id}_${tomorrow}` ||
+          normalizeTaskTitle(tItem.title) === normTitle
         );
+
+        const incHist = Array.isArray(incItem.updateHistory) ? incItem.updateHistory : [];
+        const existHist = Array.isArray(existingCarried?.updateHistory) ? existingCarried.updateHistory : [];
+        const incCount = incItem.updateCount || incHist.length || 0;
+        const existCount = existingCarried?.updateCount || existHist.length || 0;
+
+        let bestTitle = incItem.title;
+        let bestHist = incHist;
+        let bestCount = Math.max(incCount, existCount);
+        let bestUpdatedBy = incItem.updatedBy || existingCarried?.updatedBy || user;
+        let bestUpdatedAt = incItem.updatedAt || existingCarried?.updatedAt;
+
+        if (existCount > incCount) {
+          bestTitle = existingCarried!.title;
+          bestHist = existHist;
+          bestUpdatedBy = existingCarried!.updatedBy || incItem.updatedBy || user;
+          bestUpdatedAt = existingCarried!.updatedAt || incItem.updatedAt;
+        } else if (incCount > existCount) {
+          bestTitle = incItem.title;
+          bestHist = incHist;
+        } else if (existHist.length > incHist.length) {
+          bestTitle = existingCarried!.title;
+          bestHist = existHist;
+          bestUpdatedBy = existingCarried!.updatedBy || incItem.updatedBy || user;
+          bestUpdatedAt = existingCarried!.updatedAt || incItem.updatedAt;
+        }
 
         return {
           id: existingCarried?.id || `chk_fwd_${incItem.id}_${tomorrow}`,
-          carriedFromId: incItem.id,
-          title: incItem.title,
+          carriedFromId: incItem.carriedFromId || incItem.id,
+          title: bestTitle,
           completed: false,
           carriedFromDate: incItem.carriedFromDate || today,
           createdBy: incItem.createdBy || user,
           createdAt: incItem.createdAt || timestamp,
-          updatedBy: existingCarried?.updatedBy || incItem.updatedBy,
-          updatedAt: existingCarried?.updatedAt || incItem.updatedAt,
-          updateCount: incItem.updateCount || 0,
-          updateHistory: incItem.updateHistory || []
+          updatedBy: bestUpdatedBy,
+          updatedAt: bestUpdatedAt || `${timestamp} (Carried from ${incItem.carriedFromDate || today})`,
+          updateCount: bestCount,
+          updateHistory: bestHist
         };
       });
 
@@ -425,22 +530,49 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const loadBackendData = async () => {
       try {
         const matrices = await getDailyAgendaMatrices();
-        if (matrices && matrices.length > 0) {
-          const saved = matrices[0];
-          const loadedCols = (saved.columns && saved.columns.length > 0) ? saved.columns : STANDARD_DEFAULT_COLUMNS;
+        let matrixToUse = (matrices && matrices.length > 0) ? matrices[0] : null;
+
+        // Check if local cache has newer or more comprehensive data than backend
+        try {
+          const raw = localStorage.getItem('jk_daily_agenda_matrices');
+          if (raw) {
+            const localParsed = JSON.parse(raw);
+            if (Array.isArray(localParsed) && localParsed.length > 0) {
+              const local = localParsed[0];
+              if (!matrixToUse) {
+                matrixToUse = local;
+              } else {
+                const localTime = new Date(local.updatedAt || 0).getTime();
+                const backendTime = new Date(matrixToUse.updatedAt || 0).getTime();
+                const localColsCount = local.columns?.length || 0;
+                const backendColsCount = matrixToUse.columns?.length || 0;
+                // If local is newer or has more columns, prioritize local and push it to backend
+                if (localTime > backendTime || localColsCount > backendColsCount) {
+                  matrixToUse = local;
+                  saveDailyAgendaMatrix(local).catch(err => console.warn('Background sync local to backend:', err));
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Cache check error:', e);
+        }
+
+        if (matrixToUse) {
+          const loadedCols = (matrixToUse.columns && matrixToUse.columns.length > 0) ? matrixToUse.columns : STANDARD_DEFAULT_COLUMNS;
           setColumns(loadedCols);
           if (loadedCols[0]) {
             setNewLogColId(loadedCols[0].id);
           }
-          if (saved.title) setMatrixTitle(saved.title);
+          if (matrixToUse.title) setMatrixTitle(matrixToUse.title);
 
           let initialCellChecklists: Record<string, DailyAgendaChecklistItem[]> = {};
 
-          if (saved.cellChecklists && Object.keys(saved.cellChecklists).length > 0) {
-            initialCellChecklists = saved.cellChecklists;
-          } else if (saved.taskItems && saved.taskItems.length > 0) {
-            setTaskItems(saved.taskItems);
-            saved.taskItems.forEach(t => {
+          if (matrixToUse.cellChecklists && Object.keys(matrixToUse.cellChecklists).length > 0) {
+            initialCellChecklists = matrixToUse.cellChecklists;
+          } else if (matrixToUse.taskItems && matrixToUse.taskItems.length > 0) {
+            setTaskItems(matrixToUse.taskItems);
+            matrixToUse.taskItems.forEach(t => {
               const cellKey = `${t.plannedDate}__${t.colId}`;
               if (!initialCellChecklists[cellKey]) {
                 initialCellChecklists[cellKey] = [];
@@ -506,11 +638,20 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     return Array.from(setOfDates).sort((a, b) => a.localeCompare(b));
   }, [dateList, cellChecklists]);
 
-  // Explicit Save Matrix Helper (Backend DB + Local Backup)
-  const saveMatrixToDatabase = async (showToast = false) => {
-    if (columns.length === 0 && Object.keys(cellChecklists).length === 0 && dateList.length === 0) return;
+  // Explicit Save Matrix Helper (Backend DB + Synchronous Local Backup)
+  const saveMatrixToDatabase = async (
+    overrideCells?: Record<string, DailyAgendaChecklistItem[]>,
+    overrideCols?: DailyAgendaColumn[],
+    overrideDates?: string[],
+    showToast = false
+  ) => {
+    const targetCells = overrideCells || cellChecklists;
+    const targetCols = overrideCols || columns;
+    const targetDates = overrideDates || (sortedDates.length > 0 ? sortedDates : dateList);
 
-    const snapshotRows: DailyAgendaRow[] = sortedDates.map(dateStr => ({
+    if (targetCols.length === 0 && Object.keys(targetCells).length === 0 && targetDates.length === 0) return;
+
+    const snapshotRows: DailyAgendaRow[] = targetDates.map(dateStr => ({
       id: 'r_' + dateStr,
       date: dateStr,
       tasks: {}
@@ -519,20 +660,21 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const matrixData: DailyAgendaMatrix = {
       id: 'main_daily_matrix',
       title: matrixTitle,
-      columns,
+      columns: targetCols,
       rows: snapshotRows,
       taskItems,
-      cellChecklists,
+      cellChecklists: targetCells,
       updatedAt: new Date().toISOString()
     };
 
-    // Save to local storage as immediate backup
+    // 1. Immediately write to local storage as synchronous local backup
     try {
       localStorage.setItem('jk_daily_agenda_matrices', JSON.stringify([matrixData]));
     } catch (e) {
       console.warn('LocalStorage backup error:', e);
     }
 
+    // 2. Immediately write to backend DB
     try {
       await saveDailyAgendaMatrix(matrixData);
       if (showToast) {
@@ -552,7 +694,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     if (columns.length === 0 && Object.keys(cellChecklists).length === 0) return;
 
     const timer = setTimeout(() => {
-      saveMatrixToDatabase(false);
+      saveMatrixToDatabase(undefined, undefined, undefined, false);
     }, 200);
 
     return () => clearTimeout(timer);
@@ -597,7 +739,23 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
     setNewColumnTitle('');
+    saveMatrixToDatabase(nextCellChecklists, newColsList, nextDates, false);
     onAddToast(`Added column "${newCol.title}" with default checklist items.`, 'success');
+  };
+
+  // Save Edited Column Title
+  const handleSaveEditColumn = (colId: string) => {
+    const trimmed = editColTitle.trim();
+    if (!trimmed) {
+      setEditingColId(null);
+      return;
+    }
+    const updatedCols = columns.map(c => c.id === colId ? { ...c, title: trimmed } : c);
+    setColumns(updatedCols);
+    setEditingColId(null);
+    setEditColTitle('');
+    saveMatrixToDatabase(cellChecklists, updatedCols, dateList, false);
+    onAddToast(`Column renamed to "${trimmed}".`, 'success');
   };
 
   // Delete Column Handler
@@ -617,8 +775,11 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       }
     });
 
+    const { nextCellChecklists, nextDates } = syncAutoRollover(nextCells, remainingCols);
     setColumns(remainingCols);
-    setCellChecklists(nextCells);
+    setCellChecklists(nextCellChecklists);
+    setDateList(nextDates);
+    saveMatrixToDatabase(nextCellChecklists, remainingCols, nextDates, false);
     onAddToast(`Deleted column "${colTitle}".`, 'info');
   };
 
@@ -656,6 +817,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       setCellChecklists(nextCellChecklists);
       setDateList(nextDates);
       setNewLogTitle('');
+      saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
       onAddToast(`Added "${newItem.title}" to ${targetDate}.`, 'success');
     } else {
       columns.forEach(col => {
@@ -667,6 +829,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       const { nextCellChecklists, nextDates } = syncAutoRollover(nextCells, columns);
       setCellChecklists(nextCellChecklists);
       setDateList(nextDates);
+      saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
       onAddToast(`Added date row for ${targetDate}.`, 'success');
     }
   };
@@ -695,6 +858,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
   };
 
   // Add Dynamic Checklist Option / Item inside a specific Cell
@@ -726,6 +890,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
     setNewOptionInputs(prev => ({ ...prev, [cellKey]: '' }));
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
     onAddToast(`Added option "${text}".`, 'success');
   };
 
@@ -746,12 +911,14 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
     onAddToast('Task removed.', 'info');
   };
 
   // Save Inline Edited Item Title (Completed Records CANNOT be modified)
   const handleSaveEditItem = (dateStr: string, colId: string, itemId: string) => {
-    if (!editItemTitle.trim()) {
+    const trimmedTitle = editItemTitle.trim();
+    if (!trimmedTitle) {
       setEditingItemKey(null);
       return;
     }
@@ -760,47 +927,68 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const timestamp = getFormattedDateTime();
 
     const list = cellChecklists[cellKey] ? [...cellChecklists[cellKey]] : [];
-    const updated = list.map((item, idx) => {
-      if (item.id === itemId || `chk_def_${idx}` === itemId) {
-        // Guard: Completed records cannot be updated
-        if (item.completed) {
-          onAddToast('Completed tasks cannot be modified.', 'error');
-          return item;
+    const targetItem = list.find((item, idx) => item.id === itemId || `chk_def_${idx}` === itemId);
+    if (!targetItem) {
+      setEditingItemKey(null);
+      return;
+    }
+
+    // Guard: Completed records cannot be updated
+    if (targetItem.completed) {
+      onAddToast('Completed tasks cannot be modified.', 'error');
+      setEditingItemKey(null);
+      return;
+    }
+
+    const isTitleChanged = targetItem.title !== trimmedTitle;
+    const currentCount = targetItem.updateCount || 0;
+    const nextCount = isTitleChanged ? currentCount + 1 : currentCount;
+
+    const newHistoryEntry: DailyAgendaChecklistItemHistory = {
+      updatedBy: user,
+      updatedAt: timestamp,
+      oldTitle: targetItem.title,
+      newTitle: trimmedTitle,
+      note: `Title changed from "${targetItem.title}" to "${trimmedTitle}"`
+    };
+
+    const existingHistory = Array.isArray(targetItem.updateHistory) ? targetItem.updateHistory : [];
+    const nextHistory = isTitleChanged ? [...existingHistory, newHistoryEntry] : existingHistory;
+
+    const rootId = targetItem.carriedFromId || targetItem.id;
+    const targetNormTitle = normalizeTaskTitle(targetItem.title);
+
+    // Synchronize the updated task across all cell dates so earlier/carried dates stay in sync
+    const updatedBase: Record<string, DailyAgendaChecklistItem[]> = {};
+    Object.entries(cellChecklists).forEach(([k, cellItems]) => {
+      updatedBase[k] = (cellItems || []).map((item, idx) => {
+        const matchesId = item.id === itemId || `chk_def_${idx}` === itemId;
+        const matchesRoot = rootId && (item.id === rootId || item.carriedFromId === rootId);
+        const matchesTitle = targetNormTitle && normalizeTaskTitle(item.title) === targetNormTitle;
+
+        if (matchesId || matchesRoot || matchesTitle) {
+          if (item.completed) {
+            return item; // Do not modify locked completed items
+          }
+          return {
+            ...item,
+            title: trimmedTitle,
+            updatedBy: user,
+            updatedAt: timestamp,
+            updateCount: nextCount,
+            updateHistory: nextHistory
+          };
         }
-
-        const isTitleChanged = item.title !== editItemTitle.trim();
-        const currentCount = item.updateCount || 0;
-        const nextCount = isTitleChanged ? currentCount + 1 : currentCount;
-
-        const newHistoryEntry: DailyAgendaChecklistItemHistory = {
-          updatedBy: user,
-          updatedAt: timestamp,
-          oldTitle: item.title,
-          newTitle: editItemTitle.trim(),
-          note: `Title changed from "${item.title}" to "${editItemTitle.trim()}"`
-        };
-
-        const existingHistory = item.updateHistory || [];
-        const nextHistory = isTitleChanged ? [...existingHistory, newHistoryEntry] : existingHistory;
-
-        return { 
-          ...item, 
-          title: editItemTitle.trim(),
-          updatedBy: user,
-          updatedAt: timestamp,
-          updateCount: nextCount,
-          updateHistory: nextHistory
-        };
-      }
-      return item;
+        return item;
+      });
     });
 
-    const updatedBase = { ...cellChecklists, [cellKey]: updated };
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
     setEditingItemKey(null);
     setEditItemTitle('');
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
     onAddToast('Task updated successfully.', 'success');
   };
 
@@ -822,6 +1010,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
   };
 
   // Reset Cell to Default 10 Checklist Items
@@ -835,6 +1024,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const { nextCellChecklists, nextDates } = syncAutoRollover(updatedBase, columns);
     setCellChecklists(nextCellChecklists);
     setDateList(nextDates);
+    saveMatrixToDatabase(nextCellChecklists, columns, nextDates, false);
     onAddToast('Reset cell to default checklist items.', 'info');
   };
 
@@ -1976,7 +2166,140 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     columns.forEach(col => {
       cols.push({
         key: col.id,
-        label: col.title,
+        label: (
+          <div 
+            className="flex align-center justify-between gap-1 w-full"
+            onClick={e => e.stopPropagation()}
+            style={{ minWidth: '150px' }}
+          >
+            {editingColId === col.id ? (
+              <div className="flex align-center gap-1 w-full" onClick={e => e.stopPropagation()}>
+                <input
+                  type="text"
+                  className="form-control"
+                  style={{
+                    fontSize: '0.78rem',
+                    padding: '2px 6px',
+                    height: '26px',
+                    width: '120px',
+                    fontWeight: 700,
+                    borderColor: '#0284c7',
+                    backgroundColor: '#ffffff'
+                  }}
+                  value={editColTitle}
+                  onChange={e => setEditColTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveEditColumn(col.id);
+                    }
+                    if (e.key === 'Escape') setEditingColId(null);
+                  }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  className="btn btn-xs flex align-center justify-center"
+                  style={{
+                    padding: '2px 5px',
+                    height: '24px',
+                    backgroundColor: '#16a34a',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleSaveEditColumn(col.id)}
+                  title="Save Column Title"
+                >
+                  <Check size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-xs flex align-center justify-center"
+                  style={{
+                    padding: '2px 5px',
+                    height: '24px',
+                    backgroundColor: '#e2e8f0',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setEditingColId(null)}
+                  title="Cancel"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex align-center justify-between w-full gap-1.5">
+                <span 
+                  className="font-bold text-xs cursor-pointer" 
+                  style={{ color: '#0f2b46', letterSpacing: '0.5px' }}
+                  onClick={() => {
+                    setEditingColId(col.id);
+                    setEditColTitle(col.title);
+                  }}
+                  title="Click to rename column"
+                >
+                  {col.title}
+                </span>
+                <div className="flex align-center gap-0.5">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs p-1 text-muted"
+                    style={{
+                      height: '22px',
+                      width: '22px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px',
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      color: '#475569'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingColId(col.id);
+                      setEditColTitle(col.title);
+                    }}
+                    title={`Rename column "${col.title}"`}
+                  >
+                    <Edit2 size={12} />
+                  </button>
+                  {columns.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs p-1 text-danger"
+                      style={{
+                        height: '22px',
+                        width: '22px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        color: '#ef4444'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteColumn(col.id, col.title);
+                      }}
+                      title={`Delete column "${col.title}"`}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ),
         sortable: false,
         render: (_val, row) => {
           const dateStr = String(row.date);
@@ -2021,6 +2344,33 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                   >
                     {col.title} {statusFilter === 'COMPLETED' ? 'Completed Tasks' : (statusFilter === 'IN_PROGRESS' ? 'Pending Tasks' : 'Checklist')}
                   </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs p-0 text-muted"
+                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '1px 3px', color: '#64748b' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingColId(col.id);
+                      setEditColTitle(col.title);
+                    }}
+                    title={`Rename column "${col.title}"`}
+                  >
+                    <Edit2 size={11} />
+                  </button>
+                  {columns.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs p-0 text-danger"
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '1px 3px', color: '#ef4444' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteColumn(col.id, col.title);
+                      }}
+                      title={`Delete column "${col.title}"`}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex align-center gap-1 flex-wrap">
@@ -2212,12 +2562,23 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
+                                          let hist = Array.isArray(item.updateHistory) ? [...item.updateHistory] : [];
+                                          const uCount = item.updateCount || 0;
+                                          if (hist.length === 0 && uCount > 0) {
+                                            hist = [{
+                                              updatedBy: item.updatedBy || 'admin',
+                                              updatedAt: item.updatedAt || 'Recorded Update',
+                                              oldTitle: item.title,
+                                              newTitle: item.title,
+                                              note: `Task was updated (${uCount} time${uCount > 1 ? 's' : ''})`
+                                            }];
+                                          }
                                           setViewHistoryItem({
                                             title: item.title,
                                             createdBy: item.createdBy,
                                             createdAt: item.createdAt,
                                             updateCount: item.updateCount,
-                                            history: item.updateHistory || []
+                                            history: hist
                                           });
                                         }}
                                         className="badge flex align-center gap-0.5"
@@ -2435,7 +2796,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     });
 
     return cols;
-  }, [columns, sortedDates, cellChecklists, editingItemKey, editItemTitle, editingDateRow, editDateValue, newOptionInputs, statusFilter]);
+  }, [columns, sortedDates, cellChecklists, editingItemKey, editItemTitle, editingDateRow, editDateValue, newOptionInputs, statusFilter, editingColId, editColTitle]);
 
   return (
     <div className="daily-agenda-matrix-container">
@@ -2473,6 +2834,16 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
                 <Plus size={13} /> Add Column
               </button>
             </form>
+
+            <button
+              type="button"
+              onClick={() => setIsManageColumnsOpen(true)}
+              className="btn btn-outline btn-xs flex align-center gap-1"
+              style={{ fontSize: '0.78rem', padding: '5px 10px', height: '30px', whiteSpace: 'nowrap', backgroundColor: '#ffffff', color: '#0f2b46', fontWeight: 600 }}
+              title="Manage, rename, or delete columns"
+            >
+              <Settings size={13} /> Manage Columns ({columns.length})
+            </button>
 
             <button 
               type="button"
@@ -2670,6 +3041,151 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
           }}
         />
       </div>
+
+      {/* Manage Columns Modal */}
+      {isManageColumnsOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px'
+          }}
+          onClick={() => setIsManageColumnsOpen(false)}
+        >
+          <div 
+            className="admin-card p-4"
+            style={{
+              maxWidth: '520px',
+              width: '100%',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              border: '1px solid #cbd5e1'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between align-center mb-3 border-bottom pb-2">
+              <div className="flex align-center gap-1.5">
+                <Settings size={20} className="text-primary" />
+                <h3 className="m-0 text-base font-bold" style={{ color: '#0f172a' }}>Manage Matrix Columns</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-ghost btn-sm p-1 text-muted"
+                onClick={() => setIsManageColumnsOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mb-3">
+              <p className="text-xs text-muted mb-2">
+                Edit column titles or delete columns. At least one column must remain in the matrix.
+              </p>
+              <div style={{ maxHeight: '280px', overflowY: 'auto' }} className="border rounded">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0', color: '#475569' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', width: '40px' }}>#</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Column Title</th>
+                      <th style={{ padding: '8px', textAlign: 'center', width: '90px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {columns.map((c, idx) => (
+                      <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px', fontWeight: 600, color: '#64748b' }}>{idx + 1}</td>
+                        <td style={{ padding: '8px' }}>
+                          {editingColId === c.id ? (
+                            <div className="flex align-center gap-1">
+                              <input
+                                type="text"
+                                className="form-control"
+                                style={{ fontSize: '0.78rem', padding: '2px 6px', height: '26px', width: '100%' }}
+                                value={editColTitle}
+                                onChange={e => setEditColTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') handleSaveEditColumn(c.id);
+                                  if (e.key === 'Escape') setEditingColId(null);
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-primary p-1 flex align-center justify-center"
+                                style={{ height: '24px', width: '24px' }}
+                                onClick={() => handleSaveEditColumn(c.id)}
+                                title="Save"
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline p-1 flex align-center justify-center"
+                                style={{ height: '24px', width: '24px' }}
+                                onClick={() => setEditingColId(null)}
+                                title="Cancel"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="font-bold text-dark">{c.title}</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                          <div className="flex align-center justify-center gap-1">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-xs p-1 text-muted"
+                              onClick={() => {
+                                setEditingColId(c.id);
+                                setEditColTitle(c.title);
+                              }}
+                              title={`Rename column "${c.title}"`}
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            {columns.length > 1 && (
+                              <button
+                                type="button"
+                                className="btn btn-ghost btn-xs p-1 text-danger"
+                                onClick={() => handleDeleteColumn(c.id, c.title)}
+                                title={`Delete column "${c.title}"`}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-top">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setIsManageColumnsOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Update Audit History Modal */}
       {viewHistoryItem && (

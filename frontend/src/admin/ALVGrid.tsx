@@ -6,7 +6,7 @@ import {
 
 export interface ALVColumn {
   key: string;
-  label: string;
+  label: string | React.ReactNode;
   width?: string;
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
@@ -241,7 +241,7 @@ export const ALVGrid: React.FC<ALVGridProps> = ({
             <div key={col.key} className="alv-filter-cell" style={{ width: col.width }}>
               <input
                 className="alv-filter-input"
-                placeholder={`Filter ${col.label}`}
+                placeholder={`Filter ${typeof col.label === 'string' ? col.label : col.key}`}
                 value={columnFilter[col.key] || ''}
                 onChange={e => {
                   setColumnFilter(prev => ({ ...prev, [col.key]: e.target.value }));

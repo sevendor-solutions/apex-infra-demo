@@ -2518,6 +2518,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               facings={facings}
               amenities={amenities}
               expenseCategories={expenseCategories}
+              expenses={expenses}
               onRefresh={() => { syncDBData(); logAction('Masters Sync', 'Synced Masters configuration matrices', 'Success'); }}
               onAddToast={(msg, type) => {
                 onAddToast(msg, type);

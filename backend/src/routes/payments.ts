@@ -251,6 +251,197 @@ router.delete("/in/:id", authenticateToken, async (req, res, next) => {
     }
 });
 
+// PUT update Payment In
+router.put("/in/:id", authenticateToken, async (req, res, next) => {
+    try {
+        const payment = await PaymentIn.findByPk(req.params.id);
+        if (!payment) {
+            return res.status(404).json({ success: false, message: "Payment record not found" });
+        }
+
+        const { 
+            customerName, 
+            invoiceNumber, 
+            paymentDate, 
+            amount, 
+            paymentMethod, 
+            walletId, 
+            referenceNumber, 
+            notes,
+            receiptNo,
+            status,
+            unusedAmount,
+            linkedTxns,
+            attachmentUrl
+        } = req.body;
+
+        const oldAmount = payment.amount;
+        const oldCustomerName = payment.customerName;
+        const oldAccountName = payment.accountName;
+        const oldPaymentMethod = payment.paymentMethod;
+        const oldDate = payment.paymentDate;
+        const oldLinkedTxns = payment.linkedTxns;
+        const oldInvoiceNumber = payment.invoiceNumber;
+
+        const newPayAmt = parseFloat(amount);
+
+        // 1. Revert Old Effects:
+        // 1a. Revert old customer outstanding
+        const oldCustomer = await Customer.findOne({ where: { name: oldCustomerName } });
+        if (oldCustomer) {
+            oldCustomer.outstandingAmount = (oldCustomer.outstandingAmount || 0) + oldAmount;
+            await oldCustomer.save();
+        }
+
+        // 1b. Revert old invoices
+        if (oldLinkedTxns) {
+            try {
+                const txns = JSON.parse(oldLinkedTxns);
+                for (const item of txns) {
+                    const linkAmt = parseFloat(item.linkedAmount) || 0;
+                    if (linkAmt > 0) {
+                        let inv = item.txnId ? await Invoice.findByPk(item.txnId) : null;
+                        if (!inv && item.refNo) {
+                            inv = await Invoice.findOne({ where: { invoiceNumber: item.refNo } });
+                        }
+                        if (inv) {
+                            inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - linkAmt);
+                            inv.pendingAmount = Math.max(0, (inv.totalAmount || 0) - inv.paidAmount);
+                            inv.paymentStatus = inv.paidAmount <= 0 ? "Unpaid" : "Partial";
+                            await inv.save();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to parse old linkedTxns on update:", e);
+            }
+        } else if (oldInvoiceNumber) {
+            const inv = await Invoice.findOne({ where: { invoiceNumber: oldInvoiceNumber } });
+            if (inv) {
+                inv.paidAmount = Math.max(0, (inv.paidAmount || 0) - oldAmount);
+                inv.pendingAmount = Math.max(0, (inv.totalAmount || 0) - inv.paidAmount);
+                inv.paymentStatus = inv.paidAmount <= 0 ? "Unpaid" : "Partial";
+                await inv.save();
+            }
+        }
+
+        // 1c. Revert old wallet balance
+        if (oldAccountName && oldAccountName !== "Cash") {
+            const oldWallet = await Wallet.findOne({ where: { name: oldAccountName } });
+            if (oldWallet) {
+                oldWallet.currentBalance -= oldAmount;
+                await oldWallet.save();
+            }
+        }
+
+        // 2. Apply New Effects:
+        // 2a. Apply new wallet
+        let newAccountName = "Cash";
+        if (walletId) {
+            const newWallet = await Wallet.findByPk(walletId);
+            if (newWallet) {
+                newWallet.currentBalance += newPayAmt;
+                await newWallet.save();
+                newAccountName = newWallet.name;
+
+                await WalletTransaction.create({
+                    walletId: newWallet.id,
+                    type: "Credit",
+                    amount: newPayAmt,
+                    date: paymentDate || new Date().toISOString().split("T")[0],
+                    paymentMode: paymentMethod,
+                    referenceNumber: referenceNumber || `PAY-${payment.id}`,
+                    description: `Updated Payment In #${receiptNo || payment.receiptNo || payment.id} from customer ${customerName}`,
+                    userId: req.user?.id
+                });
+            }
+        }
+
+        // 2b. Apply new customer outstanding
+        const newCustomer = await Customer.findOne({ where: { name: customerName } });
+        if (newCustomer) {
+            newCustomer.outstandingAmount = Math.max(0, (newCustomer.outstandingAmount || 0) - newPayAmt);
+            await newCustomer.save();
+        }
+
+        // 2c. Apply new invoices
+        let txnsArray: any[] = [];
+        if (linkedTxns) {
+            txnsArray = typeof linkedTxns === 'string' ? JSON.parse(linkedTxns) : linkedTxns;
+            for (const item of txnsArray) {
+                const linkAmt = parseFloat(item.linkedAmount) || 0;
+                if (linkAmt > 0) {
+                    let inv = item.txnId ? await Invoice.findByPk(item.txnId) : null;
+                    if (!inv && item.refNo) {
+                        inv = await Invoice.findOne({ where: { invoiceNumber: item.refNo } });
+                    }
+                    if (inv) {
+                        inv.paidAmount = (inv.paidAmount || 0) + linkAmt;
+                        inv.pendingAmount = Math.max(0, (inv.totalAmount || 0) - inv.paidAmount);
+                        inv.paymentStatus = inv.pendingAmount <= 0 ? "Paid" : (inv.paidAmount > 0 ? "Partial" : "Unpaid");
+                        await inv.save();
+                    }
+                }
+            }
+        } else if (invoiceNumber) {
+            const inv = await Invoice.findOne({ where: { invoiceNumber } });
+            if (inv) {
+                inv.paidAmount = (inv.paidAmount || 0) + newPayAmt;
+                inv.pendingAmount = Math.max(0, (inv.totalAmount || 0) - inv.paidAmount);
+                inv.paymentStatus = inv.pendingAmount <= 0 ? "Paid" : (inv.paidAmount > 0 ? "Partial" : "Unpaid");
+                await inv.save();
+            }
+        }
+
+        // 3. Update payment record
+        const determinedStatus = status || (unusedAmount && unusedAmount > 0 ? "Advance" : "Used");
+        payment.customerName = customerName;
+        payment.invoiceNumber = invoiceNumber || (txnsArray.length > 0 ? txnsArray.map(t => t.refNo).filter(Boolean).join(", ") : undefined);
+        payment.paymentDate = paymentDate;
+        payment.amount = newPayAmt;
+        payment.paymentMethod = paymentMethod;
+        payment.accountName = newAccountName;
+        payment.referenceNumber = referenceNumber;
+        payment.notes = notes;
+        if (receiptNo) payment.receiptNo = String(receiptNo);
+        payment.status = determinedStatus;
+        payment.unusedAmount = typeof unusedAmount === 'number' ? unusedAmount : 0;
+        payment.linkedTxns = txnsArray.length > 0 ? JSON.stringify(txnsArray) : undefined;
+        if (attachmentUrl !== undefined) payment.attachmentUrl = attachmentUrl;
+        await payment.save();
+
+        // 4. Log Accounting Activity (Audit Trail)
+        await logAccountingActivity({
+            req,
+            module: "Payment-In",
+            activityType: "UPDATE",
+            recordId: payment.receiptNo || payment.id,
+            amount: newPayAmt,
+            description: `Updated Payment-In #${payment.receiptNo || payment.id} of ₹${newPayAmt} (prev ₹${oldAmount}) from ${customerName}`,
+            metadata: {
+                previous: {
+                    customerName: oldCustomerName,
+                    amount: oldAmount,
+                    paymentMethod: oldPaymentMethod,
+                    accountName: oldAccountName,
+                    date: oldDate
+                },
+                current: {
+                    customerName,
+                    amount: newPayAmt,
+                    paymentMethod,
+                    accountName: newAccountName,
+                    date: paymentDate
+                }
+            }
+        });
+
+        return res.json({ success: true, data: payment, message: "Payment-In updated successfully" });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // GET all Payments Out (Payables)
 router.get("/out", authenticateToken, async (req, res, next) => {
     try {
@@ -453,6 +644,174 @@ router.delete("/out/:id", authenticateToken, async (req, res, next) => {
             description: `Deleted Payment-Out #${payment.receiptNo || payment.id} of ₹${payAmt} to ${payment.supplierName}`
         });
         return res.json({ success: true, message: "Payment Out record deleted and balances reverted." });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// PUT update Payment Out
+router.put("/out/:id", authenticateToken, async (req, res, next) => {
+    try {
+        const payment = await PaymentOut.findByPk(req.params.id);
+        if (!payment) {
+            return res.status(404).json({ success: false, message: "Payment record not found" });
+        }
+
+        const { 
+            supplierName, 
+            billNumber, 
+            paymentDate, 
+            amount, 
+            paymentMethod, 
+            walletId, 
+            referenceNumber, 
+            notes,
+            receiptNo,
+            status,
+            unusedAmount,
+            linkedTxns,
+            attachmentUrl
+        } = req.body;
+
+        const oldAmount = payment.amount;
+        const oldSupplierName = payment.supplierName;
+        const oldAccountName = payment.accountName;
+        const oldPaymentMethod = payment.paymentMethod;
+        const oldDate = payment.paymentDate;
+        const oldLinkedTxns = payment.linkedTxns;
+
+        const newPayAmt = parseFloat(amount);
+
+        // 1. Revert Old Effects:
+        // 1a. Revert old supplier outstanding
+        const oldSupplier = await Supplier.findOne({ where: { name: oldSupplierName } });
+        if (oldSupplier) {
+            oldSupplier.outstandingAmount = (oldSupplier.outstandingAmount || 0) + oldAmount;
+            await oldSupplier.save();
+        }
+
+        // 1b. Revert old expenses
+        if (oldLinkedTxns) {
+            try {
+                const txns = JSON.parse(oldLinkedTxns);
+                for (const item of txns) {
+                    const linkAmt = parseFloat(item.linkedAmount) || 0;
+                    if (linkAmt > 0 && item.txnId) {
+                        const exp = await Expense.findByPk(item.txnId);
+                        if (exp) {
+                            exp.paidAmount = Math.max(0, (exp.paidAmount || 0) - linkAmt);
+                            exp.pendingAmount = Math.max(0, (exp.totalAmount || 0) - exp.paidAmount);
+                            exp.paymentStatus = exp.paidAmount <= 0 ? "Unpaid" : "Partially Paid";
+                            await exp.save();
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to parse old linkedTxns on update out:", e);
+            }
+        }
+
+        // 1c. Revert old wallet balance
+        if (oldAccountName && oldAccountName !== "Cash") {
+            const oldWallet = await Wallet.findOne({ where: { name: oldAccountName } });
+            if (oldWallet) {
+                oldWallet.currentBalance += oldAmount;
+                await oldWallet.save();
+            }
+        }
+
+        // 2. Apply New Effects:
+        // 2a. Apply new wallet
+        let newAccountName = "Cash";
+        if (walletId) {
+            const newWallet = await Wallet.findByPk(walletId);
+            if (newWallet) {
+                newWallet.currentBalance -= newPayAmt;
+                await newWallet.save();
+                newAccountName = newWallet.name;
+
+                await WalletTransaction.create({
+                    walletId: newWallet.id,
+                    type: "Debit",
+                    amount: newPayAmt,
+                    date: paymentDate || new Date().toISOString().split("T")[0],
+                    paymentMode: paymentMethod,
+                    referenceNumber: referenceNumber || `PAY-${payment.id}`,
+                    description: `Updated Payment Out #${receiptNo || payment.receiptNo || payment.id} to supplier ${supplierName}`,
+                    userId: req.user?.id
+                });
+            }
+        }
+
+        // 2b. Apply new supplier outstanding
+        const newSupplier = await Supplier.findOne({ where: { name: supplierName } });
+        if (newSupplier) {
+            newSupplier.outstandingAmount = Math.max(0, (newSupplier.outstandingAmount || 0) - newPayAmt);
+            await newSupplier.save();
+        }
+
+        // 2c. Apply new expenses
+        let txnsArray: any[] = [];
+        if (linkedTxns) {
+            txnsArray = typeof linkedTxns === 'string' ? JSON.parse(linkedTxns) : linkedTxns;
+            for (const item of txnsArray) {
+                const linkAmt = parseFloat(item.linkedAmount) || 0;
+                if (linkAmt > 0 && item.txnId) {
+                    const exp = await Expense.findByPk(item.txnId);
+                    if (exp) {
+                        exp.paidAmount = (exp.paidAmount || 0) + linkAmt;
+                        exp.pendingAmount = Math.max(0, (exp.totalAmount || 0) - exp.paidAmount);
+                        exp.paymentStatus = exp.pendingAmount <= 0 ? "Paid" : "Partially Paid";
+                        await exp.save();
+                    }
+                }
+            }
+        }
+
+        // 3. Update payment record
+        const determinedStatus = status || (unusedAmount && unusedAmount > 0 ? "Advance" : "Used");
+        payment.supplierName = supplierName;
+        payment.billNumber = billNumber || (txnsArray.length > 0 ? txnsArray.map(t => t.refNo).filter(Boolean).join(", ") : undefined);
+        payment.paymentDate = paymentDate;
+        payment.amount = newPayAmt;
+        payment.paymentMethod = paymentMethod;
+        payment.accountName = newAccountName;
+        payment.referenceNumber = referenceNumber;
+        payment.notes = notes;
+        if (receiptNo) payment.receiptNo = String(receiptNo);
+        payment.status = determinedStatus;
+        payment.unusedAmount = typeof unusedAmount === 'number' ? unusedAmount : 0;
+        payment.linkedTxns = txnsArray.length > 0 ? JSON.stringify(txnsArray) : undefined;
+        if (attachmentUrl !== undefined) payment.attachmentUrl = attachmentUrl;
+        await payment.save();
+
+        // 4. Log Accounting Activity (Audit Trail)
+        await logAccountingActivity({
+            req,
+            module: "Payment-Out",
+            activityType: "UPDATE",
+            recordId: payment.receiptNo || payment.id,
+            amount: newPayAmt,
+            description: `Updated Payment-Out #${payment.receiptNo || payment.id} of ₹${newPayAmt} (prev ₹${oldAmount}) to ${supplierName}`,
+            metadata: {
+                previous: {
+                    supplierName: oldSupplierName,
+                    amount: oldAmount,
+                    paymentMethod: oldPaymentMethod,
+                    accountName: oldAccountName,
+                    date: oldDate
+                },
+                current: {
+                    supplierName,
+                    amount: newPayAmt,
+                    paymentMethod,
+                    accountName: newAccountName,
+                    date: paymentDate
+                }
+            }
+        });
+
+        return res.json({ success: true, data: payment, message: "Payment-Out updated successfully" });
     } catch (error) {
         next(error);
     }

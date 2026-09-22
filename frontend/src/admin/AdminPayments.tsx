@@ -3,12 +3,12 @@ import { jsPDF } from 'jspdf';
 import type { PaymentIn, PaymentOut, PaymentAllocation, Invoice, Supplier, Customer, Wallet, Expense } from '../types';
 import { 
   X, Trash2, Download, Share2, FileText, 
-  ChevronDown, Calculator, Settings as SettingsIcon, Camera, 
-  HelpCircle, ArrowDownLeft, ArrowUpRight, Clock, Bell
+  ChevronDown, Calculator, Camera, 
+  HelpCircle, ArrowDownLeft, ArrowUpRight, Clock, Bell, Edit2
 } from 'lucide-react';
 import { 
-  getPaymentsIn, addPaymentIn, deletePaymentIn,
-  getPaymentsOut, addPaymentOut, deletePaymentOut, 
+  getPaymentsIn, addPaymentIn, updatePaymentIn, deletePaymentIn,
+  getPaymentsOut, addPaymentOut, updatePaymentOut, deletePaymentOut, 
   getPendingPayments, getCustomers, getSuppliers, getInvoices, getExpenses, getWallets
 } from '../utils/db';
 import { LinkPaymentModal } from './LinkPaymentModal';
@@ -112,6 +112,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
   const [showDescription, setShowDescription] = useState(false);
   const [attachmentUrl, setAttachmentUrl] = useState<string | undefined>(undefined);
   const [allocations, setAllocations] = useState<PaymentAllocation[]>([]);
+  const [editingPayment, setEditingPayment] = useState<PaymentIn | PaymentOut | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load all initial data
@@ -209,6 +210,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
 
   // Open Add Modal
   const handleOpenAddModal = (tab: 'In' | 'Out') => {
+    setEditingPayment(null);
     setActiveSubTab(tab);
     setPartyName('');
     setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -221,6 +223,37 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     setShowDescription(false);
     setAttachmentUrl(undefined);
     setAllocations([]);
+    setShowModal(true);
+  };
+
+  // Open Edit Modal
+  const handleOpenEditModal = (p: PaymentIn | PaymentOut, type: 'In' | 'Out') => {
+    setEditingPayment(p);
+    setActiveSubTab(type);
+    const party = type === 'In' ? (p as PaymentIn).customerName : (p as PaymentOut).supplierName;
+    setPartyName(party || '');
+    setPaymentDate(p.paymentDate || new Date().toISOString().split('T')[0]);
+    setReceiptNo(p.receiptNo || String(p.id).replace(/\D/g, '') || '');
+    setAmount(p.amount || 0);
+    setPaymentMethod(p.paymentMethod || 'Cash');
+
+    const matchedWallet = wallets.find(w => w.name === p.accountName || w.name === p.paymentMethod || w.id === (p as any).walletId);
+    setWalletId(matchedWallet ? matchedWallet.id : (wallets[0]?.id || ''));
+
+    setReferenceNumber(p.referenceNumber || '');
+    setNotes(p.notes || '');
+    setShowDescription(!!p.notes);
+    setAttachmentUrl(p.attachmentUrl);
+
+    if (p.linkedTxns) {
+      try {
+        setAllocations(JSON.parse(p.linkedTxns));
+      } catch (e) {
+        setAllocations([]);
+      }
+    } else {
+      setAllocations([]);
+    }
     setShowModal(true);
   };
 
@@ -277,7 +310,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     }
   };
 
-  // Save Payment
+  // Save Payment (Add or Update)
   const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!partyName) {
@@ -294,45 +327,82 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     const status = unusedAmt > 0 ? (totalAllocated > 0 ? 'Partial' : 'Advance') : 'Used';
 
     try {
-      if (activeSubTab === 'In') {
-        await addPaymentIn({
-          customerName: partyName,
-          receiptNo,
-          paymentDate,
-          amount,
-          paymentMethod,
-          walletId: walletId || undefined,
-          referenceNumber,
-          notes,
-          status,
-          unusedAmount: unusedAmt,
-          linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
-          attachmentUrl
-        });
-        onAddToast(`Receipt #${receiptNo} for ${partyName} saved successfully.`, 'success');
+      if (editingPayment) {
+        if (activeSubTab === 'In') {
+          await updatePaymentIn(editingPayment.id, {
+            customerName: partyName,
+            receiptNo,
+            paymentDate,
+            amount,
+            paymentMethod,
+            walletId: walletId || undefined,
+            referenceNumber,
+            notes,
+            status,
+            unusedAmount: unusedAmt,
+            linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
+            attachmentUrl
+          });
+          onAddToast(`Receipt #${receiptNo || editingPayment.id} for ${partyName} updated successfully.`, 'success');
+        } else {
+          await updatePaymentOut(editingPayment.id, {
+            supplierName: partyName,
+            receiptNo,
+            paymentDate,
+            amount,
+            paymentMethod,
+            walletId: walletId || undefined,
+            referenceNumber,
+            notes,
+            status,
+            unusedAmount: unusedAmt,
+            linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
+            attachmentUrl
+          });
+          onAddToast(`Payment Out #${receiptNo || editingPayment.id} to ${partyName} updated successfully.`, 'success');
+        }
       } else {
-        await addPaymentOut({
-          supplierName: partyName,
-          receiptNo,
-          paymentDate,
-          amount,
-          paymentMethod,
-          walletId: walletId || undefined,
-          referenceNumber,
-          notes,
-          status,
-          unusedAmount: unusedAmt,
-          linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
-          attachmentUrl
-        });
-        onAddToast(`Payment Out #${receiptNo} to ${partyName} recorded successfully.`, 'success');
+        if (activeSubTab === 'In') {
+          await addPaymentIn({
+            customerName: partyName,
+            receiptNo,
+            paymentDate,
+            amount,
+            paymentMethod,
+            walletId: walletId || undefined,
+            referenceNumber,
+            notes,
+            status,
+            unusedAmount: unusedAmt,
+            linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
+            attachmentUrl
+          });
+          onAddToast(`Receipt #${receiptNo} for ${partyName} saved successfully.`, 'success');
+        } else {
+          await addPaymentOut({
+            supplierName: partyName,
+            receiptNo,
+            paymentDate,
+            amount,
+            paymentMethod,
+            walletId: walletId || undefined,
+            referenceNumber,
+            notes,
+            status,
+            unusedAmount: unusedAmt,
+            linkedTxns: allocations.length > 0 ? JSON.stringify(allocations) : undefined,
+            attachmentUrl
+          });
+          onAddToast(`Payment Out #${receiptNo} to ${partyName} recorded successfully.`, 'success');
+        }
       }
 
       setShowModal(false);
+      setEditingPayment(null);
       await loadData();
     } catch (err: any) {
       console.error(err);
-      onAddToast(err.message || 'Failed to record payment.', 'error');
+      onAddToast(err.message || 'Failed to save payment.', 'error');
     }
   };
 
@@ -793,7 +863,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
       label: 'ACTIONS',
       sortable: false,
       align: 'center',
-      width: '110px',
+      width: '140px',
       render: (_v, row) => {
         const p = row as unknown as (PaymentIn | PaymentOut);
         return (
@@ -806,6 +876,15 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
               style={{ color: '#2563eb', borderColor: '#2563eb' }}
             >
               <Download size={13} />
+            </button>
+            <button 
+              type="button"
+              onClick={() => handleOpenEditModal(p, activeSubTab as 'In' | 'Out')}
+              className="alv-toolbar-btn"
+              title="Edit Payment"
+              style={{ color: '#0284c7', borderColor: '#0284c7' }}
+            >
+              <Edit2 size={13} />
             </button>
             <button 
               type="button"
@@ -1250,7 +1329,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
             {/* Modal Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
               <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, color: '#0f172a' }}>
-                {activeSubTab === 'In' ? 'Payment-In' : 'Payment-Out'}
+                {editingPayment ? (activeSubTab === 'In' ? 'Edit Payment-In (Collection)' : 'Edit Payment-Out (Disbursement)') : (activeSubTab === 'In' ? 'Payment-In' : 'Payment-Out')}
               </h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <button 
@@ -1262,15 +1341,8 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
                   <Calculator size={18} />
                 </button>
                 <button 
-                  type="button"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-                  title="Settings"
-                >
-                  <SettingsIcon size={18} />
-                </button>
-                <button 
                   type="button" 
-                  onClick={() => setShowModal(false)} 
+                  onClick={() => { setShowModal(false); setEditingPayment(null); }} 
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
                 >
                   <X size={20} />
@@ -1603,7 +1675,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
                       boxShadow: '0 1px 3px rgba(37, 99, 235, 0.3)'
                     }}
                   >
-                    Save
+                    {editingPayment ? 'Update Payment' : 'Save'}
                   </button>
                 </div>
               </div>

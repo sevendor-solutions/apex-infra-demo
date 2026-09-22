@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { City, LocationMaster, PropertyType, Facing, Amenity, ExpenseCategory } from '../types';
-import { Trash2, MapPin, Building, Compass, Home, Sparkles, Receipt } from 'lucide-react';
-import { addCity, deleteCity, addLocation, deleteLocation, addPropertyType, deletePropertyType, addFacing, deleteFacing, addAmenity, deleteAmenity, addExpenseCategory, deleteExpenseCategory } from '../utils/db';
+import type { City, LocationMaster, PropertyType, Facing, Amenity, ExpenseCategory, Expense } from '../types';
+import { Trash2, MapPin, Building, Compass, Home, Sparkles, Receipt, Edit2, Lock } from 'lucide-react';
+import { addCity, deleteCity, addLocation, deleteLocation, addPropertyType, deletePropertyType, addFacing, deleteFacing, addAmenity, deleteAmenity, addExpenseCategory, updateExpenseCategory, deleteExpenseCategory } from '../utils/db';
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 
@@ -12,6 +12,7 @@ interface AdminMastersProps {
   facings: Facing[];
   amenities: Amenity[];
   expenseCategories?: ExpenseCategory[];
+  expenses?: Expense[];
   onRefresh: () => void;
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
   onConfirm: (msg: string) => Promise<boolean>;
@@ -24,6 +25,7 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
   facings = [],
   amenities = [],
   expenseCategories = [],
+  expenses = [],
   onRefresh,
   onAddToast,
   onConfirm
@@ -359,9 +361,29 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
   const [expenseCategoryModalOpen, setExpenseCategoryModalOpen] = useState(false);
   const [expenseCategoryName, setExpenseCategoryName] = useState('');
 
+  const [editCategoryModalOpen, setEditCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ExpenseCategory | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
   const handleOpenAddExpenseCategory = () => {
     setExpenseCategoryName('');
     setExpenseCategoryModalOpen(true);
+  };
+
+  const handleOpenEditExpenseCategory = (cat: ExpenseCategory) => {
+    const usedCount = expenses.filter(e => 
+      e.expenseCategory === cat.name || 
+      e.expenseCategory === cat.id
+    ).length;
+
+    if (usedCount > 0) {
+      onAddToast(`Category "${cat.name}" is used in ${usedCount} expense record(s). Used categories cannot be updated to protect ledger integrity.`, 'error');
+      return;
+    }
+
+    setEditingCategory(cat);
+    setEditCategoryName(cat.name);
+    setEditCategoryModalOpen(true);
   };
 
   const handleExpenseCategorySubmit = async (e: React.FormEvent) => {
@@ -404,14 +426,50 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
     }
   };
 
+  const handleExpenseCategoryEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    if (!editCategoryName.trim()) {
+      onAddToast('Please fill out Category Name', 'error');
+      return;
+    }
+
+    const cleanName = editCategoryName.trim();
+    const duplicate = expenseCategories.find(c => c.name.toLowerCase() === cleanName.toLowerCase() && c.id !== editingCategory.id);
+    if (duplicate) {
+      onAddToast(`Expense Category "${cleanName}" already exists in the master list.`, 'error');
+      return;
+    }
+
+    try {
+      await updateExpenseCategory(editingCategory.id, { name: cleanName });
+      onAddToast(`Expense Category "${cleanName}" updated successfully.`, 'success');
+      setEditCategoryModalOpen(false);
+      setEditingCategory(null);
+      onRefresh();
+    } catch (error: any) {
+      onAddToast(error.message || 'Failed to update expense category.', 'error');
+    }
+  };
+
   const handleExpenseCategoryDelete = async (id: string, name: string) => {
+    const usedCount = expenses.filter(e => 
+      e.expenseCategory === name || 
+      e.expenseCategory === id
+    ).length;
+
+    if (usedCount > 0) {
+      onAddToast(`Cannot delete "${name}": It is used in ${usedCount} expense record(s).`, 'error');
+      return;
+    }
+
     if (await onConfirm(`Are you sure you want to delete "${name}" from Expense Categories master?`)) {
       try {
         await deleteExpenseCategory(id);
         onAddToast(`Expense Category "${name}" removed.`, 'success');
         onRefresh();
-      } catch (error) {
-        onAddToast('Failed to delete expense category.', 'error');
+      } catch (error: any) {
+        onAddToast(error.message || 'Failed to delete expense category.', 'error');
       }
     }
   };
@@ -548,24 +606,117 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
   ];
 
   const expenseCategoryColumns: ALVColumn[] = [
-    { key: 'id', label: 'Category ID', width: '120px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
-    { key: 'name', label: 'Category Name', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    { key: 'id', label: 'CATEGORY ID', width: '120px', render: (val) => <span className="font-mono text-xs">{String(val)}</span> },
+    { key: 'name', label: 'CATEGORY NAME', render: (val) => <span className="font-semibold text-primary">{String(val)}</span> },
+    {
+      key: 'usageStatus',
+      label: 'STATUS',
+      width: '130px',
+      render: (_v, row) => {
+        const usedCount = expenses.filter(e => 
+          e.expenseCategory === row.name || 
+          e.expenseCategory === row.id
+        ).length;
+        if (usedCount > 0) {
+          return (
+            <span 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                gap: '4px', 
+                padding: '2px 8px', 
+                borderRadius: '4px', 
+                fontSize: '0.75rem', 
+                fontWeight: 600, 
+                background: '#fef3c7', 
+                color: '#b45309', 
+                border: '1px solid #fde68a' 
+              }}
+              title={`Used in ${usedCount} recorded expense(s)`}
+            >
+              <Lock size={11} /> Used ({usedCount})
+            </span>
+          );
+        }
+        return (
+          <span 
+            style={{ 
+              padding: '2px 8px', 
+              borderRadius: '4px', 
+              fontSize: '0.75rem', 
+              fontWeight: 600, 
+              background: '#ecfdf5', 
+              color: '#059669', 
+              border: '1px solid #a7f3d0' 
+            }}
+          >
+            Unused
+          </span>
+        );
+      }
+    },
     {
       key: '__actions',
-      label: 'Actions',
+      label: 'ACTIONS',
       sortable: false,
-      width: '100px',
+      width: '110px',
       align: 'center',
-      render: (_v, row) => (
-        <button
-          onClick={() => handleExpenseCategoryDelete(String(row.id), String(row.name))}
-          className="alv-toolbar-btn"
-          style={{ color: '#dc2626', borderColor: '#dc2626' }}
-          title="Delete Category"
-        >
-          <Trash2 size={13} />
-        </button>
-      )
+      render: (_v, row) => {
+        const cat = row as unknown as ExpenseCategory;
+        const usedCount = expenses.filter(e => 
+          e.expenseCategory === row.name || 
+          e.expenseCategory === row.id
+        ).length;
+        const isUsed = usedCount > 0;
+
+        return (
+          <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+            {isUsed ? (
+              <button
+                type="button"
+                onClick={() => onAddToast(`Category "${row.name}" is used in ${usedCount} expense(s) and cannot be updated to preserve ledger integrity.`, 'info')}
+                className="alv-toolbar-btn"
+                style={{ color: '#94a3b8', borderColor: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 }}
+                title={`Used in ${usedCount} expense(s) - Locked`}
+              >
+                <Lock size={13} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleOpenEditExpenseCategory(cat)}
+                className="alv-toolbar-btn"
+                style={{ color: '#0284c7', borderColor: '#0284c7' }}
+                title="Edit Category"
+              >
+                <Edit2 size={13} />
+              </button>
+            )}
+
+            {isUsed ? (
+              <button
+                type="button"
+                onClick={() => onAddToast(`Category "${row.name}" is used in ${usedCount} expense(s) and cannot be deleted.`, 'info')}
+                className="alv-toolbar-btn"
+                style={{ color: '#94a3b8', borderColor: '#cbd5e1', cursor: 'not-allowed', opacity: 0.6 }}
+                title={`Used in ${usedCount} expense(s) - Locked`}
+              >
+                <Trash2 size={13} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleExpenseCategoryDelete(String(row.id), String(row.name))}
+                className="alv-toolbar-btn"
+                style={{ color: '#dc2626', borderColor: '#dc2626' }}
+                title="Delete Category"
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
@@ -884,6 +1035,49 @@ export const AdminMasters: React.FC<AdminMastersProps> = ({
               <div className="flex gap-2 justify-end mt-2">
                 <button type="button" onClick={() => setExpenseCategoryModalOpen(false)} className="btn btn-outline btn-sm">Cancel</button>
                 <button type="submit" className="btn btn-secondary btn-sm">Create Category</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Expense Category Modal */}
+      {editCategoryModalOpen && editingCategory && (
+        <div className="modal-overlay" onClick={() => { setEditCategoryModalOpen(false); setEditingCategory(null); }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 className="p-3 bg-light-soft border-bottom-title" style={{ margin: 0 }}>Edit Expense Category</h3>
+            <form onSubmit={handleExpenseCategoryEditSubmit} className="p-3">
+              <div className="form-group mb-2">
+                <label className="form-label text-xs text-muted">Category ID</label>
+                <input 
+                  type="text" 
+                  className="form-control bg-light" 
+                  value={editingCategory.id}
+                  disabled
+                  style={{ cursor: 'not-allowed', color: '#64748b' }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Category Name *</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  placeholder="Enter updated category name" 
+                  value={editCategoryName}
+                  onChange={e => setEditCategoryName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2 justify-end mt-3">
+                <button 
+                  type="button" 
+                  onClick={() => { setEditCategoryModalOpen(false); setEditingCategory(null); }} 
+                  className="btn btn-outline btn-sm"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm">Update Category</button>
               </div>
             </form>
           </div>
