@@ -34,8 +34,8 @@ php artisan cache:clear || true
 echo "--- Running database migrations ---"
 php artisan migrate --force || true
 
-echo "--- Seeding demo data ---"
-php artisan db:seed --class=DemoDataSeeder --force 2>/dev/null || true
+echo "--- Seeding default admin & demo data ---"
+php artisan db:seed --force || true
 
 echo "--- Creating storage symlink ---"
 php artisan storage:link 2>/dev/null || true
