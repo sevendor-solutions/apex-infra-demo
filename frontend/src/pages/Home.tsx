@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShieldCheck, UserCheck, Award, MapPin, ArrowRight, Building2, Home as HomeIcon, KeyRound, Compass, Send, Search } from 'lucide-react';
 import type { Project, Blog, ProjectCategory, SiteCategory } from '../types';
 import { getProjectMainImage } from '../utils/image';
+import { useCompany } from '../context/CompanyContext';
 
 interface HomeProps {
   projects: Project[];
@@ -11,13 +12,55 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenEnquiry }) => {
+  const { profile } = useCompany();
   const [heroIndex, setHeroIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchCategory, setSearchCategory] = useState('All');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   
+  const defaultHeroSlides: Project[] = [
+    {
+      id: 'proj-1',
+      name: 'Apex One Heights',
+      category: 'Flats',
+      status: 'Ongoing',
+      location: 'Madhurawada, Visakhapatnam',
+      description: 'Ultra-luxury 3 & 4 BHK sky residences with scenic hill views.',
+      priceRange: '₹85.0 L - ₹1.45 Cr',
+      price: 8500000,
+      featured: true,
+      images: ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1600&q=85'],
+    } as any,
+    {
+      id: 'proj-2',
+      name: 'Apex Boulevard Villas',
+      category: 'Villas',
+      status: 'Ongoing',
+      location: 'Rushikonda Beach Road, Visakhapatnam',
+      description: 'Exclusive beachfront triplex luxury villas with private plunge pools.',
+      priceRange: '₹2.45 Cr - ₹3.80 Cr',
+      price: 24500000,
+      featured: true,
+      images: ['https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1600&q=85'],
+    } as any,
+    {
+      id: 'proj-3',
+      name: 'Apex Crystal Towers',
+      category: 'Flats',
+      status: 'Upcoming',
+      location: 'Financial District, Gachibowli, Hyderabad',
+      description: 'Iconic 4 BHK sky residences with rooftop helipad and infinity pool.',
+      priceRange: '₹3.10 Cr - ₹4.50 Cr',
+      price: 31000000,
+      featured: true,
+      images: ['https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=85'],
+    } as any,
+  ];
+
   const featuredProjects = projects.filter(p => p.featured && p.isActive !== false);
-  const displayProjects = featuredProjects.length > 0 ? featuredProjects : projects.slice(0, 1);
+  const displayProjects = featuredProjects.length > 0 
+    ? featuredProjects 
+    : (projects.length > 0 ? projects.slice(0, 3) : defaultHeroSlides);
   const latestBlogs = blogs.slice(0, 3);
   const currentProject = displayProjects[heroIndex] || displayProjects[0];
 
@@ -66,28 +109,32 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
     <div className="home-page">
       {/* Hero Section */}
       <section className="hero-slider-section">
-        {displayProjects.map((project, idx) => (
-          <div 
-            key={project.id} 
-            className={`hero-slide ${idx === heroIndex ? 'active' : ''}`}
-            style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${getProjectMainImage(project)})` }}
-          >
+        {displayProjects.map((project, idx) => {
+          const bgImg = getProjectMainImage(project) || 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1600&q=85';
+          const startingPrice = project.priceRange ? project.priceRange.split('-')[0] : 'Contact for Price';
+          return (
             <div 
-              className="container hero-slide-content"
-              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+              key={project.id || idx} 
+              className={`hero-slide ${idx === heroIndex ? 'active' : ''}`}
+              style={{ backgroundImage: `linear-gradient(to bottom, rgba(11, 25, 44, 0.72) 0%, rgba(11, 25, 44, 0.4) 60%, rgba(11, 25, 44, 0.15) 100%), url(${bgImg})` }}
             >
-              <div className="flex gap-1 align-center">
-                <span className={`badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
-                <span className="badge badge-ongoing" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>{project.category}</span>
-              </div>
-              <h1 className="hero-title">{project.name}</h1>
-              <p className="hero-location flex align-center gap-1"><MapPin size={18} /> {project.location}</p>
-              <div className="hero-price-tag">
-                Starting from <span className="price">{project.priceRange.split('-')[0]}</span>
+              <div 
+                className="container hero-slide-content"
+                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+              >
+                <div className="flex gap-1 align-center">
+                  <span className={`badge badge-${(project.status || 'ongoing').toLowerCase()}`}>{project.status || 'Ongoing'}</span>
+                  <span className="badge badge-ongoing" style={{ backgroundColor: 'var(--accent-light)', color: 'var(--accent)' }}>{project.category || 'Residential'}</span>
+                </div>
+                <h1 className="hero-title">{project.name}</h1>
+                <p className="hero-location flex align-center gap-1"><MapPin size={18} /> {project.location}</p>
+                <div className="hero-price-tag">
+                  Starting from <span className="price">{startingPrice}</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Persistent Unified Hero Action Bar (Mounted ONCE outside slide loop to prevent soft keyboard dismissal) */}
         <div className="container hero-action-bar-container">
@@ -297,21 +344,21 @@ export const Home: React.FC<HomeProps> = ({ projects, blogs, onNavigate, onOpenE
         <div className="container grid grid-2 gap-4 align-center">
           <div className="why-left">
             <div className="section-title-wrapper">
-              <h2 className="section-title">JK Future Infra Difference</h2>
+              <h2 className="section-title">{profile.companyName} Difference</h2>
               <p className="text-muted mb-2">We construct happy spaces that secure your future. Since inception, our core tenets have remained trust, transparent transactions, and excellent craftsmanship.</p>
             </div>
             <div className="why-list flex flex-col gap-3">
               <div className="why-item flex gap-2">
                 <div className="why-icon"><Award size={24} /></div>
                 <div>
-                  <h4>ISO 9001:2015 Certified Quality</h4>
+                  <h4>{profile.isoCertified || 'ISO 9001:2015'} Certified Quality</h4>
                   <p className="text-sm text-muted">We adhere strictly to international management standards, ensuring check-gates at every phase of construction materials and structural engineering.</p>
                 </div>
               </div>
               <div className="why-item flex gap-2">
                 <div className="why-icon"><ShieldCheck size={24} /></div>
                 <div>
-                  <h4>100% Clear Titles & AP-RERA Compliance</h4>
+                  <h4>100% Clear Titles & {profile.apReraNumber ? 'AP-RERA' : 'RERA'} Compliance</h4>
                   <p className="text-sm text-muted">No hidden clauses, no litigations. Every project is fully verified by legal entities and registered with RERA before open marketing starts.</p>
                 </div>
               </div>

@@ -14,6 +14,7 @@ import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import logoImg from '../assets/logo.png';
 import signatureImg from '../assets/authorised_signature.png';
+import { useCompany } from '../context/CompanyContext';
 
 interface AdminInvoicesProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -23,16 +24,11 @@ interface AdminInvoicesProps {
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtPDF = (n: number) => `Rs. ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const DEFAULT_REAL_ESTATE_TERMS = `1. All payments to be made strictly in favor of JK FUTURE INFRA.
-2. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules & guidelines.
-3. Possession will be handed over only after full settlement of total property dues.
-4. Any delay in scheduled payment installments may attract applicable interest charges.
-5. All disputes are subject to local judicial jurisdiction.`;
-
 export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
@@ -43,6 +39,12 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+
+  const defaultRealEstateTerms = `1. All payments to be made strictly in favor of ${profile.companyName || 'the Company'}.
+2. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules & guidelines.
+3. Possession will be handed over only after full settlement of total property dues.
+4. Any delay in scheduled payment installments may attract applicable interest charges.
+5. All disputes are subject to local judicial jurisdiction.`;
 
   // Form Fields
   const [customerName, setCustomerName] = useState('');
@@ -55,7 +57,13 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paidAmount, setPaidAmount] = useState(0);
   const [walletId, setWalletId] = useState('');
-  const [termsAndConditions, setTermsAndConditions] = useState(DEFAULT_REAL_ESTATE_TERMS);
+  const [termsAndConditions, setTermsAndConditions] = useState('');
+
+  useEffect(() => {
+    if (!termsAndConditions && profile.companyName) {
+      setTermsAndConditions(defaultRealEstateTerms);
+    }
+  }, [profile.companyName]);
 
   // Line Items
   const [lineItems, setLineItems] = useState<InvoiceItem[]>([
@@ -217,7 +225,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     setProjectName('');
     setDate(new Date().toISOString().split('T')[0]);
     setPaidAmount(0);
-    setTermsAndConditions(DEFAULT_REAL_ESTATE_TERMS);
+    setTermsAndConditions(defaultRealEstateTerms);
     setLineItems([{ productName: '', productCode: '', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
     setAmenityItems([{ productName: '', productCode: 'AMENITY', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
   };
@@ -233,7 +241,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
     setProjectName(inv.projectName || '');
     setDate(inv.date || new Date().toISOString().split('T')[0]);
     setPaidAmount(inv.paidAmount || 0);
-    setTermsAndConditions(inv.termsAndConditions || DEFAULT_REAL_ESTATE_TERMS);
+    setTermsAndConditions(inv.termsAndConditions || defaultRealEstateTerms);
     setLineItems(inv.items && inv.items.length > 0 ? inv.items : [{ productName: '', productCode: '', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
     setAmenityItems(inv.amenityItems && inv.amenityItems.length > 0 ? inv.amenityItems : [{ productName: '', productCode: 'AMENITY', quantity: 1, price: 0, discount: 0, gst: 0, gstPercentage: 18, total: 0 }]);
     setShowModal(true);
@@ -322,7 +330,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.src = logoImg;
+          img.src = profile.logoUrl || logoImg;
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
@@ -346,7 +354,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       // Load UPI QR Code
       let qrData: string | null = null;
       try {
-        const upiString = `upi://pay?pa=jkfutureinfra@sbi&pn=JK FUTURE INFRA&tn=Invoice ${inv.invoiceNumber}&am=${inv.pendingAmount > 0 ? inv.pendingAmount : inv.totalAmount}`;
+        const upiString = `upi://pay?pa=${encodeURIComponent(profile.upiId || 'payment@upi')}&pn=${encodeURIComponent(profile.companyName || 'Company')}&tn=Invoice ${inv.invoiceNumber}&am=${inv.pendingAmount > 0 ? inv.pendingAmount : inv.totalAmount}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
         qrData = await new Promise<string>((resolve, reject) => {
           const img = new Image();
@@ -367,7 +375,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
           img.onerror = (e) => reject(e);
         });
       } catch (e) {
-        console.warn('QR Code loading failed:', e);
+        console.warn('QR code loading failed:', e);
       }
 
       // Load Signature
@@ -408,17 +416,22 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 43, 70);
-        doc.text('JK FUTURE INFRA', 15, 22);
+        doc.text(profile.companyName || 'INVOICE', 15, 22);
       }
 
       // Company Contact Info on the Right
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
-      doc.text('LEE INFRA, TALRI VANIPALEM', 120, 19);
-      doc.text('AGANAMPUDI, Visakhapatnam', 120, 23);
-      doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
+      const addrTokens = (profile.registeredOffice || profile.operationalOffice || profile.address || 'Registered Office Address').split(',').map((s: string) => s.trim());
+      const addrLine1 = addrTokens.slice(0, 2).join(', ');
+      const addrLine2 = addrTokens.slice(2, 4).join(', ');
+      const addrLine3 = addrTokens.slice(4).join(', ') || addrTokens[addrTokens.length - 1] || '';
+      doc.text(addrLine1 || 'Registered Office', 120, 15);
+      if (addrLine2) doc.text(addrLine2, 120, 19);
+      if (addrLine3 && addrLine3 !== addrLine2) doc.text(addrLine3, 120, 23);
+      const invoicePhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
+      doc.text(`Call: ${invoicePhones || 'N/A'}  |  Email: ${profile.email || 'info@company.com'}`, 120, 27);
 
       // Horizontal separator line below header
       doc.setDrawColor(226, 232, 240); // Slate 200
@@ -429,13 +442,13 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('JK FUTURE INFRA', 15, 43);
+      doc.text(profile.companyName || 'COMPANY NAME', 15, 43);
       
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('GSTIN: 37AAWFJ6705B1Z6', 15, 48);
-      doc.text('State: 37-Andhra Pradesh', 15, 52);
+      doc.text(`GSTIN: ${profile.gstNumber || 'N/A'}`, 15, 48);
+      doc.text(`State: ${profile.stateCode ? profile.stateCode + '-' : ''}${profile.stateName || 'Andhra Pradesh'}`, 15, 52);
 
       // Title Right
       doc.setFontSize(20);
@@ -623,10 +636,10 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setTextColor(71, 85, 105);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text('Bank Name: STATE BANK OF INDIA, AGANAMPUDI', 18, y + 13);
-      doc.text('Bank Account No.: 45116449587', 18, y + 19);
-      doc.text('Bank IFSC code: SBIN0006832', 18, y + 25);
-      doc.text("Account Holder's Name: JK FUTURE INFRA", 18, y + 31);
+      doc.text(`Bank Name: ${profile.bankName || 'STATE BANK OF INDIA, AGANAMPUDI'}`, 18, y + 13);
+      doc.text(`Bank Account No.: ${profile.bankAccountNumber || '45116449587'}`, 18, y + 19);
+      doc.text(`Bank IFSC code: ${profile.bankIfsc || 'SBIN0006832'}`, 18, y + 25);
+      doc.text(`Account Holder's Name: ${profile.bankAccountName || profile.companyName || ''}`, 18, y + 31);
 
       if (qrData) {
         doc.addImage(qrData, 'PNG', 135, y, 32, 32);
@@ -649,7 +662,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setTextColor(71, 85, 105);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      const termsText = inv.termsAndConditions || DEFAULT_REAL_ESTATE_TERMS;
+      const termsText = inv.termsAndConditions || defaultRealEstateTerms;
       const lines = doc.splitTextToSize(termsText, 180);
       doc.text(lines, 15, y + 5);
 
@@ -661,7 +674,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
       doc.setTextColor(15, 43, 70);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.text('For: JK FUTURE INFRA', 140, y);
+      doc.text(`For: ${profile.companyName || 'Company'}`, 140, y);
       
       let sigOffset = 18;
       if (sigData) {
@@ -685,7 +698,7 @@ export const AdminInvoices: React.FC<AdminInvoicesProps> = ({
   };
 
   const handleShareInvoice = async (inv: Invoice) => {
-    const text = `Hi, here is Tax Invoice ${inv.invoiceNumber} from JK Future Infra.\n\nCustomer: ${inv.customerName}\nTotal Amount: ${fmt(inv.totalAmount)}\nPaid: ${fmt(inv.paidAmount)}\nBalance Pending: ${fmt(inv.pendingAmount)}\nStatus: ${inv.paymentStatus}\nProject: ${inv.projectName || 'General'}`;
+    const text = `Hi, here is Tax Invoice ${inv.invoiceNumber} from ${profile.companyName || 'our company'}.\n\nCustomer: ${inv.customerName}\nTotal Amount: ${fmt(inv.totalAmount)}\nPaid: ${fmt(inv.paidAmount)}\nBalance Pending: ${fmt(inv.pendingAmount)}\nStatus: ${inv.paymentStatus}\nProject: ${inv.projectName || 'General'}`;
     if (navigator.share) {
       try {
         await navigator.share({

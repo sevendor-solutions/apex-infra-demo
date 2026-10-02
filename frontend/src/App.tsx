@@ -16,6 +16,7 @@ import { AdminPanel } from './admin/AdminPanel';
 import { initDB, getProjects, getMarketing, getBlogs, getGallery, addEnquiry, getPropertyTypes, getFacings, getCities, getLocations } from './utils/db';
 import type { ProjectCategory, Project, Blog, GalleryItem, Enquiry, PropertyType, Facing, City, LocationMaster } from './types';
 import { X, Send, User, Mail, Phone, MessageSquare, ShieldCheck, ChevronUp } from 'lucide-react';
+import { useCompany } from './context/CompanyContext';
 interface Toast {
   id: string;
   message: string;
@@ -23,11 +24,20 @@ interface Toast {
 }
 
 function App() {
+  const { profile } = useCompany();
   // Navigation Routing States
   const [activePage, setActivePage] = useState<string>('home');
   useEffect(() => {
-  pageView("/" + activePage);
-}, [activePage]);
+    pageView("/" + activePage);
+  }, [activePage]);
+
+  useEffect(() => {
+    if (profile?.companyName) {
+      document.title = activePage === 'admin' 
+        ? `${profile.companyName} - Control Panel` 
+        : `${profile.companyName} | Real Estate & Construction`;
+    }
+  }, [profile?.companyName, activePage]);
 
   const [activeCategory, setActiveCategory] = useState<ProjectCategory | null>(null);
   const [activeSiteCategory, setActiveSiteCategory] = useState<string | null>(null);
@@ -193,7 +203,7 @@ function App() {
 
   const refreshData = async () => {
     try {
-      const [projs, mktg, blgs, gal, pts, fcs, cts, locs] = await Promise.all([
+      const results = await Promise.allSettled([
         getProjects(),
         getMarketing(),
         getBlogs(),
@@ -203,17 +213,31 @@ function App() {
         getCities(),
         getLocations()
       ]);
-      setProjects(projs);
-      setMarketing(mktg);
-      setBlogs(blgs);
-      setGallery(gal);
-      setPropertyTypes(pts);
-      setFacings(fcs);
-      setCities(cts);
-      setLocations(locs);
+
+      const val = <T,>(idx: number, fallback: T): T => {
+        const item = results[idx];
+        return item && item.status === 'fulfilled' ? (item.value as T) : fallback;
+      };
+
+      const projs = val<Project[]>(0, []);
+      const mktg = val<Project[]>(1, []);
+      const blgs = val<Blog[]>(2, []);
+      const gal = val<GalleryItem[]>(3, []);
+      const pts = val<PropertyType[]>(4, []);
+      const fcs = val<Facing[]>(5, []);
+      const cts = val<City[]>(6, []);
+      const locs = val<LocationMaster[]>(7, []);
+
+      if (projs && Array.isArray(projs) && (projs.length > 0 || projects.length === 0)) setProjects(projs);
+      if (mktg && Array.isArray(mktg) && (mktg.length > 0 || marketing.length === 0)) setMarketing(mktg);
+      if (blgs && Array.isArray(blgs) && (blgs.length > 0 || blogs.length === 0)) setBlogs(blgs);
+      if (gal && Array.isArray(gal) && (gal.length > 0 || gallery.length === 0)) setGallery(gal);
+      if (pts && Array.isArray(pts) && (pts.length > 0 || propertyTypes.length === 0)) setPropertyTypes(pts);
+      if (fcs && Array.isArray(fcs) && (fcs.length > 0 || facings.length === 0)) setFacings(fcs);
+      if (cts && Array.isArray(cts) && (cts.length > 0 || cities.length === 0)) setCities(cts);
+      if (locs && Array.isArray(locs) && (locs.length > 0 || locations.length === 0)) setLocations(locs);
     } catch (err) {
       console.error("Error loading data from API:", err);
-      addToast("Failed to load data from backend server.", "error");
     }
   };
 
@@ -523,7 +547,7 @@ function App() {
       {!isLoggedAdmin && (
         <div className="floating-actions">
           <a 
-            href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." 
+            href={`https://wa.me/${(profile.whatsapp || '919876543210').replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(profile.companyName || 'Team')},%20I%20have%20an%20enquiry%20regarding%20properties.`} 
             target="_blank" 
             rel="noreferrer" 
             className="float-btn float-whatsapp"
@@ -535,7 +559,7 @@ function App() {
             </svg>
           </a>
           <a 
-            href="tel:+919000553832" 
+            href={`tel:${(profile.phonePrimary || '+919876543210').replace(/[^0-9+]/g, '')}`} 
             className="float-btn float-call"
             aria-label="Call Us"
             title="Call Us Now"

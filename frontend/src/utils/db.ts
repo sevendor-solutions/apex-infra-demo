@@ -30,10 +30,27 @@ import type {
   PaymentOut,
   ProjectCostAnalysis,
   ProjectInspectionRecord,
-  DailyAgendaMatrix
+  DailyAgendaMatrix,
+  CompanyProfile
 } from '../types';
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
+
+export const getMediaUrl = (path: string | null | undefined): string => {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl && !apiUrl.includes('localhost:5173')) {
+    const origin = apiUrl.replace(/\/api\/?$/, '');
+    if (origin.startsWith('http')) {
+      return `${origin}${cleanPath}`;
+    }
+  }
+  return cleanPath;
+};
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = sessionStorage.getItem('jk_infra_logged_user_token');
@@ -881,7 +898,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// JkFutureinfra API Endpoints
+// Accounting & Management API Endpoints
 
 // Wallets
 export const getWallets = async (): Promise<Wallet[]> => {
@@ -1372,3 +1389,95 @@ export const deleteDailyAgendaMatrix = async (id: string): Promise<void> => {
   });
   await handleResponse(res);
 };
+
+// Company Profile & Branding API
+export const getCompanyProfile = async (): Promise<CompanyProfile> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/company-profile`);
+    const data = await handleResponse(res);
+    if (data) {
+      localStorage.setItem('jk_company_profile', JSON.stringify(data));
+      return data;
+    }
+  } catch (e) {
+    console.warn('Backend company-profile fetch failed, falling back to cache:', e);
+  }
+  const cached = localStorage.getItem('jk_company_profile');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch {
+      // ignore
+    }
+  }
+  return {
+    companyName: 'Apex Real Estate & Infra',
+    tagline: 'Building Landmarks, Fulfilling Dreams',
+    logoUrl: '/uploads/logo.png',
+    phonePrimary: '+91 9876543210',
+    phoneSecondary: '+91 9876543211',
+    whatsapp: '919876543210',
+    email: 'info@apexinfra.com',
+    address: 'Business Towers, Tech Park Road, Visakhapatnam, Andhra Pradesh',
+    city: 'Visakhapatnam',
+    state: 'Andhra Pradesh',
+    pincode: '530001',
+    isoCertification: 'ISO 9001:2015 Certified',
+    rera1: 'AP RERA: P0123456789',
+    rera2: 'TS RERA: P0987654321',
+    copyrightText: '© 2026 Apex Real Estate & Infra. All rights reserved.',
+  };
+};
+
+export const updateCompanyProfile = async (
+  profileData: Partial<CompanyProfile>,
+  logoFile?: File,
+  iconFile?: File,
+  signatureFile?: File
+): Promise<CompanyProfile> => {
+  let body: BodyInit;
+  const headers = getAuthHeaders();
+
+  if (logoFile || iconFile || signatureFile) {
+    const formData = new FormData();
+    Object.entries(profileData).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) {
+        formData.append(key, String(val));
+      }
+    });
+    if (logoFile) formData.append('logo', logoFile);
+    if (iconFile) formData.append('icon', iconFile);
+    if (signatureFile) formData.append('signature', signatureFile);
+    body = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    body = JSON.stringify(profileData);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/company-profile`, {
+    method: 'POST',
+    headers,
+    body,
+  });
+  const data = await handleResponse(res);
+  if (data) {
+    localStorage.setItem('jk_company_profile', JSON.stringify(data));
+  }
+  return data;
+};
+
+export const uploadCompanyLogo = async (file: File): Promise<string> => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  const res = await fetch(`${API_BASE_URL}/company-profile/upload-logo`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'Logo upload failed');
+  }
+  return json.url;
+};
+

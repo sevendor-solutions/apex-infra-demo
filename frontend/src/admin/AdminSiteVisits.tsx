@@ -14,6 +14,7 @@ import {
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { AgentSearchSelect } from './AgentSearchSelect';
+import { useCompany } from '../context/CompanyContext';
 import { 
   Mail, 
   Phone, 
@@ -43,6 +44,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const [visits, setVisits] = useState<SiteVisit[]>([]);
   const [agents, setAgents] = useState<MarketingAgent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -681,7 +683,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
               {/* Header block */}
               <div style={{ backgroundColor: '#f1f5f9', padding: '0.75rem 1rem', borderBottom: '1px solid #cbd5e1', fontSize: '0.82rem', color: '#334155' }}>
                 <div style={{ marginBottom: '4px' }}>
-                  <strong>From:</strong> {mailConfig?.senderEmail || 'noreply@jkfutureinfra.com'}
+                  <strong>From:</strong> {mailConfig?.senderEmail || profile.email || 'noreply@company.com'}
                 </div>
                 <div style={{ marginBottom: '4px' }}>
                   <strong>To:</strong> {previewVisit.customerEmail}
@@ -694,7 +696,7 @@ export const AdminSiteVisits: React.FC<AdminSiteVisitsProps> = ({
               {/* Body block */}
               <div style={{ padding: '1.5rem', minHeight: '180px', backgroundColor: 'white', fontSize: '0.9rem', color: '#1e293b', lineHeight: '1.6' }}>
                 <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <img src={logoImg} alt="JK Future Infra Logo" style={{ height: '40px' }} />
+                  <img src={profile.logoUrl || logoImg} alt={profile.companyName || "Logo"} style={{ height: '40px' }} />
                 </div>
                 <div style={{ whiteSpace: 'pre-wrap' }}>
                   {previewContent.body}

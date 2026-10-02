@@ -19,7 +19,7 @@ export const AdminSites: React.FC<AdminSitesProps> = ({ marketing }) => {
     { name: 'VUDA / VMRDA Approved Sites', authority: 'VMRDA / CRDA', desc: 'Urban plotting layouts verified by metropolitan development authorities. Fully compliant with zoning and public park reservations.', badgeColor: '#00a884' },
     { name: 'Panchayati Approved Sites', authority: 'Gram Panchayat', desc: 'Plotted layout coordinates approved by rural gram panchayat codes. Highly affordable buy-in targets.', badgeColor: '#3b82f6' },
     { name: 'Development Sites', authority: 'Land Use Board', desc: 'Large land plots set up for commercial complexes, industrial warehouses, or agricultural layouts.', badgeColor: '#f59e0b' },
-    { name: 'Ventures', authority: 'JK Developer Layouts', desc: 'Theme-designed gated plot layouts completed with black-top roads, drainage pipes, and gate arches.', badgeColor: '#8b5cf6' }
+    { name: 'Ventures', authority: 'Apex Developer Layouts', desc: 'Theme-designed gated plot layouts completed with black-top roads, drainage pipes, and gate arches.', badgeColor: '#8b5cf6' }
   ];
 
   const handleCardClick = (catName: string) => {

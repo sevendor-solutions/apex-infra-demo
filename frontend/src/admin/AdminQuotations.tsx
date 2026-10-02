@@ -13,6 +13,7 @@ import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import logoImg from '../assets/logo.png';
 import signatureImg from '../assets/authorised_signature.png';
+import { useCompany } from '../context/CompanyContext';
 
 interface AdminQuotationsProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -26,6 +27,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [itemsList, setItemsList] = useState<InventoryItem[]>([]);
   const [customersList, setCustomersList] = useState<Customer[]>([]);
@@ -51,8 +53,14 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
     return d.toISOString().split('T')[0];
   });
   const [notes, setNotes] = useState('');
-  const DEFAULT_QUOTATION_TERMS = '1. Quotation valid for 30 days from date of issue.\n2. All payments to be made strictly in favor of JK FUTURE INFRA.\n3. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules.\n4. Flat/Unit possession will be handed over after clearance of total property dues.\n5. All disputes subject to local jurisdiction.';
-  const [terms, setTerms] = useState(DEFAULT_QUOTATION_TERMS);
+  const defaultQuotationTerms = `1. Quotation valid for 30 days from date of issue.\n2. All payments to be made strictly in favor of ${profile.companyName || 'the Company'}.\n3. Registration, Stamp Duty, GST and Legal charges extra as per Govt rules.\n4. Flat/Unit possession will be handed over after clearance of total property dues.\n5. All disputes subject to local jurisdiction.`;
+  const [terms, setTerms] = useState('');
+
+  useEffect(() => {
+    if (!terms && profile.companyName) {
+      setTerms(defaultQuotationTerms);
+    }
+  }, [profile.companyName]);
   const [status, setStatus] = useState('Draft');
 
   // Quotation Line Items
@@ -199,7 +207,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       return d.toISOString().split('T')[0];
     });
     setNotes('');
-    setTerms(DEFAULT_QUOTATION_TERMS);
+    setTerms(defaultQuotationTerms);
     setStatus('Draft');
     setLineItems([{ productName: '', productCode: '', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
     setAmenityItems([{ productName: '', productCode: 'AMENITY', quantity: 1, unitPrice: 0, discount: 0, gstPercentage: 18, total: 0 }]);
@@ -276,7 +284,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.src = logoImg;
+          img.src = profile.logoUrl || logoImg;
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
@@ -300,7 +308,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       // Load UPI QR Code
       let qrData: string | null = null;
       try {
-        const upiString = `upi://pay?pa=jkfutureinfra@sbi&pn=JK FUTURE INFRA&tn=Quotation ${q.quotationNumber}&am=${q.totalAmount}`;
+        const upiString = `upi://pay?pa=${encodeURIComponent(profile.upiId || 'payment@upi')}&pn=${encodeURIComponent(profile.companyName || 'Company')}&tn=Quotation ${q.quotationNumber}&am=${q.totalAmount}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
         qrData = await new Promise<string>((resolve, reject) => {
           const img = new Image();
@@ -321,7 +329,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
           img.onerror = (e) => reject(e);
         });
       } catch (e) {
-        console.warn('QR Code loading failed:', e);
+        console.warn('QR code loading failed:', e);
       }
 
       // Load Signature
@@ -362,17 +370,22 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 43, 70);
-        doc.text('JK FUTURE INFRA', 15, 22);
+        doc.text(profile.companyName || 'QUOTATION', 15, 22);
       }
 
       // Company Contact Info on the Right
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
-      doc.text('LEE INFRA, TALRI VANIPALEM', 120, 19);
-      doc.text('AGANAMPUDI, Visakhapatnam', 120, 23);
-      doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
+      const addrTokens = (profile.registeredOffice || profile.operationalOffice || profile.address || 'Registered Office Address').split(',').map((s: string) => s.trim());
+      const addrLine1 = addrTokens.slice(0, 2).join(', ');
+      const addrLine2 = addrTokens.slice(2, 4).join(', ');
+      const addrLine3 = addrTokens.slice(4).join(', ') || addrTokens[addrTokens.length - 1] || '';
+      doc.text(addrLine1 || 'Registered Office', 120, 15);
+      if (addrLine2) doc.text(addrLine2, 120, 19);
+      if (addrLine3 && addrLine3 !== addrLine2) doc.text(addrLine3, 120, 23);
+      const quotationPhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
+      doc.text(`Call: ${quotationPhones || 'N/A'}  |  Email: ${profile.email || 'info@company.com'}`, 120, 27);
 
       // Horizontal separator line below header
       doc.setDrawColor(226, 232, 240); // Slate 200
@@ -383,13 +396,13 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('JK FUTURE INFRA', 15, 43);
+      doc.text(profile.companyName || 'COMPANY NAME', 15, 43);
       
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('GSTIN: 37AAWFJ6705B1Z6', 15, 48);
-      doc.text('State: 37-Andhra Pradesh', 15, 52);
+      doc.text(`GSTIN: ${profile.gstNumber || 'N/A'}`, 15, 48);
+      doc.text(`State: ${profile.stateCode ? profile.stateCode + '-' : ''}${profile.stateName || 'Andhra Pradesh'}`, 15, 52);
 
       // Title Right
       doc.setFontSize(20);
@@ -566,10 +579,10 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.text('Bank Name: STATE BANK OF INDIA, AGANAMPUDI', 18, y + 13);
-      doc.text('Bank Account No.: 45116449587', 18, y + 19);
-      doc.text('Bank IFSC code: SBIN0006832', 18, y + 25);
-      doc.text("Account Holder's Name: JK FUTURE INFRA", 18, y + 31);
+      doc.text(`Bank Name: ${profile.bankName || 'STATE BANK OF INDIA, AGANAMPUDI'}`, 18, y + 13);
+      doc.text(`Bank Account No.: ${profile.bankAccountNumber || '45116449587'}`, 18, y + 19);
+      doc.text(`Bank IFSC code: ${profile.bankIfsc || 'SBIN0006832'}`, 18, y + 25);
+      doc.text(`Account Holder's Name: ${profile.bankAccountName || profile.companyName || ''}`, 18, y + 31);
 
       // UPI QR Code on the right of the bank box
       if (qrData) {
@@ -594,7 +607,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(71, 85, 105); // Slate 600
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
-      const lines = doc.splitTextToSize(q.termsAndConditions || '', 180);
+      const lines = doc.splitTextToSize(q.termsAndConditions || defaultQuotationTerms, 180);
       doc.text(lines, 15, y + 5);
 
       // Signatory
@@ -606,7 +619,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
       doc.setTextColor(15, 43, 70); // Deep Navy
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.text('For: JK FUTURE INFRA', 140, y);
+      doc.text(`For: ${profile.companyName || 'Company'}`, 140, y);
       
       let sigOffset = 18;
       if (sigData) {
@@ -630,7 +643,7 @@ export const AdminQuotations: React.FC<AdminQuotationsProps> = ({
   };
 
   const handleShareQuotation = async (q: Quotation) => {
-    const text = `Hi, here is the Quotation ${q.quotationNumber} from JK Future Infra.\n\nCustomer: ${q.customerName}\nTotal Amount: ${fmt(q.totalAmount)}\nValid Until: ${q.validTillDate}\nProject: ${q.projectName || 'General'}`;
+    const text = `Hi, here is the Quotation ${q.quotationNumber} from ${profile.companyName || 'our company'}.\n\nCustomer: ${q.customerName}\nTotal Amount: ${fmt(q.totalAmount)}\nValid Until: ${q.validTillDate}\nProject: ${q.projectName || 'General'}`;
     if (navigator.share) {
       try {
         await navigator.share({

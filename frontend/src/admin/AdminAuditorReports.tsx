@@ -9,10 +9,12 @@ import {
   getAccountingActivities, type AccountingActivityItem
 } from '../utils/db';
 import { ALVGrid, type ALVColumn } from './ALVGrid';
+import { useCompany } from '../context/CompanyContext';
 
 const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const AdminAuditorReports: React.FC = () => {
+  const { profile } = useCompany();
   const [activeReport, setActiveReport] = useState<'BS' | 'PL' | 'CF' | 'Sales' | 'Purchase' | 'Audit'>('BS');
   
   // Data State
@@ -264,7 +266,7 @@ export const AdminAuditorReports: React.FC = () => {
     if (activeReport === 'BS') {
       filename = 'Balance_Sheet.csv';
       rows = [
-        ['JK Future Infra - Balance Sheet Report'],
+        [`${profile.companyName || 'Balance Sheet Report'}`],
         [`Period: ${startDate} to ${endDate}`],
         [],
         ['ASSETS', 'Amount (INR)'],
@@ -283,7 +285,7 @@ export const AdminAuditorReports: React.FC = () => {
     } else if (activeReport === 'PL') {
       filename = 'Profit_And_Loss.csv';
       rows = [
-        ['JK Future Infra - Profit & Loss Statement'],
+        [`${profile.companyName || 'Company'} - Profit & Loss Statement`],
         [`Period: ${startDate} to ${endDate}`],
         [],
         ['PARTICULARS', 'Amount (INR)'],
@@ -301,7 +303,7 @@ export const AdminAuditorReports: React.FC = () => {
     } else if (activeReport === 'Audit') {
       filename = 'Activity_Audit_Trail.csv';
       rows = [
-        ['JK Future Infra - Accounting Activity Audit Trail'],
+        [`${profile.companyName || 'Company'} - Accounting Activity Audit Trail`],
         [`Period: ${startDate} to ${endDate}`],
         [],
         ['Timestamp', 'User', 'Role', 'Module', 'Activity', 'Record ID', 'Amount', 'Description', 'IP Address'],
@@ -320,7 +322,7 @@ export const AdminAuditorReports: React.FC = () => {
     } else {
       filename = 'Cash_Flow.csv';
       rows = [
-        ['JK Future Infra - Cash Flow Statement'],
+        [`${profile.companyName || 'Company'} - Cash Flow Statement`],
         [`Period: ${startDate} to ${endDate}`],
         [],
         ['PARTICULARS', 'Amount (INR)'],
@@ -424,7 +426,7 @@ export const AdminAuditorReports: React.FC = () => {
         {activeReport === 'BS' && (
           <div>
             <div className="text-center mb-3">
-              <h2>JK FUTURE INFRA PROJECTS PVT LTD</h2>
+              <h2>{(profile.companyName || 'REAL ESTATE MANAGEMENT').toUpperCase()}</h2>
               <h4>BALANCE SHEET STATEMENT</h4>
               <p className="text-muted">As on Date Period: {startDate} to {endDate}</p>
             </div>
@@ -486,7 +488,7 @@ export const AdminAuditorReports: React.FC = () => {
         {activeReport === 'PL' && (
           <div>
             <div className="text-center mb-3">
-              <h2>JK FUTURE INFRA PROJECTS PVT LTD</h2>
+              <h2>{(profile.companyName || 'REAL ESTATE MANAGEMENT').toUpperCase()}</h2>
               <h4>PROFIT & LOSS STATEMENT</h4>
               <p className="text-muted">For the period: {startDate} to {endDate}</p>
             </div>
@@ -542,7 +544,7 @@ export const AdminAuditorReports: React.FC = () => {
         {activeReport === 'CF' && (
           <div>
             <div className="text-center mb-3">
-              <h2>JK FUTURE INFRA PROJECTS PVT LTD</h2>
+              <h2>{(profile.companyName || 'REAL ESTATE MANAGEMENT').toUpperCase()}</h2>
               <h4>CASH FLOW STATEMENT</h4>
               <p className="text-muted">Postings for period: {startDate} to {endDate}</p>
             </div>

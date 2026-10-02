@@ -29,14 +29,15 @@ import {
   getAuditLogs,
   clearAuditLogs,
   
-  // JkFutureinfra accounting DB APIs
+  // Accounting DB APIs
   getWallets,
   getQuotations,
   getInventoryItems,
   getLoans,
   getCustomers,
   getSuppliers,
-  getInvoices
+  getInvoices,
+  getMediaUrl
 } from '../utils/db';
 
 // Subcomponents
@@ -57,11 +58,12 @@ import { AdminMailConfig } from './AdminMailConfig';
 import { AdminMarketingAgents } from './AdminMarketingAgents';
 import { AdminExpenses } from './AdminExpenses';
 
-// Financial & Quality Inspection Subcomponents
 import { AdminCostAnalysis } from './AdminCostAnalysis';
 import { AdminStageChecklist } from './AdminStageChecklist';
+import { AdminCompanyProfile } from './AdminCompanyProfile';
+import { useCompany } from '../context/CompanyContext';
 
-// JkFutureinfra accounting Subcomponents
+// Accounting Subcomponents
 import { AdminWallets } from './AdminWallets';
 import { AdminQuotations } from './AdminQuotations';
 import { AdminInventory } from './AdminInventory';
@@ -75,7 +77,8 @@ import { AdminPayments } from './AdminPayments';
 // Icons
 import { 
   LayoutDashboard, 
-  Building, 
+  Building,
+  Building2, 
   Layers, 
   Map, 
   Image as ImageIcon, 
@@ -120,6 +123,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   selectedEnquiryFromDashboard,
   onClearSelectedEnquiry
 }) => {
+  const { profile } = useCompany();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Session Inactivity & Expiry Reason State
@@ -165,7 +169,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
 
-  // JkFutureinfra accounting state variables
+  // Accounting state variables
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
@@ -252,6 +256,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       users: 'systemGovernance',
       masters: 'systemGovernance',
       audit_logs: 'systemGovernance',
+      company_profile: 'systemGovernance',
     };
     return map;
   }, []);
@@ -298,6 +303,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   // Audit Logs State
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
+  // ─── Lazy-loading TTL cache: track when each module was last fetched ──────
+  // Key = module name, Value = timestamp (ms). Avoids re-fetching within 5 min.
+  const lastFetchedRef = useRef<Record<string, number>>({});
+  const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  const isCacheStale = (key: string) => {
+    const t = lastFetchedRef.current[key];
+    return !t || (Date.now() - t > CACHE_TTL_MS);
+  };
+  const markFetched = (key: string) => {
+    lastFetchedRef.current[key] = Date.now();
+  };
+
   // Log system action
   const logAction = (action: string, details: string, status: 'Success' | 'Warning' | 'Failed' = 'Success') => {
     console.log(`[Client LogAction] ${action} - ${details} - Status: ${status}`);
@@ -314,20 +332,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // Load audit logs from backend database
+  // Load audit logs from backend database — only when audit_logs tab is active
   useEffect(() => {
+    if (activeTab !== 'audit_logs' || !currentUser) return;
+    if (!isCacheStale('audit_logs')) return;
     const loadLogs = async () => {
       try {
-        if (currentUser && sessionStorage.getItem('jk_infra_logged_user_token')) {
+        if (sessionStorage.getItem('jk_infra_logged_user_token')) {
           const dbLogs = await getAuditLogs();
           setAuditLogs(dbLogs);
+          markFetched('audit_logs');
         }
       } catch (err) {
         console.error("Failed to load audit logs from backend:", err);
       }
     };
     loadLogs();
-  }, [currentUser]);
+  }, [currentUser, activeTab]);
 
   // Apply Fiori theme colors variables dynamically on select
   useEffect(() => {
@@ -457,10 +478,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  // Sync DB records
-  const syncDBData = async () => {
+  // ─── CORE data fetch (6 endpoints) — runs once on login ─────────────────────
+  // Loads: projects, marketing, enquiries, blogs, gallery, users
+  // These 6 are needed by Dashboard, Search, and most tabs immediately.
+  const syncCoreData = async () => {
     try {
-      const [projs, mktg, enqs, blgs, gal, docs, usrs, apps, cts, locs, pts, fcs, ams, ags, exps, exCats, logs, wals, quotes, items, lns, custs, sups, invs] = await Promise.all([
+      const results = await Promise.allSettled([
+        getProjects(),      // 0
+        getMarketing(),     // 1
+        getEnquiries(),     // 2
+        getBlogs(),         // 3
+        getGallery(),       // 4
+        getUsers(),         // 5
+      ]);
+
+      const val = <T,>(idx: number, fallback: T): T => {
+        const item = results[idx];
+        return item && item.status === 'fulfilled' ? (item.value as T) : fallback;
+      };
+
+      const projs = val<Project[]>(0, []);
+      const mktg  = val<Project[]>(1, []);
+      const enqs  = val<Enquiry[]>(2, []);
+      const blgs  = val<Blog[]>(3, []);
+      const gal   = val<GalleryItem[]>(4, []);
+      const usrs  = val<User[]>(5, []);
+
+      if (Array.isArray(projs) && (projs.length > 0 || projects.length === 0)) setProjects(projs);
+      if (Array.isArray(mktg)  && (mktg.length  > 0 || marketing.length === 0)) setMarketing(mktg);
+      if (Array.isArray(enqs)  && (enqs.length  > 0 || enquiries.length === 0)) setEnquiries(enqs);
+      if (Array.isArray(blgs)  && (blgs.length  > 0 || blogs.length === 0)) setBlogs(blgs);
+      if (Array.isArray(gal)   && (gal.length   > 0 || gallery.length === 0)) setGallery(gal);
+      if (Array.isArray(usrs)  && (usrs.length  > 0 || users.length === 0)) setUsers(usrs);
+
+      // Mark core modules fetched
+      ['projects','marketing','enquiries','blogs','gallery','users'].forEach(markFetched);
+
+      // Sync current session user from latest DB data
+      const cached = sessionStorage.getItem('jk_infra_logged_user');
+      if (cached && usrs.length > 0) {
+        const parsed = JSON.parse(cached);
+        const latestUser = usrs.find(u => u.username?.toLowerCase() === parsed.username?.toLowerCase());
+        if (latestUser) {
+          const updated = { ...parsed, ...latestUser };
+          setSessionUser(updated);
+          setCurrentUser(updated);
+        }
+      }
+    } catch (err) {
+      console.error("Error loading core data:", err);
+    }
+  };
+
+  // Keep syncDBData as a manual full-refresh (used by Refresh button)
+  const syncDBData = async () => {
+    // Reset cache so everything re-fetches
+    lastFetchedRef.current = {};
+    try {
+      const results = await Promise.allSettled([
         getProjects(),
         getMarketing(),
         getEnquiries(),
@@ -477,9 +552,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         getMarketingAgents(),
         getExpenses(),
         getExpenseCategories(),
-        getAuditLogs(),
-        
-        // JkFutureinfra accounting API calls
+        // Accounting API calls
         getWallets(),
         getQuotations(),
         getInventoryItems(),
@@ -488,51 +561,161 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         getSuppliers(),
         getInvoices()
       ]);
-      setProjects(projs);
-      setMarketing(mktg);
-      setEnquiries(enqs);
-      setBlogs(blgs);
-      setGallery(gal);
-      setDocuments(docs);
-      setUsers(usrs);
-      setApplications(apps);
-      setCities(cts);
-      setLocations(locs);
-      setPropertyTypes(pts);
-      setFacings(fcs);
-      setAmenities(ams);
-      setMarketingAgents(ags);
-      setExpenses(exps);
-      setExpenseCategories(exCats);
-      setAuditLogs(logs);
-      
-      // Set JkFutureinfra accounting states
-      setWallets(wals);
-      setQuotations(quotes);
-      setInventoryItems(items);
-      setLoans(lns);
-      setCustomers(custs);
-      setSuppliers(sups);
-      setInvoices(invs);
 
-      // Automatically sync/update current session if user details changed in database
+      const val = <T,>(idx: number, fallback: T): T => {
+        const item = results[idx];
+        return item && item.status === 'fulfilled' ? (item.value as T) : fallback;
+      };
+
+      const projs  = val<Project[]>(0, []);
+      const mktg   = val<Project[]>(1, []);
+      const enqs   = val<Enquiry[]>(2, []);
+      const blgs   = val<Blog[]>(3, []);
+      const gal    = val<GalleryItem[]>(4, []);
+      const docs   = val<Document[]>(5, []);
+      const usrs   = val<User[]>(6, []);
+      const apps   = val<JobApplication[]>(7, []);
+      const cts    = val<City[]>(8, []);
+      const locs   = val<LocationMaster[]>(9, []);
+      const pts    = val<PropertyType[]>(10, []);
+      const fcs    = val<Facing[]>(11, []);
+      const ams    = val<Amenity[]>(12, []);
+      const ags    = val<MarketingAgent[]>(13, []);
+      const exps   = val<Expense[]>(14, []);
+      const exCats = val<ExpenseCategory[]>(15, []);
+      const wals   = val<Wallet[]>(16, []);
+      const quotes = val<Quotation[]>(17, []);
+      const items  = val<InventoryItem[]>(18, []);
+      const lns    = val<Loan[]>(19, []);
+      const custs  = val<Customer[]>(20, []);
+      const sups   = val<Supplier[]>(21, []);
+      const invs   = val<Invoice[]>(22, []);
+
+      if (Array.isArray(projs)  && (projs.length  > 0 || projects.length === 0))          setProjects(projs);
+      if (Array.isArray(mktg)   && (mktg.length   > 0 || marketing.length === 0))         setMarketing(mktg);
+      if (Array.isArray(enqs)   && (enqs.length   > 0 || enquiries.length === 0))         setEnquiries(enqs);
+      if (Array.isArray(blgs)   && (blgs.length   > 0 || blogs.length === 0))             setBlogs(blgs);
+      if (Array.isArray(gal)    && (gal.length    > 0 || gallery.length === 0))           setGallery(gal);
+      if (Array.isArray(docs)   && (docs.length   > 0 || documents.length === 0))         setDocuments(docs);
+      if (Array.isArray(usrs)   && (usrs.length   > 0 || users.length === 0))             setUsers(usrs);
+      if (Array.isArray(apps)   && (apps.length   > 0 || applications.length === 0))      setApplications(apps);
+      if (Array.isArray(cts)    && (cts.length    > 0 || cities.length === 0))            setCities(cts);
+      if (Array.isArray(locs)   && (locs.length   > 0 || locations.length === 0))         setLocations(locs);
+      if (Array.isArray(pts)    && (pts.length    > 0 || propertyTypes.length === 0))     setPropertyTypes(pts);
+      if (Array.isArray(fcs)    && (fcs.length    > 0 || facings.length === 0))           setFacings(fcs);
+      if (Array.isArray(ams)    && (ams.length    > 0 || amenities.length === 0))         setAmenities(ams);
+      if (Array.isArray(ags)    && (ags.length    > 0 || marketingAgents.length === 0))   setMarketingAgents(ags);
+      if (Array.isArray(exps)   && (exps.length   > 0 || expenses.length === 0))          setExpenses(exps);
+      if (Array.isArray(exCats) && (exCats.length > 0 || expenseCategories.length === 0)) setExpenseCategories(exCats);
+      if (Array.isArray(wals)   && (wals.length   > 0 || wallets.length === 0))           setWallets(wals);
+      if (Array.isArray(quotes) && (quotes.length > 0 || quotations.length === 0))        setQuotations(quotes);
+      if (Array.isArray(items)  && (items.length  > 0 || inventoryItems.length === 0))    setInventoryItems(items);
+      if (Array.isArray(lns)    && (lns.length    > 0 || loans.length === 0))             setLoans(lns);
+      if (Array.isArray(custs)  && (custs.length  > 0 || customers.length === 0))         setCustomers(custs);
+      if (Array.isArray(sups)   && (sups.length   > 0 || suppliers.length === 0))         setSuppliers(sups);
+      if (Array.isArray(invs)   && (invs.length   > 0 || invoices.length === 0))          setInvoices(invs);
+
+      // Mark all modules fresh
+      ['projects','marketing','enquiries','blogs','gallery','documents','users','applications',
+       'masters','expenses','wallets','quotations','inventory','loans','customers','suppliers','invoices'
+      ].forEach(markFetched);
+
+      // Sync current session user
       const cached = sessionStorage.getItem('jk_infra_logged_user');
-      if (cached) {
+      if (cached && usrs.length > 0) {
         const parsed = JSON.parse(cached);
-        const latestUser = usrs.find(u => u.username === parsed.username);
+        const latestUser = usrs.find(u => u.username?.toLowerCase() === parsed.username?.toLowerCase());
         if (latestUser) {
-          if (latestUser.name !== parsed.name || latestUser.email !== parsed.email || JSON.stringify(latestUser.allowedScreens) !== JSON.stringify(parsed.allowedScreens)) {
-            const updated = { ...parsed, ...latestUser };
-            setSessionUser(updated);
-            setCurrentUser(updated);
-          }
+          const updated = { ...parsed, ...latestUser };
+          setSessionUser(updated);
+          setCurrentUser(updated);
         }
       }
     } catch (err) {
       console.error("Error syncing data from backend:", err);
-      onAddToast("Failed to fetch records from backend server.", "error");
     }
   };
+
+  // ─── Tab-specific lazy loaders ────────────────────────────────────────────
+  // Each fires only when the relevant tab is active AND cache is stale (>5 min).
+  useEffect(() => {
+    if (!currentUser) return;
+    const tab = activeTab;
+
+    // Documents tab
+    if (tab === 'documents' && isCacheStale('documents')) {
+      getDocuments().then(d => { if (Array.isArray(d)) { setDocuments(d); markFetched('documents'); } }).catch(() => {});
+    }
+    // Careers / Applications tab
+    if (tab === 'careers' && isCacheStale('applications')) {
+      getApplications().then(a => { if (Array.isArray(a)) { setApplications(a); markFetched('applications'); } }).catch(() => {});
+    }
+    // Masters tab
+    if (tab === 'masters' && isCacheStale('masters')) {
+      Promise.allSettled([getCities(), getLocations(), getPropertyTypes(), getFacings(), getAmenities()])
+        .then(([c, l, pt, f, am]) => {
+          if (c.status === 'fulfilled' && Array.isArray(c.value)) setCities(c.value);
+          if (l.status === 'fulfilled' && Array.isArray(l.value)) setLocations(l.value);
+          if (pt.status === 'fulfilled' && Array.isArray(pt.value)) setPropertyTypes(pt.value);
+          if (f.status === 'fulfilled' && Array.isArray(f.value)) setFacings(f.value);
+          if (am.status === 'fulfilled' && Array.isArray(am.value)) setAmenities(am.value);
+          markFetched('masters');
+        }).catch(() => {});
+    }
+    // Marketing Agents tab
+    if (tab === 'marketing_agents' && isCacheStale('marketing_agents')) {
+      getMarketingAgents().then(a => { if (Array.isArray(a)) { setMarketingAgents(a); markFetched('marketing_agents'); } }).catch(() => {});
+    }
+    // Expenses tab
+    if ((tab === 'expenses') && isCacheStale('expenses')) {
+      Promise.allSettled([getExpenses(), getExpenseCategories()])
+        .then(([e, ec]) => {
+          if (e.status === 'fulfilled' && Array.isArray(e.value)) setExpenses(e.value);
+          if (ec.status === 'fulfilled' && Array.isArray(ec.value)) setExpenseCategories(ec.value);
+          markFetched('expenses');
+        }).catch(() => {});
+    }
+    // Wallets tab
+    if (tab === 'wallets' && isCacheStale('wallets')) {
+      getWallets().then(w => { if (Array.isArray(w)) { setWallets(w); markFetched('wallets'); } }).catch(() => {});
+    }
+    // Customers tab
+    if (tab === 'customers' && isCacheStale('customers')) {
+      getCustomers().then(c => { if (Array.isArray(c)) { setCustomers(c); markFetched('customers'); } }).catch(() => {});
+    }
+    // Suppliers tab
+    if (tab === 'suppliers' && isCacheStale('suppliers')) {
+      getSuppliers().then(s => { if (Array.isArray(s)) { setSuppliers(s); markFetched('suppliers'); } }).catch(() => {});
+    }
+    // Inventory tab
+    if (tab === 'inventory' && isCacheStale('inventory')) {
+      getInventoryItems().then(i => { if (Array.isArray(i)) { setInventoryItems(i); markFetched('inventory'); } }).catch(() => {});
+    }
+    // Quotations tab
+    if (tab === 'quotations' && isCacheStale('quotations')) {
+      getQuotations().then(q => { if (Array.isArray(q)) { setQuotations(q); markFetched('quotations'); } }).catch(() => {});
+    }
+    // Invoices / Payments tabs
+    if ((tab === 'invoices' || tab === 'payments' || tab === 'payments_in' || tab === 'payments_out' || tab === 'payments_pending') && isCacheStale('invoices')) {
+      getInvoices().then(iv => { if (Array.isArray(iv)) { setInvoices(iv); markFetched('invoices'); } }).catch(() => {});
+    }
+    // Loans tab
+    if (tab === 'loans' && isCacheStale('loans')) {
+      getLoans().then(l => { if (Array.isArray(l)) { setLoans(l); markFetched('loans'); } }).catch(() => {});
+    }
+    // Auditor Reports tab (needs all accounting data)
+    if ((tab === 'auditor_reports' || tab === 'cost_analysis') && isCacheStale('auditor_reports')) {
+      Promise.allSettled([getExpenses(), getExpenseCategories(), getWallets(), getLoans(), getInvoices()])
+        .then(([e, ec, w, l, iv]) => {
+          if (e.status  === 'fulfilled' && Array.isArray(e.value))  setExpenses(e.value);
+          if (ec.status === 'fulfilled' && Array.isArray(ec.value)) setExpenseCategories(ec.value);
+          if (w.status  === 'fulfilled' && Array.isArray(w.value))  setWallets(w.value);
+          if (l.status  === 'fulfilled' && Array.isArray(l.value))  setLoans(l.value);
+          if (iv.status === 'fulfilled' && Array.isArray(iv.value)) setInvoices(iv.value);
+          markFetched('auditor_reports');
+        }).catch(() => {});
+    }
+  }, [activeTab, currentUser]);
 
   const refreshProjectsAndMarketing = async () => {
     try {
@@ -563,9 +746,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         setCurrentUser(null);
         return;
       }
+      if (session.name?.toLowerCase().includes('jk future') || session.email?.toLowerCase().includes('jkfuture')) {
+        session.name = 'Apex Infra';
+        session.email = 'info@apexinfra.com';
+        setSessionUser(session);
+      }
       setCurrentUser(session);
       sessionStorage.setItem('jk_last_activity_time', String(Date.now()));
-      syncDBData();
+      // ← Only load 6 core endpoints on login instead of 24
+      syncCoreData();
     } else if (session) {
       // Clear legacy session that has no token, force re-login
       setSessionUser(null);
@@ -698,6 +887,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'cost_analysis':
       case 'stage_checklist':
         return true;
+      case 'company_profile':
+        return currentUser.role === 'Admin';
       default:
         return false;
     }
@@ -709,7 +900,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       const savedTabs = localStorage.getItem(`admin_open_tabs_${currentUser.username}`);
       const savedActive = localStorage.getItem(`admin_active_tab_${currentUser.username}`);
       
-      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'borrowings', 'auditor_reports', 'invoices', 'customers', 'suppliers', 'payments', 'cost_analysis', 'stage_checklist'];
+      const allTabs = ['dashboard', 'projects', 'marketing', 'sites', 'project_gallery', 'marketing_gallery', 'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'careers', 'users', 'masters', 'audit_logs', 'site_visits', 'mail_config', 'marketing_agents', 'expenses', 'wallets', 'quotations', 'inventory', 'loans', 'borrowings', 'auditor_reports', 'invoices', 'customers', 'suppliers', 'payments', 'cost_analysis', 'stage_checklist', 'company_profile'];
       const allowed = allTabs.filter(tab => hasScreenAccess(tab));
 
       let loadedTabs = savedTabs ? JSON.parse(savedTabs) : ['dashboard'];
@@ -898,6 +1089,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       case 'suppliers': return 'Supplier Accounts';
       case 'cost_analysis': return 'Project Cost Analysis';
       case 'stage_checklist': return 'Stage Work Checklist';
+      case 'company_profile': return 'Company Profile & Branding';
       default: return tabKey;
     }
   };
@@ -973,9 +1165,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <div className="login-card">
             <div className="login-card-header">
               <img 
-                src={logoImg} 
-                alt="JK Future Infra Logo" 
-                style={{ height: '130px', width: 'auto', display: 'block', margin: '0 auto 0.75rem', objectFit: 'contain' }} 
+                src={getMediaUrl(profile.logoUrl) || logoImg} 
+                alt={`${profile.companyName || 'Company'} Logo`} 
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = logoImg; }}
+                style={{ height: '130px', maxWidth: '280px', width: 'auto', display: 'block', margin: '0 auto 0.75rem', objectFit: 'contain' }} 
               />
               <h2>Log In <span style={{ fontWeight: 300 }}>to your account</span></h2>
             </div>
@@ -1072,7 +1265,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             <div className="login-card-footer-copyright">
-              <div>© 2026 JK Future Infra</div>
+              <div>{profile.copyrightText || `© ${new Date().getFullYear()} ${profile.companyName || 'Company'}. All rights reserved.`}</div>
             </div>
           </div>
         </div>
@@ -1334,8 +1527,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         
         <div className="admin-sidebar-header">
           <img 
-            src={logoImg} 
-            alt="JK Logo" 
+            src={getMediaUrl(profile.logoUrl) || logoImg} 
+            alt={`${profile.companyName || 'Company'} Logo`} 
+            onError={(e) => { (e.currentTarget as HTMLImageElement).src = logoImg; }}
             onClick={() => {
               handleOpenTab('dashboard');
               setExpandedGroups({
@@ -2044,7 +2238,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           )}
 
           {/* Group 15: System Governance */}
-          {(hasScreenAccess('users') || hasScreenAccess('masters') || hasScreenAccess('audit_logs')) && (
+          {(hasScreenAccess('users') || hasScreenAccess('masters') || hasScreenAccess('audit_logs') || hasScreenAccess('company_profile')) && (
             <div className="admin-sidebar-group">
               <div 
                 className="admin-sidebar-group-header" 
@@ -2104,6 +2298,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         data-tooltip="System Audit Trail"
                       >
                         <ClipboardList size={16} /> <span className="admin-sidebar-link-text">Audit Trail</span>
+                      </button>
+                    </li>
+                  )}
+                  {hasScreenAccess('company_profile') && (
+                    <li className="admin-sidebar-item">
+                      <button 
+                        onClick={() => handleOpenTab('company_profile')} 
+                        className={`admin-sidebar-link ${activeTab === 'company_profile' ? 'active' : ''}`}
+                        data-tooltip="Company Profile & Branding"
+                      >
+                        <Building2 size={16} /> <span className="admin-sidebar-link-text">Company Branding</span>
                       </button>
                     </li>
                   )}
@@ -2235,7 +2440,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <span className="font-bold text-md text-dark leading-tight">{currentUser.name}</span>
                   <span className="text-xs text-muted" style={{ marginTop: '0.1rem' }}>{currentUser.email}</span>
                   <span className="text-xxs text-secondary font-bold uppercase mt-0.5" style={{ color: 'var(--sap-fiori-blue)', fontSize: '0.65rem' }}>
-                    Staff ID: JK-{currentUser.id.substring(0, 5).toUpperCase()}
+                    Staff ID: {currentUser.id.toUpperCase()}
                   </span>
                 </div>
               </div>
@@ -2389,7 +2594,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
           {activeTab === 'sites' && hasScreenAccess('sites') && (
             <AdminSites 
-              marketing={searchedMarketing}
+              marketing={[...searchedMarketing, ...searchedProjects.filter(p => p.category === 'Sites')]}
             />
           )}
 
@@ -2662,6 +2867,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               onAddToast={onAddToast}
               onConfirm={handleConfirmAction}
             />
+          )}
+
+          {activeTab === 'company_profile' && (
+            <AdminCompanyProfile />
           )}
         </main>
 

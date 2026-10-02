@@ -1,0 +1,803 @@
+/* ==========================================================================
+   Admin Company Profile & White-Label Branding - Fully Responsive Styles
+   Suitable for Mobile, Tablet, Laptop, and Large Desktop screens
+   ========================================================================== */
+
+.company-profile-wrapper {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5rem 0.5rem 3rem 0.5rem;
+  font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+  color: #1e293b;
+}
+
+/* Header Action Banner */
+.profile-header-banner {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.profile-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 260px;
+}
+
+.profile-header-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0369a1 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(14, 165, 233, 0.25);
+  flex-shrink: 0;
+}
+
+.profile-header-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+  margin: 0 0 0.25rem 0;
+}
+
+.profile-header-subtitle {
+  font-size: 0.825rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.profile-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Action Buttons */
+.profile-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.profile-btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.profile-btn-secondary:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.profile-btn-primary {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}
+
+.profile-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.45);
+  transform: translateY(-1px);
+}
+
+.profile-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Status Banners */
+.profile-alert {
+  padding: 0.9rem 1.25rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.profile-alert-success {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.profile-alert-error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+/* Horizontal Responsive Tab Bar */
+.profile-nav-tabs {
+  display: flex;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.4rem;
+  margin-bottom: 1.25rem;
+  gap: 0.35rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.profile-nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.profile-tab-item:hover {
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+.profile-tab-item.active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgba(2, 132, 199, 0.25);
+}
+
+.profile-tab-item .tab-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.725rem;
+  background: rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+
+.profile-tab-item.active .tab-step-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* Main Content Grid: Left Form (64%), Right Preview (36%) */
+.profile-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(320px, 1.2fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Form Container Card */
+.profile-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.profile-card-header {
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-card-subtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+  line-height: 1.4;
+}
+
+/* Form Layout Grid */
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.1rem;
+}
+
+.col-span-full {
+  grid-column: 1 / -1;
+}
+
+/* Form Controls */
+.profile-form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-form-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.775rem;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 0.4rem;
+}
+
+.profile-form-label .req-star {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+.profile-form-label .label-tag {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: none;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.profile-form-input,
+.profile-form-select,
+.profile-form-textarea {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.9rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.profile-form-input {
+  height: 42px;
+}
+
+.profile-form-textarea {
+  resize: vertical;
+  min-height: 78px;
+  line-height: 1.4;
+}
+
+.profile-form-input:focus,
+.profile-form-select:focus,
+.profile-form-textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.profile-form-input::placeholder,
+.profile-form-textarea::placeholder {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.profile-form-hint {
+  font-size: 0.725rem;
+  color: #64748b;
+  margin-top: 0.35rem;
+  line-height: 1.35;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Logo Upload & Preview Box */
+.profile-logo-uploader {
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.profile-logo-uploader:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.profile-logo-preview-card {
+  width: 100%;
+  max-width: 320px;
+  min-height: 100px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-logo-preview-card.dark-mode {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+
+.profile-logo-img {
+  max-height: 80px;
+  max-width: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+}
+
+.profile-logo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.profile-upload-trigger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: all 0.2s;
+}
+
+.profile-upload-trigger-btn:hover {
+  background: #f8fafc;
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.profile-logo-file-info {
+  font-size: 0.775rem;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+/* Signature Box & Letterhead Simulation */
+.profile-signature-box {
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.profile-signature-box:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+}
+
+.profile-signature-preview {
+  min-height: 75px;
+  max-height: 90px;
+  width: 100%;
+  max-width: 260px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.profile-signature-img {
+  max-height: 65px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+/* Sticky Right Live Preview Section */
+.profile-preview-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.preview-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.preview-card-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.85rem 0;
+}
+
+/* Simulated Live Header Preview */
+.sim-header-mockup {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.sim-topbar {
+  background: #0f172a;
+  color: #cbd5e1;
+  font-size: 10px;
+  padding: 5px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sim-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sim-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sim-rera-badge {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: #e2e8f0;
+}
+
+.sim-navbar {
+  background: #ffffff;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sim-nav-logo {
+  max-height: 28px;
+  max-width: 110px;
+  object-fit: contain;
+}
+
+.sim-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sim-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.sim-pill-whatsapp {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.sim-pill-cta {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* Simulated Live Login Card */
+.sim-login-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.sim-login-logo {
+  max-height: 38px;
+  max-width: 140px;
+  object-fit: contain;
+  margin: 0 auto 0.75rem auto;
+}
+
+.sim-login-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
+}
+
+.sim-login-field {
+  height: 28px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.sim-login-btn {
+  height: 30px;
+  background: #0284c7;
+  color: #ffffff;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 0.5rem;
+}
+
+.sim-login-footer {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-top: 0.75rem;
+}
+
+/* Simulated Letterhead Invoice */
+.sim-invoice-box {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.sim-invoice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
+.sim-invoice-info {
+  font-size: 9px;
+  line-height: 1.35;
+  color: #475569;
+}
+
+/* Turnkey Reselling Tip Card */
+.reseller-tip-card {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  padding: 1.15rem;
+}
+
+.reseller-tip-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #0369a1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.reseller-tip-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.775rem;
+  color: #0c4a6e;
+  line-height: 1.5;
+}
+
+.reseller-tip-list li {
+  margin-bottom: 0.25rem;
+}
+
+/* Navigation Step Next/Prev Buttons */
+.profile-step-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Floating Save Bar for Mobile Devices */
+.mobile-sticky-save-bar {
+  display: none;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints: Laptops, Tablets, and Mobile Phones
+   ========================================================================== */
+
+/* Laptops & Desktops <= 1180px */
+@media (max-width: 1180px) {
+  .profile-main-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+    gap: 1.2rem;
+  }
+}
+
+/* Tablets <= 1024px */
+@media (max-width: 1024px) {
+  .profile-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-preview-column {
+    position: static;
+    margin-top: 1.5rem;
+  }
+}
+
+/* Tablets <= 768px */
+@media (max-width: 768px) {
+  .company-profile-wrapper {
+    padding: 0.25rem 0.25rem 5rem 0.25rem;
+  }
+
+  .profile-header-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+    gap: 0.85rem;
+  }
+
+  .profile-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .col-span-full {
+    grid-column: 1;
+  }
+
+  .profile-card {
+    padding: 1.15rem;
+  }
+
+  /* Sticky Mobile Bottom Bar */
+  .mobile-sticky-save-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-top: 1px solid #cbd5e1;
+    padding: 0.75rem 1rem;
+    z-index: 1000;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-sticky-save-bar .profile-btn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Small Mobile Phones <= 480px */
+@media (max-width: 480px) {
+  .profile-header-title {
+    font-size: 1.15rem;
+  }
+
+  .profile-tab-item {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.775rem;
+  }
+
+  .profile-btn {
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .profile-logo-uploader {
+    padding: 1rem;
+  }
+}

@@ -52,7 +52,7 @@ interface AdminDashboardProps {
   users?: User[];
   applications?: JobApplication[];
   
-  // JkFutureinfra accounting tables props
+  // Accounting tables props
   wallets?: Wallet[];
   invoices?: Invoice[];
   customers?: Customer[];

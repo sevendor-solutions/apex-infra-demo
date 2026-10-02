@@ -1,4 +1,5 @@
 import { Mail, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { useCompany } from '../context/CompanyContext';
 
 interface FooterProps {
   onNavigate: (page: string, category?: any | null, siteCategory?: any | null) => void;
@@ -6,6 +7,7 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   const currentYear = new Date().getFullYear();
+  const { profile } = useCompany();
 
   const handleLinkClick = (page: string, category: any | null = null, siteCategory: any | null = null) => {
     onNavigate(page, category, siteCategory);
@@ -18,23 +20,31 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="footer-grid">
           {/* Company Info */}
           <div className="footer-col company-col">
-            <h3 className="footer-logo-text mb-2">JK FUTURE INFRA</h3>
+            <h3 className="footer-logo-text mb-2">{profile.companyName || 'Real Estate & Infra'}</h3>
             <p className="footer-about-text mb-3">
-              Your vision is our mission for a happy living. We are a premier ISO 9001:2015 certified real estate development firm in Andhra Pradesh, committed to building exceptional residential spaces.
+              {profile.aboutSummary || profile.tagline || 'Your vision is our mission for a happy living. Premier certified real estate development firm committed to building exceptional residential spaces.'}
             </p>
             <div className="footer-socials flex gap-2">
-              <a href="https://www.facebook.com/profile.php?id=61591545908963" target="_blank" rel="noreferrer" aria-label="Facebook" className="social-icon" title="JK Future Infra Facebook Page">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/></svg>
-              </a>
-              <a href="https://www.instagram.com/jkfutureinfra?utm_source=qr&igsh=azZyYjY3bm1mcGdx" target="_blank" rel="noreferrer" aria-label="Instagram" className="social-icon" title="JK Future Infra Instagram Handle">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
-              </a>
-              <a href="https://www.linkedin.com/company/jkfutureinfra" target="_blank" rel="noreferrer" aria-label="LinkedIn" className="social-icon" title="JK Future Infra LinkedIn Company Page">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-              </a>
-              <a href="https://www.youtube.com/@jkfutureinfra" target="_blank" rel="noreferrer" aria-label="YouTube" className="social-icon" title="JK Future Infra YouTube Channel">
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-              </a>
+              {profile.facebookUrl && (
+                <a href={profile.facebookUrl} target="_blank" rel="noreferrer" aria-label="Facebook" className="social-icon" title={`${profile.companyName} Facebook`}>
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c4.56-.93 8-4.96 8-9.75z"/></svg>
+                </a>
+              )}
+              {profile.instagramUrl && (
+                <a href={profile.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram" className="social-icon" title={`${profile.companyName} Instagram`}>
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.051.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                </a>
+              )}
+              {profile.linkedinUrl && (
+                <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" aria-label="LinkedIn" className="social-icon" title={`${profile.companyName} LinkedIn`}>
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                </a>
+              )}
+              {profile.youtubeUrl && (
+                <a href={profile.youtubeUrl} target="_blank" rel="noreferrer" aria-label="YouTube" className="social-icon" title={`${profile.companyName} YouTube`}>
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                </a>
+              )}
             </div>
           </div>
 
@@ -76,20 +86,22 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul className="footer-contact-info">
               <li className="flex gap-2 align-center">
                 <div className="footer-icon-badge loc"><MapPin size={16} color="#ffffff" /></div>
-                <span>Door No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam</span>
+                <span>{profile.address || 'Visakhapatnam, Andhra Pradesh, India'}</span>
               </li>
               <li className="flex gap-2 align-center">
                 <div className="footer-icon-badge phone"><Phone size={16} color="#ffffff" /></div>
-                <span>9000553832, 7893963322</span>
+                <span>{profile.phonePrimary || '9000553832'}{profile.phoneSecondary ? `, ${profile.phoneSecondary}` : ''}</span>
               </li>
               <li className="flex gap-2 align-center">
                 <div className="footer-icon-badge email"><Mail size={16} color="#ffffff" /></div>
-                <span>jkfutureinfra@gmail.com</span>
+                <span>{profile.email || 'info@company.com'}</span>
               </li>
-              <li className="flex gap-2 align-center text-sm" style={{ marginTop: '0.5rem', color: '#10b981' }}>
-                <div className="footer-icon-badge rera"><ShieldCheck size={16} color="#ffffff" /></div>
-                <span>AP RERA Regd: P03290021045</span>
-              </li>
+              {(profile.rera1 || profile.rera2) && (
+                <li className="flex gap-2 align-center text-sm" style={{ marginTop: '0.5rem', color: '#10b981' }}>
+                  <div className="footer-icon-badge rera"><ShieldCheck size={16} color="#ffffff" /></div>
+                  <span>{profile.rera1 || profile.rera2}</span>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -97,7 +109,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
       <div className="footer-bottom">
         <div className="container flex justify-between align-center py-2 text-sm">
-          <span>&copy; {currentYear} JK Future Infra Projects Pvt. Ltd. All rights reserved.</span>
+          <span>{profile.copyrightText || `© ${currentYear} ${profile.companyName || 'Company'}. All rights reserved.`}</span>
           <div className="flex gap-2">
             <span>Privacy Policy</span>
           </div>

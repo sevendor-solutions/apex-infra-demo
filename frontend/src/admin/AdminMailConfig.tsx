@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import logoImg from '../assets/logo.png';
 import { getMailConfig, updateMailConfig, sendTestEmail } from '../utils/db';
+import { useCompany } from '../context/CompanyContext';
 import { 
   Save, 
   Send, 
@@ -61,6 +62,7 @@ interface AdminMailConfigProps {
 export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
   onAddToast
 }) => {
+  const { profile } = useCompany();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -91,10 +93,10 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
 
   // Social Media Channels states
   const [facebookPageUrl, setFacebookPageUrl] = useState<string>(() => {
-    return localStorage.getItem('social_fb_url') || 'https://www.facebook.com/profile.php?id=6159154908963';
+    return localStorage.getItem('social_fb_url') || profile.facebookUrl || 'https://www.facebook.com';
   });
   const [instagramPageUrl, setInstagramPageUrl] = useState<string>(() => {
-    return localStorage.getItem('social_ig_url') || 'https://www.instagram.com/jkfutureinfra?utm_source=qr&igsh=azZyYjY3bm1mcGdx';
+    return localStorage.getItem('social_ig_url') || profile.instagramUrl || 'https://www.instagram.com';
   });
 
   const [isEditingFb, setIsEditingFb] = useState(false);
@@ -129,7 +131,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
       setSmtpUser(data.smtpUser || '');
       setSmtpPass(data.smtpPass || '');
       setSenderEmail(data.senderEmail || '');
-      setSummaryEmail(data.summaryEmail || 'jkfutureinfra@gmail.com');
+      setSummaryEmail(data.summaryEmail || profile.email || 'info@company.com');
       setEmailSubject(data.emailSubject || '');
       setEmailTemplate(data.emailTemplate || '');
       setFbPageIdDb(data.facebookPageId || '6159154908963');
@@ -327,7 +329,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                             onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
                             onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}
                           >
-                            JK Future Infra Page <ExternalLink size={11} style={{ color: '#64748b' }} />
+                            {profile.companyName || 'Facebook'} Page <ExternalLink size={11} style={{ color: '#64748b' }} />
                           </a>
                           <button 
                             type="button"
@@ -578,7 +580,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                   className="form-control"
                   value={summaryEmail}
                   onChange={e => setSummaryEmail(e.target.value)}
-                  placeholder="e.g. jkfutureinfra@gmail.com"
+                  placeholder={profile.email ? `e.g. ${profile.email}` : "e.g. info@company.com"}
                   required
                 />
               </div>
@@ -680,7 +682,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 {/* Envelope details bar */}
                 <div style={{ backgroundColor: '#e2e8f0', padding: '0.75rem 1rem', borderBottom: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#475569' }}>
                   <div style={{ marginBottom: '4px' }}>
-                    <strong>From:</strong> {senderEmail || 'noreply@jkfutureinfra.com'}
+                    <strong>From:</strong> {senderEmail || (profile.email ? `noreply@${profile.email.split('@')[1] || 'company.com'}` : 'noreply@company.com')}
                   </div>
                   <div style={{ marginBottom: '4px' }}>
                     <strong>To:</strong> Jane Doe (jane.doe@example.com)
@@ -693,7 +695,7 @@ export const AdminMailConfig: React.FC<AdminMailConfigProps> = ({
                 {/* Email Body */}
                 <div style={{ padding: '1.25rem', minHeight: '300px', backgroundColor: 'white', fontSize: '0.85rem', color: '#1e293b', lineHeight: '1.6', borderBottomLeftRadius: '6px', borderBottomRightRadius: '6px' }}>
                   <div style={{ textAlign: 'center', borderBottom: '2px solid #0f2b46', paddingBottom: '12px', marginBottom: '16px' }}>
-                    <img src={logoImg} alt="JK Future Infra Logo" style={{ height: '35px' }} />
+                    <img src={profile.logoUrl || logoImg} alt={`${profile.companyName || 'Company'} Logo`} style={{ height: '35px' }} />
                   </div>
                   <div style={{ whiteSpace: 'pre-wrap' }}>
                     {compiledBodyPreview || 'Enter content in the template editor to preview.'}

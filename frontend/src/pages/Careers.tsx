@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { Briefcase, Send, ShieldCheck, Heart, Award, ArrowUpRight } from 'lucide-react';
 import type { JobApplication } from '../types';
 import { addApplication } from '../utils/db';
+import { useCompany } from '../context/CompanyContext';
 
 interface CareersProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
 export const Careers: React.FC<CareersProps> = ({ onAddToast }) => {
+  const { profile } = useCompany();
   // Application Form States
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -67,7 +69,7 @@ export const Careers: React.FC<CareersProps> = ({ onAddToast }) => {
           <span className="badge badge-ongoing mb-1">Career Opportunities</span>
           <h1 className="text-4xl text-primary font-bold mb-1">Build Your Future With Us</h1>
           <p className="text-muted text-lg" style={{ maxWidth: '600px', margin: '0 auto' }}>
-            Join our ISO 9001:2015 certified real estate development firm in Andhra Pradesh and unlock outstanding career heights.
+            Join our {profile.isoCertified ? `${profile.isoCertified} certified ` : ''}{profile.companyName || 'real estate development'} firm and unlock outstanding career heights.
           </p>
         </div>
 
@@ -202,7 +204,7 @@ export const Careers: React.FC<CareersProps> = ({ onAddToast }) => {
                 <textarea 
                   className="form-control" 
                   rows={4}
-                  placeholder="Tell us about your background, achievements, and why you are a fit for JK Future Infra..."
+                  placeholder={`Tell us about your background, achievements, and why you are a fit for ${profile.companyName || 'our company'}...`}
                   value={coverLetter}
                   onChange={e => setCoverLetter(e.target.value)}
                   required

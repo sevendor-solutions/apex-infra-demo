@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Blog, ProjectCategory, SiteCategory } from '../types';
 import { Calendar, Tag, ArrowLeft, Share2, MessageSquare, Send, ExternalLink, Globe } from 'lucide-react';
+import { useCompany } from '../context/CompanyContext';
 
 const formatNewsTime = (dateStr: string) => {
   if (!dateStr) return '1m ago';
@@ -93,6 +94,7 @@ export const BlogPage: React.FC<BlogProps> = ({
   onNavigate,
   onAddToast
 }) => {
+  const { profile } = useCompany();
   const [activeSection, setActiveSection] = useState<'all' | 'live' | 'blogs'>('all');
   const [activeTab, setActiveTab] = useState<string>('All');
   
@@ -611,7 +613,7 @@ export const BlogPage: React.FC<BlogProps> = ({
                   ✍️ Company Blogs & Insights
                 </h3>
                 <span className="text-xs text-muted" style={{ fontSize: '0.74rem' }}>
-                  Articles and announcements from JK Future Infra database
+                  Articles and announcements from {profile.companyName || 'Company'} database
                 </span>
               </div>
               <span className="text-xs text-muted font-bold" style={{ backgroundColor: '#e2e8f0', padding: '0.2rem 0.6rem', borderRadius: '12px' }}>

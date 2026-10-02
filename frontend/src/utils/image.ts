@@ -3,9 +3,18 @@ import type { Project } from '../types';
 export const getProjectGalleryImages = (project: Project): string[] => {
   const specFiles = project.specImage ? project.specImage.split(',').map(u => u.trim()).filter(Boolean) : [];
   // Filter out PDFs and videos from image gallery list
-  const isMediaFile = (url: string) => url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i);
+  const isMediaFile = (url: string) => typeof url === 'string' && url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i);
   const specImages = specFiles.filter(url => !isMediaFile(url));
-  const propImages = (project.images || []).filter(url => !isMediaFile(url));
+
+  let rawImages: any = project.images;
+  if (typeof rawImages === 'string') {
+    try {
+      rawImages = JSON.parse(rawImages);
+    } catch {
+      rawImages = [rawImages];
+    }
+  }
+  const propImages = (Array.isArray(rawImages) ? rawImages : []).filter(url => typeof url === 'string' && !isMediaFile(url));
   
   let list: string[] = [];
   // Property elevation photo (propImages) comes FIRST as the main visual image
@@ -17,8 +26,17 @@ export const getProjectGalleryImages = (project: Project): string[] => {
 };
 
 export const getProjectMainImage = (project: Project): string => {
-  if (project.images && project.images.length > 0) {
-    const photo = project.images.find(url => url && !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
+  let rawImages: any = project.images;
+  if (typeof rawImages === 'string') {
+    try {
+      rawImages = JSON.parse(rawImages);
+    } catch {
+      rawImages = [rawImages];
+    }
+  }
+  const imagesArr = Array.isArray(rawImages) ? rawImages : [];
+  if (imagesArr.length > 0) {
+    const photo = imagesArr.find(url => typeof url === 'string' && !url.match(/\.(pdf|mp4|webm|mov|avi)($|\?)/i));
     if (photo) return photo;
   }
   const imgs = getProjectGalleryImages(project);
@@ -27,7 +45,7 @@ export const getProjectMainImage = (project: Project): string => {
   // Fallback
   return project.isMarketing
     ? '/marketing_banner_hd.png'
-    : '/jk_difference_hd.png';
+    : '/apex_infra_difference_hd.png';
 };
 
 export const getSegmentFallbackSpecImage = (project: Project): string => {

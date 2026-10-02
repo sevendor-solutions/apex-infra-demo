@@ -47,7 +47,7 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
     'blogs', 'documents', 'project_enquiries', 'marketing_enquiries', 'site_visits', 
     'mail_config', 'expenses', 'wallets', 'customers', 'suppliers', 'inventory', 'quotations', 
     'invoices', 'payments', 'loans', 'auditor_reports', 'users', 'masters', 'marketing_agents', 'audit_logs',
-    'cost_analysis', 'stage_checklist'
+    'cost_analysis', 'stage_checklist', 'company_profile'
   ];
 
   const getRoleDefaultScreens = (userRole: string): string[] => {
@@ -501,7 +501,8 @@ export const AdminUsers: React.FC<AdminUsersProps> = ({
                       { id: 'cost_analysis', label: 'Project Cost Sheet' },
                       { id: 'users', label: 'Staff Logins' },
                       { id: 'masters', label: 'Masters Config' },
-                      { id: 'audit_logs', label: 'Audit Trail' }
+                      { id: 'audit_logs', label: 'Audit Trail' },
+                      { id: 'company_profile', label: 'Company Profile & Branding' }
                     ].map(screen => (
                       <label 
                         key={screen.id} 

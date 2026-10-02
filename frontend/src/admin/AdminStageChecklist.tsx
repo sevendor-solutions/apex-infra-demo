@@ -13,6 +13,7 @@ import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { jsPDF } from 'jspdf';
 import logoImg from '../assets/logo.png';
+import { useCompany } from '../context/CompanyContext';
 import { 
   Calendar, 
   Printer, 
@@ -238,6 +239,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const cachedInitial = useMemo(() => getInitialStateFromCache(), []);
 
   const [matrixTitle, setMatrixTitle] = useState(cachedInitial.title);
@@ -1345,7 +1347,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     <div class="report-header">
       <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div>
-          <h1 style="font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">JK FUTURE INFRA PROJECTS</h1>
+          <h1 style="font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">${escapeHtml((profile.companyName || 'CONSTRUCTION MANAGEMENT').toUpperCase())} PROJECTS</h1>
           <h2 style="font-size: 12.5px; font-weight: 600; color: #0284c7; margin-top: 2px;">Daily Construction Follow-up Matrix &amp; Work Item Report</h2>
         </div>
         <div style="text-align: right; font-size: 11px; color: #475569;">
@@ -1381,7 +1383,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
     <!-- Footer -->
     <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 8px; display: flex; justify-content: space-between; font-size: 9.5px; color: #94a3b8;">
-      <div>JK Future Infra Management System &bull; Confidential Construction Progress Log</div>
+      <div>${escapeHtml(profile.companyName || 'Management System')} &bull; Confidential Construction Progress Log</div>
       <div>End of Report</div>
     </div>
   </div>
@@ -1451,7 +1453,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     const completionPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
     const lines: string[] = [];
-    lines.push(`🏗️ *JK FUTURE INFRA - DAILY WORK FOLLOW-UP*`);
+    lines.push(`🏗️ *${(profile.companyName || 'Management System').toUpperCase()} - DAILY WORK FOLLOW-UP*`);
     lines.push(`📅 *Date:* ${readableDate} (${targetDate} • ${dateTag})`);
     lines.push(`📊 *Progress Status:* ${completedTasks}/${totalTasks} Tasks Done (${completionPercent}%)`);
 
@@ -1516,7 +1518,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
 
     lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     lines.push(`📌 *Summary:* ✅ ${completedTasks} Completed | ⏳ ${pendingTasks} Pending | 🎯 ${totalTasks} Total`);
-    lines.push(`🏢 *JK Future Infra* | 🌐 https://jkfutureinfra.com`);
+    lines.push(`🏢 *${profile.companyName || 'Real Estate Management'}* | 🌐 ${window.location.origin}`);
     lines.push(`🕒 _Generated: ${getFormattedDateTime()}_`);
 
     return lines.join('\n');
@@ -1545,7 +1547,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.src = logoImg;
+        img.src = profile.logoUrl || logoImg;
         img.onload = () => {
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth;
@@ -1570,17 +1572,21 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       doc.setFontSize(15);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(15, 43, 70);
-      doc.text('JK FUTURE INFRA', 15, 20);
+      doc.text((profile.companyName || 'Management System').toUpperCase(), 15, 20);
     }
 
     // Right Header Company Info
     doc.setTextColor(71, 85, 105);
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('Door No: 4-92/1/6, FLAT No: 202, LEE INFRA', 125, 12);
-    doc.text('TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam', 125, 16);
-    doc.text('Call: 9000553832 | Email: jkfutureinfra@gmail.com', 125, 20);
-    doc.text('Web: https://jkfutureinfra.com', 125, 24);
+    if (profile.registeredOffice) {
+      doc.text(profile.registeredOffice.substring(0, 48), 125, 12);
+      if (profile.registeredOffice.length > 48) {
+        doc.text(profile.registeredOffice.substring(48, 96), 125, 16);
+      }
+    }
+    doc.text(`Call: ${profile.primaryPhone || ''} | Email: ${profile.email || ''}`, 125, 20);
+    doc.text(`Web: ${window.location.origin}`, 125, 24);
 
     // Divider line
     doc.setDrawColor(226, 232, 240);
@@ -1757,7 +1763,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(148, 163, 184);
-      doc.text('JK Future Infra Projects • Daily Construction Follow-up Progress Log', 15, 288);
+      doc.text(`${profile.companyName || 'Management System'} • Daily Construction Follow-up Progress Log`, 15, 288);
       doc.text(`Page ${i} of ${totalPages}`, 175, 288);
     }
 
@@ -1775,7 +1781,8 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast('Generating PDF file...', 'info');
     try {
       const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
-      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const filePrefix = (profile.companyName || 'Company').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${filePrefix}_Followup_${targetDate}.pdf`;
       doc.save(filename);
       onAddToast(`Downloaded ${filename} successfully!`, 'success');
     } catch (e) {
@@ -1797,14 +1804,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     onAddToast('Generating attached PDF document...', 'info');
     try {
       const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
-      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const filePrefix = (profile.companyName || 'Company').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${filePrefix}_Followup_${targetDate}.pdf`;
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
       const summaryText = generateDateShareText(targetDate, filter, includeAudit, customNote);
 
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
-          title: `JK Future Infra Follow-up - ${targetDate}`,
+          title: `${profile.companyName || 'Company'} Follow-up - ${targetDate}`,
           text: summaryText,
           files: [pdfFile]
         });
@@ -1836,7 +1844,8 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setIsGeneratingPDF(true);
     try {
       const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
-      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const filePrefix = (profile.companyName || 'Company').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${filePrefix}_Followup_${targetDate}.pdf`;
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
       const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
@@ -1844,7 +1853,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       // On mobile devices supporting Web Share with files, trigger native share with file attached
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
-          title: `JK Future Infra Follow-up - ${targetDate}`,
+          title: `${profile.companyName || 'Company'} Follow-up - ${targetDate}`,
           text: text,
           files: [pdfFile]
         });
@@ -1909,14 +1918,15 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
     setIsGeneratingPDF(true);
     try {
       const doc = await generateDateFollowupPDF(targetDate, filter, includeAudit, customNote);
-      const filename = `JK_Future_Followup_${targetDate}.pdf`;
+      const filePrefix = (profile.companyName || 'Company').replace(/[^a-zA-Z0-9]/g, '_');
+      const filename = `${filePrefix}_Followup_${targetDate}.pdf`;
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], filename, { type: 'application/pdf' });
       const text = generateDateShareText(targetDate, filter, includeAudit, customNote);
 
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
-          title: `JK Future Infra - Daily Follow-up for ${targetDate}`,
+          title: `${profile.companyName || 'Company'} - Daily Follow-up for ${targetDate}`,
           text: text,
           files: [pdfFile]
         });
@@ -1925,7 +1935,7 @@ export const AdminStageChecklist: React.FC<AdminStageChecklistProps> = ({
       }
 
       doc.save(filename);
-      const subject = `JK Future Infra - Daily Construction Follow-up for ${targetDate}`;
+      const subject = `${profile.companyName || 'Company'} - Daily Construction Follow-up for ${targetDate}`;
       const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
       window.open(mailtoUrl, '_blank');
       onAddToast(`PDF file downloaded (${filename})! Attach the PDF to your email.`, 'info');

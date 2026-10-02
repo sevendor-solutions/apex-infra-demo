@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { MapPin, Phone, Mail, Clock, Send, ShieldCheck } from 'lucide-react';
 import type { Enquiry } from '../types';
 import { addEnquiry } from '../utils/db';
+import { useCompany } from '../context/CompanyContext';
 
 interface ContactProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
 export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
+  const { profile } = useCompany();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -101,28 +103,30 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
                 <MapPin size={22} className="text-secondary shrink-0" />
                 <div>
                   <h4 className="font-bold">Registered Office:</h4>
-                  <p className="text-sm text-muted">Door No: 4-92/1/6, FLAT No: 202, LEE INFRA, TALRI VANIPALEM, AGANAMPUDI, Visakhapatnam</p>
+                  <p className="text-sm text-muted">{profile.registeredOffice || profile.operationalOffice || 'Office Address'}</p>
                 </div>
               </li>
               <li className="flex gap-2">
                 <Phone size={20} className="text-secondary shrink-0" />
                 <div>
                   <h4 className="font-bold">Direct Phone Lines:</h4>
-                  <p className="text-sm text-muted">9000553832, 7893963322</p>
+                  <p className="text-sm text-muted">
+                    {[profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ') || 'N/A'}
+                  </p>
                 </div>
               </li>
               <li className="flex gap-2">
                 <Mail size={20} className="text-secondary shrink-0" />
                 <div>
                   <h4 className="font-bold">Email Communication:</h4>
-                  <p className="text-sm text-muted">jkfutureinfra@gmail.com</p>
+                  <p className="text-sm text-muted">{profile.email || 'info@company.com'}</p>
                 </div>
               </li>
               <li className="flex gap-2">
                 <Clock size={20} className="text-secondary shrink-0" />
                 <div>
                   <h4 className="font-bold">Office Hours:</h4>
-                  <p className="text-sm text-muted">Monday - Saturday: 9:00 AM - 6:00 PM<br />Sunday: Closed (Site Visits Available)</p>
+                  <p className="text-sm text-muted">{profile.officeHours || 'Monday - Saturday: 9:00 AM - 6:00 PM\nSunday: Closed (Site Visits Available)'}</p>
                 </div>
               </li>
             </ul>
@@ -132,10 +136,10 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
           <div className="admin-card mb-2" style={{ backgroundColor: 'var(--light-soft)' }}>
             <h4 className="flex align-center gap-0.5"><ShieldCheck size={20} className="text-success" /> Quality Credentials</h4>
             <p className="text-xs text-muted mt-0.5">
-              JK Future Infra operates with absolute transparency. AP RERA Regd: P03290021045. ISO 9001:2015 certified operations ensure premium grade construction structures.
+              {profile.companyName} operates with absolute transparency. {profile.apReraNumber ? `AP RERA Regd: ${profile.apReraNumber}. ` : ''}{profile.tsReraNumber ? `TS RERA Regd: ${profile.tsReraNumber}. ` : ''}{profile.isoCertified ? `${profile.isoCertified} certified operations ensure premium grade construction structures.` : ''}
             </p>
             <a 
-              href="https://wa.me/919000553832?text=Hi,%20I%20have%20questions%20regarding%20JK%20properties." 
+              href={`https://wa.me/${(profile.whatsapp || profile.primaryPhone || '9000553832').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hi, I have questions regarding ${profile.companyName} properties.`)}`} 
               target="_blank" 
               rel="noreferrer" 
               className="btn btn-accent w-full text-center mt-1.5" 
@@ -250,7 +254,7 @@ export const Contact: React.FC<ContactProps> = ({ onAddToast }) => {
       <section className="container py-4 mb-4">
         <div className="admin-card p-1" style={{ borderRadius: '12px', overflow: 'hidden', height: '400px', border: '1px solid var(--border-color)' }}>
           <iframe 
-            src="https://maps.google.com/maps?q=Door+No:+4-92/1/6,+FLAT+No:+202,+LEE+INFRA,+TALRI+VANIPALEM,+AGANAMPUDI,+Visakhapatnam,+530053&t=&z=15&ie=UTF8&iwloc=&output=embed" 
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(profile.registeredOffice || profile.operationalOffice || 'Visakhapatnam')}&t=&z=15&ie=UTF8&iwloc=&output=embed`} 
             width="100%" 
             height="100%" 
             style={{ border: 0 }} 

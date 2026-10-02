@@ -10,6 +10,7 @@ import { addProject, updateProject, deleteProject, uploadMultipleImages } from '
 import { ALVGrid } from './ALVGrid';
 import type { ALVColumn } from './ALVGrid';
 import { SocialSharePreview } from './SocialSharePreview';
+import { useCompany } from '../context/CompanyContext';
 
 interface AdminProjectsProps {
   projects: Project[];
@@ -34,6 +35,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [autoPostSocial, setAutoPostSocial] = useState(true);
@@ -1350,7 +1352,7 @@ export const AdminProjects: React.FC<AdminProjectsProps> = ({
 
                 <a 
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `🏢 *JK Future Infra - Selected Projects List* (${selectedProjects.length} Properties):\n\n` +
+                    `🏢 *${profile.companyName || 'Real Estate'} - Selected Projects List* (${selectedProjects.length} Properties):\n\n` +
                     selectedProjects.map((p, idx) => 
                       `*${idx + 1}. ${p.name}*\n` +
                       `📍 Location: ${p.location}\n` +

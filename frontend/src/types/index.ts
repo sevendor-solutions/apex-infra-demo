@@ -671,4 +671,54 @@ export interface DailyAgendaMatrix {
   updatedAt?: string;
 }
 
+export interface CompanyProfile {
+  id?: number;
+  companyName: string;
+  tagline?: string;
+  logoUrl?: string;
+  iconUrl?: string;
+  phonePrimary?: string;
+  phoneSecondary?: string;
+  primaryPhone?: string;
+  secondaryPhone?: string;
+  whatsapp?: string;
+  email?: string;
+  address?: string;
+  registeredOffice?: string;
+  operationalOffice?: string;
+  officeHours?: string;
+  city?: string;
+  state?: string;
+  stateName?: string;
+  stateCode?: string;
+  pincode?: string;
+  isoCertification?: string;
+  isoCertified?: string;
+  rera1?: string;
+  rera2?: string;
+  apReraNumber?: string;
+  tsReraNumber?: string;
+  gstNumber?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  bankAccountName?: string;
+  upiId?: string;
+  copyrightText?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
+  instagramProfile?: string;
+  linkedinUrl?: string;
+  youtubeUrl?: string;
+  twitterUrl?: string;
+  googleMapEmbedUrl?: string;
+  aboutSummary?: string;
+  signatureUrl?: string;
+  authorizedSignatoryName?: string;
+  authorizedSignatoryDesignation?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 

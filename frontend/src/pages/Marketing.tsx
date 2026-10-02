@@ -345,7 +345,7 @@ export const Marketing: React.FC<MarketingProps> = ({
         }}
       >
         <div className="container flex flex-col align-center justify-center">
-          <span className="text-secondary font-bold text-xs uppercase tracking-widest mb-1">JK Marketing Showcase</span>
+          <span className="text-secondary font-bold text-xs uppercase tracking-widest mb-1">Apex Marketing Showcase</span>
           <h1 className="text-white font-extrabold mb-1" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.3)', fontSize: '2rem', marginBottom: '0.35rem' }}>{marketingInfo.title}</h1>
           <p className="text-muted" style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', maxWidth: '600px', marginBottom: '1rem' }}>
             {marketingInfo.sub}

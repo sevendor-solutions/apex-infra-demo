@@ -15,6 +15,7 @@ import { LinkPaymentModal } from './LinkPaymentModal';
 import { ALVGrid, type ALVColumn } from './ALVGrid';
 import logoImg from '../assets/logo.png';
 import signatureImg from '../assets/authorised_signature.png';
+import { useCompany } from '../context/CompanyContext';
 
 interface AdminPaymentsProps {
   onAddToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -66,6 +67,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
   onAddToast,
   onConfirm
 }) => {
+  const { profile } = useCompany();
   const [activeSubTab, setActiveSubTab] = useState<'In' | 'Out' | 'Pending'>('In');
   const [paymentsIn, setPaymentsIn] = useState<PaymentIn[]>([]);
   const [paymentsOut, setPaymentsOut] = useState<PaymentOut[]>([]);
@@ -487,7 +489,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     const isRec = type === 'In';
     const party = isRec ? (p as PaymentIn).customerName : (p as PaymentOut).supplierName;
     const num = p.receiptNo || p.id;
-    const text = `*JK FUTURE INFRA*\n${isRec ? '🧾 Payment Receipt' : '💸 Payment Voucher'} #${num}\n\nParty: ${party}\nDate: ${p.paymentDate}\nAmount: ${fmt(p.amount)}\nPayment Mode: ${p.paymentMethod} (${p.accountName || 'Cash'})\nReference: ${p.referenceNumber || 'N/A'}\nStatus: ${p.status || 'Settled'}\n\nThank you for doing business with JK FUTURE INFRA!`;
+    const text = `*${profile.companyName || 'Company'}*\n${isRec ? '🧾 Payment Receipt' : '💸 Payment Voucher'} #${num}\n\nParty: ${party}\nDate: ${p.paymentDate}\nAmount: ${fmt(p.amount)}\nPayment Mode: ${p.paymentMethod} (${p.accountName || 'Cash'})\nReference: ${p.referenceNumber || 'N/A'}\nStatus: ${p.status || 'Settled'}\n\nThank you for doing business with ${profile.companyName || 'our company'}!`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     onAddToast(`WhatsApp dispatch opened for #${num}.`, 'info');
@@ -498,7 +500,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     const isRec = activeSubTab === 'In';
     const list = isRec ? filteredPaymentsIn : filteredPaymentsOut;
     const total = list.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const text = `*JK FUTURE INFRA*\n*${isRec ? 'Payment-In (Collections)' : 'Payment-Out (Disbursements)'} Summary*\n\nPeriod: ${startDate || 'Start'} to ${endDate || 'Current'}\nTotal Transactions: ${list.length}\nTotal Amount: ${fmt(total)}\n\nGenerated from Accounting Module`;
+    const text = `*${profile.companyName || 'Company'}*\n*${isRec ? 'Payment-In (Collections)' : 'Payment-Out (Disbursements)'} Summary*\n\nPeriod: ${startDate || 'Start'} to ${endDate || 'Current'}\nTotal Transactions: ${list.length}\nTotal Amount: ${fmt(total)}\n\nGenerated from Accounting Module`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
     onAddToast('Opening WhatsApp to share ledger summary.', 'info');
@@ -510,7 +512,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
     const list = selectedRows && selectedRows.length > 0 
       ? selectedRows 
       : (isRec ? filteredPaymentsIn : filteredPaymentsOut);
-    let csv = `JK FUTURE INFRA - ${isRec ? 'PAYMENT-IN (COLLECTIONS)' : 'PAYMENT-OUT (DISBURSEMENTS)'} LEDGER\n`;
+    let csv = `${profile.companyName || 'Company'} - ${isRec ? 'PAYMENT-IN (COLLECTIONS)' : 'PAYMENT-OUT (DISBURSEMENTS)'} LEDGER\n`;
     csv += `Date,Ref. no.,Party Name,Total Amount,${isRec ? 'Received' : 'Paid'},Payment Type,Reference,Status\n`;
     list.forEach(p => {
       const party = isRec ? (p as PaymentIn).customerName : (p as PaymentOut).supplierName;
@@ -542,7 +544,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
         logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.src = logoImg;
+          img.src = profile.logoUrl || logoImg;
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
@@ -593,16 +595,21 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(15, 43, 70);
-        doc.text('JK FUTURE INFRA', 15, 22);
+        doc.text(profile.companyName || 'PAYMENT RECEIPT', 15, 22);
       }
 
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
-      doc.text('Door No: 4-92/1/6, FLAT No: 202', 120, 15);
-      doc.text('LEE INFRA, TALRI VANIPALEM, AGANAMPUDI', 120, 19);
-      doc.text('Visakhapatnam, Andhra Pradesh', 120, 23);
-      doc.text('Call: 9000553832  |  Email: jkfutureinfra@gmail.com', 120, 27);
+      const addrTokens = (profile.registeredOffice || profile.operationalOffice || profile.address || 'Registered Office Address').split(',').map((s: string) => s.trim());
+      const addrLine1 = addrTokens.slice(0, 2).join(', ');
+      const addrLine2 = addrTokens.slice(2, 4).join(', ');
+      const addrLine3 = addrTokens.slice(4).join(', ') || addrTokens[addrTokens.length - 1] || '';
+      doc.text(addrLine1 || 'Registered Office', 120, 15);
+      if (addrLine2) doc.text(addrLine2, 120, 19);
+      if (addrLine3 && addrLine3 !== addrLine2) doc.text(addrLine3, 120, 23);
+      const paymentPhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
+      doc.text(`Call: ${paymentPhones || 'N/A'}  |  Email: ${profile.email || 'info@company.com'}`, 120, 27);
 
       // Separator
       doc.setDrawColor(226, 232, 240);
@@ -613,11 +620,11 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
       doc.setTextColor(15, 43, 70);
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('JK FUTURE INFRA', 15, 43);
+      doc.text(profile.companyName || 'COMPANY NAME', 15, 43);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(71, 85, 105);
-      doc.text('GSTIN: 37AAWFJ6705B1Z6  |  State: 37-AP', 15, 48);
+      doc.text(`GSTIN: ${profile.gstNumber || 'N/A'}  |  State: ${profile.stateCode ? profile.stateCode + '-' : ''}${profile.stateName || 'AP'}`, 15, 48);
 
       doc.setFontSize(18);
       if (isRec) { doc.setTextColor(5, 150, 105); } else { doc.setTextColor(225, 29, 72); }
@@ -740,7 +747,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
       doc.setTextColor(15, 43, 70);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
-      doc.text('For: JK FUTURE INFRA', 140, sigY);
+      doc.text(`For: ${profile.companyName || 'Company'}`, 140, sigY);
 
       let sigOffset = 18;
       if (sigData) {
@@ -1021,7 +1028,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
           }}
         >
           <option value="All Firms">All</option>
-          <option value="JK FUTURE INFRA">JK FUTURE INFRA</option>
+          <option value={profile.companyName || 'Company'}>{profile.companyName || 'Company'}</option>
         </select>
       </div>
 
@@ -1248,7 +1255,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
                       <button 
                         type="button"
                         onClick={() => {
-                          const text = `Dear ${inv.customerName}, this is a friendly reminder that an outstanding balance of ${fmt(inv.pendingAmount)} is pending for Invoice ${inv.invoiceNumber}. Kindly arrange for settlement. Thank you, JK Future Infra.`;
+                          const text = `Dear ${inv.customerName}, this is a friendly reminder that an outstanding balance of ${fmt(inv.pendingAmount)} is pending for Invoice ${inv.invoiceNumber}. Kindly arrange for settlement. Thank you, ${profile.companyName || 'our company'}.`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                         }}
                         style={{ padding: '3px 8px', border: '1px solid #a7f3d0', borderRadius: '4px', background: '#ecfdf5', color: '#065f46', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
@@ -1640,7 +1647,7 @@ export const AdminPayments: React.FC<AdminPaymentsProps> = ({
                         onAddToast('Please fill party and amount to share preview.', 'error');
                         return;
                       }
-                      const text = `*JK FUTURE INFRA*\n${activeSubTab === 'In' ? 'Receipt' : 'Payment'} Draft\nParty: ${partyName}\nAmount: ${fmt(amount)}\nDate: ${paymentDate}`;
+                      const text = `*${profile.companyName || 'Company'}*\n${activeSubTab === 'In' ? 'Receipt' : 'Payment'} Draft\nParty: ${partyName}\nAmount: ${fmt(amount)}\nDate: ${paymentDate}`;
                       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                     }}
                     style={{

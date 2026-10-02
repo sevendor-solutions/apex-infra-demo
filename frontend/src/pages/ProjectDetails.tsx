@@ -5,6 +5,7 @@ import type { Project, Enquiry } from '../types';
 import { getProjectGalleryImages, getProjectPdfFiles } from '../utils/image';
 import { addEnquiry } from '../utils/db';
 import logoImg from '../assets/logo.png';
+import { useCompany } from '../context/CompanyContext';
 
 interface ProjectDetailsProps {
   projectId: string;
@@ -23,6 +24,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   isMarketing = false,
   showMap = false
 }) => {
+  const { profile } = useCompany();
   const project = projects.find(p => String(p.id) === String(projectId));
   
   if (!project) {
@@ -123,7 +125,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         logoData = await new Promise<{ base64: string, ratio: number }>((resolve, reject) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.src = logoImg;
+          img.src = profile.logoUrl || logoImg;
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.naturalWidth;
@@ -152,7 +154,7 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
-      doc.text('JK FUTURE INFRA PROJECTS PVT LTD', 105, 20, { align: 'center' });
+      doc.text((profile.companyName || 'REAL ESTATE DEVELOPER').toUpperCase(), 105, 20, { align: 'center' });
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(12);
@@ -281,9 +283,10 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
             doc.setTextColor(255, 255, 255);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(10);
-            doc.text('JK Future Infra - Building the Future', 105, 277, { align: 'center' });
+            doc.text(`${profile.companyName} - Building the Future`, 105, 277, { align: 'center' });
             doc.setFont('helvetica', 'normal');
-            doc.text('Call: 9000553832, 7893963322  |  Email: jkfutureinfra@gmail.com', 105, 285, { align: 'center' });
+            const footerPhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
+            doc.text(`Call: ${footerPhones || 'N/A'}  |  Email: ${profile.email || 'info@company.com'}`, 105, 285, { align: 'center' });
 
             doc.addPage();
             currentY = 25;
@@ -317,9 +320,10 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
-      doc.text('JK Future Infra - Building the Future', 105, 277, { align: 'center' });
+      doc.text(`${profile.companyName} - Building the Future`, 105, 277, { align: 'center' });
       doc.setFont('helvetica', 'normal');
-      doc.text('Call: 9000553832, 7893963322  |  Email: jkfutureinfra@gmail.com', 105, 285, { align: 'center' });
+      const lastFooterPhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
+      doc.text(`Call: ${lastFooterPhones || 'N/A'}  |  Email: ${profile.email || 'info@company.com'}`, 105, 285, { align: 'center' });
 
       // Add Project Images
       if (galleryImages && galleryImages.length > 0) {
@@ -399,9 +403,10 @@ export const ProjectDetails: React.FC<ProjectDetailsProps> = ({
       onAddToast('Failed to generate Brochure PDF. Downloading text version instead.', 'error');
       
       // Fallback
+      const brochurePhones = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).join(', ');
       const textContent = `
 ========================================
-   JK FUTURE INFRA PROJECTS PVT LTD
+   ${(profile.companyName || 'REAL ESTATE DEVELOPER').toUpperCase()}
    PROJECT BROCHURE: ${project.name}
 ========================================
 Status: ${project.status}
@@ -416,14 +421,14 @@ ${project.highlights.join('\n')}
 ${project.amenities.join(', ')}
 
 Thank you for downloading our brochure. 
-For bookings, call us at 9000553832, 7893963322
-Email: jkfutureinfra@gmail.com
+For bookings, call us at ${brochurePhones || 'our office'}
+Email: ${profile.email || 'info@company.com'}
       `;
       const blob = new Blob([textContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `JK_Infra_${project.name.replace(/\s+/g, '_')}_Brochure.txt`;
+      link.download = `${(profile.companyName || 'Brochure').replace(/\s+/g, '_')}_${project.name.replace(/\s+/g, '_')}_Brochure.txt`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -431,7 +436,7 @@ Email: jkfutureinfra@gmail.com
     }
   };
 
-  const whatsappUrl = `https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20am%20interested%20in%20your%20project%20"${encodeURIComponent(project.name)}"%20located%20at%20${encodeURIComponent(project.location)}.`;
+  const whatsappUrl = `https://wa.me/${(profile.whatsapp || profile.primaryPhone || '9000553832').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${profile.companyName}, I am interested in your project "${project.name}" located at ${project.location}.`)}`;
 
   return (
     <div className="project-detail-page">

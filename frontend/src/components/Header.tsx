@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, ChevronDown, Send, Phone, Mail } from 'lucide-react';
 import type { ProjectCategory } from '../types';
-import iconLogoImg from '../assets/jk-icon.png';
-import textLogoImg from '../assets/jk-text-logo.png';
+import { useCompany } from '../context/CompanyContext';
+import { getMediaUrl } from '../utils/db';
 
 interface HeaderProps {
   activePage: string;
@@ -19,8 +19,14 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onOpenEnquiry
 }) => {
+  const { profile } = useCompany();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoLoadFailed(false);
+  }, [profile.logoUrl]);
 
   // Lock background body scroll when mobile drawer menu is open
   useEffect(() => {
@@ -53,39 +59,78 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="header-top">
         <div className="container flex justify-between align-center py-1 text-sm text-white">
           <div className="flex gap-3">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Phone size={12} className="text-secondary" /> 9000553832, 7893963322</span>
-            <span className="hide-mobile" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}><Mail size={12} className="text-secondary" /> jkfutureinfra@gmail.com</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Phone size={12} className="text-secondary" />
+              {profile.phonePrimary || '9000553832'}{profile.phoneSecondary ? `, ${profile.phoneSecondary}` : ''}
+            </span>
+            <span className="hide-mobile" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Mail size={12} className="text-secondary" />
+              {profile.email || 'info@company.com'}
+            </span>
           </div>
           <div className="flex gap-2 align-center">
-            <span className="hide-mobile font-semibold">ISO 9001:2015 Certified Company</span>
-            <div className="rera-badges hide-mobile flex gap-1.5" style={{ marginLeft: '1rem', borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: '1rem' }}>
-              <span style={{ fontSize: '0.75rem', opacity: 0.95, background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>AP RERA: A150500123</span>
-              <span style={{ fontSize: '0.75rem', opacity: 0.95, background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>TS RERA: A025000456</span>
-            </div>
+            {profile.isoCertification && (
+              <span className="hide-mobile font-semibold">{profile.isoCertification}</span>
+            )}
+            {(profile.rera1 || profile.rera2) && (
+              <div className="rera-badges hide-mobile flex gap-1.5" style={{ marginLeft: '1rem', borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: '1rem' }}>
+                {profile.rera1 && (
+                  <span style={{ fontSize: '0.75rem', opacity: 0.95, background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>
+                    {profile.rera1}
+                  </span>
+                )}
+                {profile.rera2 && (
+                  <span style={{ fontSize: '0.75rem', opacity: 0.95, background: 'rgba(255,255,255,0.1)', padding: '0.1rem 0.4rem', borderRadius: '3px' }}>
+                    {profile.rera2}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-
-
       <div className="header-main">
         <div className="container flex justify-between align-center">
-          {/* Separate Logo Container with Independent Elements */}
-          <div className="header-logo-container" onClick={() => handleLinkClick('home')} title="JK Future Infra - Home">
-            <div className="header-icon-box">
+          {/* Logo Container */}
+          <div className="header-logo-container" onClick={() => handleLinkClick('home')} title={`${profile.companyName} - Home`}>
+            {profile.logoUrl && !logoLoadFailed ? (
               <img 
-                src={iconLogoImg} 
-                alt="JK Future Infra Icon" 
-                className="header-logo-icon" 
+                src={getMediaUrl(profile.logoUrl)} 
+                alt={profile.companyName} 
+                className="header-logo-img"
+                style={{ maxHeight: '52px', maxWidth: '240px', objectFit: 'contain' }}
+                onError={() => setLogoLoadFailed(true)}
               />
-            </div>
-            <div className="header-text-box">
-              <img 
-                src={textLogoImg} 
-                alt="JK Future Infra Text Logo" 
-                className="header-logo-text" 
-              />
-            </div>
+            ) : (
+              <div className="flex align-center gap-2" style={{ cursor: 'pointer', padding: '4px 0' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0b2c6b 0%, #1e40af 100%)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 900,
+                  fontSize: '1.25rem',
+                  boxShadow: '0 2px 6px rgba(11, 44, 107, 0.2)'
+                }}>
+                  {(profile.companyName || 'A')[0]}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0b2c6b', lineHeight: 1.15 }}>
+                    {profile.companyName || 'Apex Infra'}
+                  </div>
+                  {profile.tagline && (
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                      {profile.tagline}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Desktop Nav */}
@@ -202,7 +247,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* CTAs */}
           <div className="header-ctas flex align-center gap-2">
             <a 
-              href="https://wa.me/919000553832?text=Hello%20JK%20Future%20Infra,%20I%20have%20an%20enquiry%20regarding%20properties." 
+              href={`https://wa.me/${(profile.whatsapp || '919876543210').replace(/[^0-9]/g, '')}?text=Hello%20${encodeURIComponent(profile.companyName || 'Team')},%20I%20have%20an%20enquiry%20regarding%20properties.`} 
               target="_blank" 
               rel="noreferrer" 
               className="btn hide-mobile" 

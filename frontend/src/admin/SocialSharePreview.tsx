@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Globe, ThumbsUp, MessageCircle, Share2, Heart, Bookmark, ExternalLink } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { getMailConfig } from '../utils/db';
+import { useCompany } from '../context/CompanyContext';
 
 interface SocialSharePreviewProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
   agentName,
   agentPhone
 }) => {
+  const { profile } = useCompany();
   const [activeTab, setActiveTab] = useState<'facebook' | 'instagram'>('facebook');
   const [isLiveFb, setIsLiveFb] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -60,7 +62,8 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
 
   // Generate hashtags based on property info
   const generateHashtags = () => {
-    const base = ['RealEstate', 'Housing', 'JKFutureInfra', 'Trending', 'Investment'];
+    const companyClean = (profile.companyName || 'RealEstate').replace(/[^a-zA-Z0-9]/g, '');
+    const base = ['RealEstate', 'Housing', companyClean, 'Trending', 'Investment'];
     if (city) base.push(city.replace(/\s+/g, ''));
     if (category) base.push(category.replace(/\s+/g, ''));
     base.push('LuxuryLiving', 'DreamHome');
@@ -74,11 +77,11 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
   const firstImageUrl = imageUrl ? imageUrl.split(',')[0].trim() : '';
   const displayImage = firstImageUrl || fallbackImage;
 
-  const websiteUrl = "https://jkfutureinfra.com";
+  const websiteUrl = window.location.origin;
   const locParts = [location, city].filter(Boolean);
   const locationStr = locParts.join(", ");
 
-  const defaultPhone = "+91 9000553832, +91 7893963322";
+  const defaultPhone = [profile.primaryPhone, profile.secondaryPhone].filter(Boolean).map(p => `+91 ${p}`).join(', ') || '+91 9000553832';
 
   const postTextBody = isMarketing ? (
     <>
@@ -318,8 +321,8 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
               {/* FB Author Info */}
               <div style={{ display: 'flex', padding: '12px', alignItems: 'center', gap: '10px' }}>
                 <img 
-                  src={logo} 
-                  alt="JK Future Infra Logo" 
+                  src={profile.logoUrl || logo} 
+                  alt={`${profile.companyName || 'Company'} Logo`} 
                   style={{
                     width: '40px',
                     height: '40px',
@@ -332,7 +335,7 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
                 />
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#050505' }}>JK Future Infra</span>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#050505' }}>{profile.companyName || 'Real Estate Developer'}</span>
                     <span style={{
                       backgroundColor: '#1877f2',
                       color: '#ffffff',
@@ -387,10 +390,10 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
                   textAlign: 'left'
                 }}>
                   <div style={{ fontSize: '0.72rem', color: '#606770', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '3px' }}>
-                    jkfutureinfra.com
+                    {window.location.hostname}
                   </div>
                   <div style={{ fontSize: '0.88rem', fontWeight: 600, color: '#1d2129', marginBottom: '3px', lineHeight: '1.2' }}>
-                    JK Future Infra | {propertyName}
+                    {profile.companyName || 'Property'} | {propertyName}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#606770', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     Explore premium property listing in {location}, {city}. Price: {priceRange}. {description}
@@ -441,8 +444,8 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
                     boxSizing: 'border-box'
                   }}>
                     <img 
-                      src={logo} 
-                      alt="JK Future Infra Logo" 
+                      src={profile.logoUrl || logo} 
+                      alt={`${profile.companyName || 'Company'} Logo`} 
                       style={{
                         width: '100%',
                         height: '100%',
@@ -454,7 +457,9 @@ export const SocialSharePreview: React.FC<SocialSharePreviewProps> = ({
                     />
                   </div>
                   <div>
-                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#262626' }}>jk_future_infra</span>
+                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#262626' }}>
+                      {profile.instagramProfile ? profile.instagramProfile.split('/').filter(Boolean).pop() : (profile.companyName || 'realestate').toLowerCase().replace(/\s+/g, '_')}
+                    </span>
                     <span style={{ fontSize: '0.75rem', color: '#8e8e8e', display: 'block' }}>{city}</span>
                   </div>
                 </div>

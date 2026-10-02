@@ -7,6 +7,7 @@ import {
   Share2, CheckSquare, Square, Copy, MessageCircle, Mail
 } from 'lucide-react';
 import { addDocument, updateDocument, deleteDocument, reorderDocuments, uploadImage } from '../utils/db';
+import { useCompany } from '../context/CompanyContext';
 
 /* ─────────────────────────────────────────────────────────
    Types
@@ -480,6 +481,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
   onAddToast,
   onConfirm,
 }) => {
+  const { profile } = useCompany();
 
   /* ── State ── */
   const [activeFolderId, setActiveFolderId] = useState<string>(ROOT);
@@ -697,7 +699,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
 
   const getFormattedShareMessage = useCallback(() => {
     if (!shareModalDocs || shareModalDocs.length === 0) return '';
-    let msg = `📄 *JK Future Infra - Shared Documents*\n`;
+    let msg = `📄 *${profile.companyName || 'Document Storage'} - Shared Documents*\n`;
     if (shareNote.trim()) {
       msg += `\n📝 *Note:* ${shareNote.trim()}\n`;
     }
@@ -706,9 +708,9 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       const type = (doc.fileType || 'file').toUpperCase();
       msg += `${idx + 1}. *${doc.title}* (${type})\n`;
     });
-    msg += `\n─────────────────────\n_JK Future Infra Document Storage_`;
+    msg += `\n─────────────────────\n_${profile.companyName || 'Document Storage'} Document Vault_`;
     return msg;
-  }, [shareModalDocs, shareNote]);
+  }, [shareModalDocs, shareNote, profile.companyName]);
 
   const handleWhatsAppShare = useCallback(async () => {
     if (!shareModalDocs || shareModalDocs.length === 0) return;
@@ -749,7 +751,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
         const fileObjects = await prepareFileObjects(shareModalDocs);
         if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
           await navigator.share({
-            title: `Shared Documents - JK Future Infra`,
+            title: `Shared Documents - ${profile.companyName || 'Document Storage'}`,
             text: shareNote.trim() || undefined,
             files: fileObjects,
           });
@@ -760,10 +762,10 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
       }
     }
 
-    const subject = encodeURIComponent(`Shared Documents (${shareModalDocs?.length || 0}) - JK Future Infra`);
+    const subject = encodeURIComponent(`Shared Documents (${shareModalDocs?.length || 0}) - ${profile.companyName || 'Document Storage'}`);
     const body = encodeURIComponent(getFormattedShareMessage());
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
-  }, [shareModalDocs, shareNote, getFormattedShareMessage]);
+  }, [shareModalDocs, shareNote, getFormattedShareMessage, profile.companyName]);
 
   const handleCopyShareMessage = useCallback(() => {
     const text = getFormattedShareMessage();
@@ -797,7 +799,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
 
         if (fileObjects.length > 0 && navigator.canShare && navigator.canShare({ files: fileObjects })) {
           await navigator.share({
-            title: 'Shared Documents - JK Future Infra',
+            title: `Shared Documents - ${profile.companyName || 'Document Storage'}`,
             text: shareNote.trim() || undefined,
             files: fileObjects,
           });
@@ -806,7 +808,7 @@ export const AdminDocuments: React.FC<AdminDocumentsProps> = ({
         }
 
         await navigator.share({
-          title: 'Shared Documents - JK Future Infra',
+          title: `Shared Documents - ${profile.companyName || 'Document Storage'}`,
           text: getFormattedShareMessage(),
         });
         onAddToast('Shared successfully!', 'success');

@@ -1,32 +1,44 @@
 import React from 'react';
 import { Target, Eye, CheckCircle } from 'lucide-react';
+import { useCompany } from '../context/CompanyContext';
 
 export const About: React.FC = () => {
+  const { profile } = useCompany();
+
   const team = [
     {
       name: 'LOVARAJU KALLA',
       role: 'Founder & Managing Director',
-      bio: 'With over 20 years of expertise in civil planning and real estate ventures across Andhra Pradesh, Mr. Rama Rao establishes the vision and corporate governance guidelines for JK Future Infra.',
+      bio: `With over 20 years of expertise in civil planning and real estate ventures across Andhra Pradesh, our leadership establishes the vision and corporate governance guidelines for ${profile.companyName}.`,
       image: '/silhouette_1.png'
     },
     {
       name: 'VAMSI KRISHNA T',
       role: 'Director - Land & Acquisitions',
-      bio: 'Prasad specializes in scouting high-potential development corridors, managing legal verifications, and securing regulatory clearances from VUDA/VMRDA and Panchayati departments.',
+      bio: 'Specializes in scouting high-potential development corridors, managing legal verifications, and securing regulatory clearances from local urban development authorities and Panchayati departments.',
       image: '/silhouette_2.png'
     },
     {
       name: 'M. Sriman',
       role: 'Chief Structural Engineer',
-      bio: 'An alumnus of IIT Madras, Sriman oversees all project designs, material testing checks, and ensures our gated communities are built with the highest earthquake-resistant standards.',
+      bio: 'An alumnus of IIT Madras, overseeing all project designs, material testing checks, and ensuring our gated communities are built with the highest earthquake-resistant standards.',
       image: '/silhouette_3.png'
     }
   ];
 
   const certifications = [
-    { title: 'ISO 9001:2015 Quality Certificate', desc: 'Validates our structural construction processes and management standards.' },
-    { title: 'AP-RERA Registered Developer', desc: 'Ensures compliance, transparency, and timely delivery for every project.' },
-    { title: 'CREDAI Member', desc: 'Active member enforcing ethical building practices and consumer safety guidelines.' }
+    { 
+      title: `${profile.isoCertified || 'ISO 9001:2015'} Quality Certificate`, 
+      desc: 'Validates our structural construction processes and management standards.' 
+    },
+    { 
+      title: `${profile.apReraNumber ? 'AP-RERA Registered Developer (' + profile.apReraNumber + ')' : 'RERA Registered Developer'}`, 
+      desc: 'Ensures compliance, transparency, and timely delivery for every project.' 
+    },
+    { 
+      title: 'CREDAI Member', 
+      desc: 'Active member enforcing ethical building practices and consumer safety guidelines.' 
+    }
   ];
 
   return (
@@ -43,9 +55,9 @@ export const About: React.FC = () => {
       <section className="overview-section py-6">
         <div className="container grid grid-2 gap-4 align-center">
           <div className="overview-left">
-            <h2 className="section-title mb-2">JK FUTURE INFRA</h2>
+            <h2 className="section-title mb-2">{profile.companyName}</h2>
             <p className="text-muted mb-2">
-              JK Future Infra has grown into one of Andhra Pradesh's most trusted property developers. Headquartered in Visakhapatnam, we specialize in high-end gated community villas, residential apartments, and premium layout plotting ventures in key locations including Vizag, Guntur, and Vijayawada.
+              {profile.companyName} has grown into one of Andhra Pradesh's most trusted property developers. Headquartered in Visakhapatnam, we specialize in high-end gated community villas, residential apartments, and premium layout plotting ventures in key locations including Vizag, Guntur, and Vijayawada.
             </p>
             <p className="text-muted mb-3">
               We understand that purchasing a home is a life-changing decision. That is why we focus heavily on clear titles, legal clearances, high construction standards, and top-tier amenities that elevate the lifestyle of our residents.

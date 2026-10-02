@@ -1,27 +1,30 @@
-# --- Build Stage ---
+# ─── Stage 1: Build React App ─────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --silent
 
 COPY . .
 
-# Pass VITE_API_URL as a build argument
-ARG VITE_API_URL
+# Build with production API URL passed as build arg
+ARG VITE_API_URL=https://api.yourdomain.com
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
-# --- Production Stage ---
+# ─── Stage 2: Serve with Nginx ────────────────────────────────────────────────
 FROM nginx:alpine
 
-# Copy built static files to Nginx html directory
-COPY --from=builder /usr/src/app/dist /usr/share/nginx/html
+# Remove default Nginx page
+RUN rm -rf /usr/share/nginx/html/*
 
-# Copy custom Nginx configuration for React SPA routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy built React files
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy Nginx config (handles React Router)
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
