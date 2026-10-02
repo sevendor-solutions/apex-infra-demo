@@ -154,13 +154,8 @@ function App() {
         setActivePage('blog');
       } else if (pathname === '/contact') {
         setActivePage('contact');
-      } else if (pathname === '/jk-control-panel-99') {
-        // 🔒 Secret Hidden Admin Route
+      } else if (pathname === '/admin' || pathname === '/control-panel' || pathname === '/jk-control-panel-99' || hash.includes('admin')) {
         setActivePage('admin');
-      } else if (pathname === '/admin' || hash.includes('admin')) {
-        // 🚫 Block public guessing of /admin — Redirect to Home page!
-        window.history.replaceState({}, '', '/');
-        setActivePage('home');
       } else {
         // Fallback for legacy query params
         const projectId = params.get('project');
