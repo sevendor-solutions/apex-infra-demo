@@ -34,7 +34,20 @@ import type {
   CompanyProfile
 } from '../types';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api`;
+const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim() && !envUrl.includes('3002')) {
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl.replace(/\/+$/, '')}/api`;
+  }
+  // If in local Vite development, default to local Laravel server
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '5173') {
+    return 'http://localhost:5000/api';
+  }
+  // In production (Docker / Nginx), relative /api is reverse-proxied to backend container
+  return '/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const getMediaUrl = (path: string | null | undefined): string => {
   if (!path) return '';
@@ -43,11 +56,12 @@ export const getMediaUrl = (path: string | null | undefined): string => {
   }
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const apiUrl = import.meta.env.VITE_API_URL;
-  if (apiUrl && !apiUrl.includes('localhost:5173')) {
+  if (apiUrl && apiUrl.startsWith('http') && !apiUrl.includes('localhost:5173') && !apiUrl.includes('3002')) {
     const origin = apiUrl.replace(/\/api\/?$/, '');
-    if (origin.startsWith('http')) {
-      return `${origin}${cleanPath}`;
-    }
+    return `${origin}${cleanPath}`;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost' && window.location.port === '5173') {
+    return `http://localhost:5000${cleanPath}`;
   }
   return cleanPath;
 };

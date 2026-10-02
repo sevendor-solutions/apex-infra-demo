@@ -3,6 +3,7 @@ import { Menu, X, ChevronDown, Send, Phone, Mail } from 'lucide-react';
 import type { ProjectCategory } from '../types';
 import { useCompany } from '../context/CompanyContext';
 import { getMediaUrl } from '../utils/db';
+import logoImg from '../assets/logo.png';
 
 interface HeaderProps {
   activePage: string;
@@ -96,11 +97,18 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="header-logo-container" onClick={() => handleLinkClick('home')} title={`${profile.companyName} - Home`}>
             {profile.logoUrl && !logoLoadFailed ? (
               <img 
-                src={getMediaUrl(profile.logoUrl)} 
+                src={getMediaUrl(profile.logoUrl) || logoImg} 
                 alt={profile.companyName} 
                 className="header-logo-img"
                 style={{ maxHeight: '52px', maxWidth: '240px', objectFit: 'contain' }}
-                onError={() => setLogoLoadFailed(true)}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (target.src !== logoImg) {
+                    target.src = logoImg;
+                  } else {
+                    setLogoLoadFailed(true);
+                  }
+                }}
               />
             ) : (
               <div className="flex align-center gap-2" style={{ cursor: 'pointer', padding: '4px 0' }}>
