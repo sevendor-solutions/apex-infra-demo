@@ -72,14 +72,20 @@ const getAuthHeaders = (): Record<string, string> => {
 };
 
 const handleResponse = async (res: Response) => {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    if (res.status === 502 || res.status === 503 || res.status === 504) {
+      throw new Error('Backend server is starting up. Please wait a moment and refresh.');
+    }
+    throw new Error(`API error (${res.status}): Non-JSON response received`);
+  }
   const json = await res.json();
   if (!res.ok || !json.success) {
     if (res.status === 401) {
       sessionStorage.removeItem('jk_infra_logged_user');
       sessionStorage.removeItem('jk_infra_logged_user_token');
       if (typeof window !== 'undefined') {
-        window.location.pathname = '/jk-control-panel-99';
-        window.location.reload();
+        window.location.pathname = '/admin';
       }
     }
     throw new Error(json.message || 'API request failed');

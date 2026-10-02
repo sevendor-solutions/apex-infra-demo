@@ -3,41 +3,46 @@ set -e
 
 echo "=== Apex Infra Backend Starting ==="
 
-# Create storage directories if not present
+cd /var/www/html
+
+# Create system run & log directories for Supervisor and Nginx
+mkdir -p /var/log/supervisor
+mkdir -p /run/nginx
+
+# Ensure storage directories exist (especially when persistent volume is mounted)
 mkdir -p storage/app/public
-mkdir -p storage/framework/cache
+mkdir -p storage/framework/cache/data
 mkdir -p storage/framework/sessions
 mkdir -p storage/framework/views
 mkdir -p storage/logs
 mkdir -p bootstrap/cache
+mkdir -p database
 
-# Ensure correct permissions
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 755 storage bootstrap/cache
-
-# Create SQLite file if using SQLite
-if [ "${DB_CONNECTION}" = "sqlite" ]; then
+# Create SQLite database if using SQLite and not present
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
     touch database/database.sqlite
-    chown www-data:www-data database/database.sqlite
 fi
 
-# Run Laravel setup
-php artisan config:clear
-php artisan cache:clear
+# Set full permissions for web server and php-fpm
+chown -R www-data:www-data storage bootstrap/cache database
+chmod -R 777 storage bootstrap/cache database
+
+# Clear old cache to avoid stale configs
+php artisan config:clear || true
+php artisan cache:clear || true
 
 echo "--- Running database migrations ---"
-php artisan migrate --force
+php artisan migrate --force || true
 
-echo "--- Seeding demo data (if tables are empty) ---"
-php artisan db:seed --class=DemoDataSeeder --force 2>/dev/null || echo "Seeding skipped (data may already exist)"
-
-echo "--- Caching config & routes for production ---"
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+echo "--- Seeding demo data ---"
+php artisan db:seed --class=DemoDataSeeder --force 2>/dev/null || true
 
 echo "--- Creating storage symlink ---"
 php artisan storage:link 2>/dev/null || true
 
-echo "=== Starting Nginx + PHP-FPM ==="
+echo "--- Optimizing for production ---"
+php artisan config:cache || true
+php artisan route:cache || true
+
+echo "=== Starting Nginx + PHP-FPM via Supervisor ==="
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
