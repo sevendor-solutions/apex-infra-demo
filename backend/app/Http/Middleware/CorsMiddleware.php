@@ -15,6 +15,11 @@ class CorsMiddleware
             'http://localhost:3000',
             'http://localhost:5000',
             'http://localhost:8000',
+            // Dokploy server IP access (no domain)
+            'http://200.97.162.130:3001',
+            'http://200.97.162.130:3002',
+            'http://200.97.162.130',
+            // Legacy domain
             'https://jkfutureinfra.com',
             'https://www.jkfutureinfra.com',
             'http://jkfutureinfra.com',

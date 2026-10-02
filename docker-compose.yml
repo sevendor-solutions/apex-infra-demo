@@ -1,8 +1,9 @@
 version: '3.8'
 
 # ═══════════════════════════════════════════════════════════════
-#  Apex Infra — Docker Compose for Dokploy
-#  Services: frontend (React/Nginx) + backend (Laravel/PHP-FPM)
+#  Apex Infra — Docker Compose for Dokploy (IP-based, no domain)
+#  Frontend: http://200.97.162.130:3001
+#  Backend:  http://200.97.162.130:3002
 # ═══════════════════════════════════════════════════════════════
 
 services:
@@ -15,8 +16,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # ⚠️ CHANGE THIS to your actual domain
-        VITE_API_URL: ${VITE_API_URL:-https://api.yourdomain.com}
+        VITE_API_URL: ${VITE_API_URL:-http://200.97.162.130:3002}
     container_name: apex-frontend
     restart: unless-stopped
     ports:
@@ -25,13 +25,6 @@ services:
       - backend
     networks:
       - apex-network
-    labels:
-      # Traefik labels (Dokploy uses Traefik for reverse proxy)
-      - "traefik.enable=true"
-      - "traefik.http.routers.apex-frontend.rule=Host(`yourdomain.com`) || Host(`www.yourdomain.com`)"
-      - "traefik.http.routers.apex-frontend.entrypoints=websecure"
-      - "traefik.http.routers.apex-frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.apex-frontend.loadbalancer.server.port=80"
 
   # ──────────────────────────────────────────────
   # BACKEND — Laravel API served by Nginx + PHP-FPM
@@ -48,20 +41,12 @@ services:
       APP_NAME: "Apex Infra"
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: ${APP_URL:-https://api.yourdomain.com}
+      APP_URL: ${APP_URL:-http://200.97.162.130:3002}
       APP_KEY: ${APP_KEY:-base64:FjcIkxYrKUDxjoeTVTk4+pvAa4MvVOFBlHA4b9lK/FY=}
 
-      # Database — SQLite (default, no extra service needed)
+      # Database — SQLite (no extra service needed)
       DB_CONNECTION: ${DB_CONNECTION:-sqlite}
       DB_DATABASE: /var/www/html/database/database.sqlite
-
-      # OR switch to MySQL (uncomment below + add mysql service)
-      # DB_CONNECTION: mysql
-      # DB_HOST: mysql
-      # DB_PORT: 3306
-      # DB_DATABASE: ${MYSQL_DATABASE:-apexdb}
-      # DB_USERNAME: ${MYSQL_USER:-apexuser}
-      # DB_PASSWORD: ${MYSQL_PASSWORD:-apexpass}
 
       # Mail
       MAIL_MAILER: smtp
@@ -74,37 +59,13 @@ services:
       MAIL_FROM_NAME: "Apex Infra"
 
     volumes:
-      # Persist uploaded images and SQLite database between container restarts
+      # Persist uploaded images and SQLite database between restarts
       - apex-uploads:/var/www/html/public/uploads
       - apex-storage:/var/www/html/storage
       - apex-database:/var/www/html/database
 
     networks:
       - apex-network
-    labels:
-      # Traefik labels for API subdomain
-      - "traefik.enable=true"
-      - "traefik.http.routers.apex-backend.rule=Host(`api.yourdomain.com`)"
-      - "traefik.http.routers.apex-backend.entrypoints=websecure"
-      - "traefik.http.routers.apex-backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.apex-backend.loadbalancer.server.port=8000"
-
-# ──────────────────────────────────────────────
-# OPTIONAL: MySQL (uncomment if you want MySQL instead of SQLite)
-# ──────────────────────────────────────────────
-#  mysql:
-#    image: mysql:8.0
-#    container_name: apex-mysql
-#    restart: unless-stopped
-#    environment:
-#      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
-#      MYSQL_DATABASE: ${MYSQL_DATABASE:-apexdb}
-#      MYSQL_USER: ${MYSQL_USER:-apexuser}
-#      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apexpass}
-#    volumes:
-#      - apex-mysql-data:/var/lib/mysql
-#    networks:
-#      - apex-network
 
 # ──────────────────────────────────────────────
 # VOLUMES — persisted data
@@ -116,8 +77,6 @@ volumes:
     driver: local
   apex-database:
     driver: local
-  # apex-mysql-data:
-  #   driver: local
 
 # ──────────────────────────────────────────────
 # NETWORKS
@@ -125,6 +84,3 @@ volumes:
 networks:
   apex-network:
     driver: bridge
-    # If your Dokploy uses an existing Traefik network, use:
-    # external: true
-    # name: dokploy-network
